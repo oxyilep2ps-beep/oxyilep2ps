@@ -1,0 +1,104 @@
+'use client';
+
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Instagram, Linkedin, Mail, Twitter } from 'lucide-react';
+import { SOCIAL_LINKS, supportMailto } from '@/lib/social-links';
+
+export function OliverBotFooter() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <footer className="mt-16 border-t border-white/6 bg-white dark:bg-black dark:border-white/6">
+      <div className="mx-auto max-w-7xl px-4 py-12">
+        <div className="grid gap-8 md:grid-cols-3">
+          <div>
+            <h4 className="text-sm font-semibold">Oxyile</h4>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Head Office: Cardiff, UK<br/>Launch Cities: London & Cardiff<br/>preet.datta@oxyile.com</p>
+            <div className="mt-4 flex gap-2">
+              <a href={SOCIAL_LINKS.twitter} target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)" className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-neutral-600 transition hover:border-brand-500 hover:text-brand-500 dark:text-neutral-300">
+                <Twitter size={16} />
+              </a>
+              <a href={SOCIAL_LINKS.linkedin} target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-neutral-600 transition hover:border-brand-500 hover:text-brand-500 dark:text-neutral-300">
+                <Linkedin size={16} />
+              </a>
+              <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-neutral-600 transition hover:border-brand-500 hover:text-brand-500 dark:text-neutral-300">
+                <Instagram size={16} />
+              </a>
+              <a href={supportMailto} aria-label="Support email" className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-neutral-600 transition hover:border-brand-500 hover:text-brand-500 dark:text-neutral-300">
+                <Mail size={16} />
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold">Platform</h4>
+            <ul className="mt-2 space-y-2 text-sm text-neutral-600 dark:text-neutral-300">
+              <li><a href="#how" className="hover:underline">How it Works</a></li>
+              <li><a href="#blog" className="hover:underline">Blogs</a></li>
+              <li><a href="#careers" className="hover:underline">Careers</a></li>
+              <li><a href="#security" className="hover:underline">Security</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold">Legal & Support</h4>
+            <ul className="mt-2 space-y-2 text-sm text-neutral-600 dark:text-neutral-300">
+              <li><a href="#" className="hover:underline">Terms of Service</a></li>
+              <li><a href="#" className="hover:underline">Privacy Policy</a></li>
+              <li><a href="#" className="hover:underline">Complaints</a></li>
+              <li><a href="#support" className="hover:underline">Help Center</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-8 flex items-start justify-between gap-4 border-t border-white/6 pt-6">
+          <div className="max-w-2xl text-sm text-neutral-600 dark:text-neutral-300">Oxyile is registered in the United Kingdom. FCA authorisation application in progress. Companies House No. 16642382 · SEIS Eligible Platform | Lending and investment carry risk. Capital at risk.</div>
+
+          <div className="w-64 text-right">
+            <div className="rounded border border-white/6 bg-neutral-50 p-3 text-xs dark:bg-black">Important Risk Warning: Capital at risk. Peer-to-peer lending is not covered by the Financial Services Compensation Scheme (FSCS)... We recommend that P2P lending should not exceed 10% of your overall investment portfolio.</div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-300">
+            <span className="inline-block h-6 w-6 rounded-full bg-gradient-to-tr from-[#FF5A1F] to-[#FF814A]" />
+            <span>FinTech Wales</span>
+            <span className="inline-block h-6 w-6 rounded-full bg-neutral-700" />
+            <span>FCA Pending</span>
+            <span className="inline-block h-6 w-6 rounded-full bg-neutral-600" />
+            <span>UK GDPR</span>
+            <span className="inline-block h-6 w-auto rounded-full bg-gradient-to-tr from-[#FF5A1F] to-[#FF814A] px-3 py-1 text-xs font-semibold text-white">SEIS Approved</span>
+          </div>
+
+          <div>
+            <button onClick={() => setOpen(true)} className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-4 py-2 text-sm font-semibold text-white shadow-glow">Need Help?</button>
+          </div>
+        </div>
+      </div>
+
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ pointerEvents: open ? 'auto' : 'none' }} className="fixed right-6 bottom-6 z-50">
+        {open && (
+          <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="w-80 rounded-2xl bg-white p-4 shadow-2xl dark:bg-black">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold">Oliver — Oxyile AI Support</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">24/7 assistant for onboarding and product queries</p>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-sm text-neutral-500">×</button>
+            </div>
+
+            <div className="mt-4 text-sm text-neutral-700 dark:text-neutral-300">Hi — I can help with KYC, onboarding, and loan matching. Ask me anything or request human support.</div>
+
+            <div className="mt-4 flex gap-2">
+              <button className="flex-1 rounded-full border border-white/6 px-3 py-2 text-sm">Chat</button>
+              <a href="#support" className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-3 py-2 text-sm font-semibold text-white">Contact</a>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
+    </footer>
+  );
+}
+
+export default OliverBotFooter;
