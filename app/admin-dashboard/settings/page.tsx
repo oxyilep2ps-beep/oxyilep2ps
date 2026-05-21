@@ -16,7 +16,7 @@ export default function AdminSettingsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="w-full min-w-0 space-y-8 overflow-x-auto">
       <div>
         <h1 className="text-2xl font-black text-neutral-950 dark:text-white">Settings</h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">

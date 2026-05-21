@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${syne.className} ${inter.className}`} suppressHydrationWarning>
-      <body>
+      <body className="bg-transparent">
         <ThemeProvider>
           <NavigationLoadingProvider>
             <PremiumLiquidBackground />

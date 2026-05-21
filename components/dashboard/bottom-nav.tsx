@@ -113,7 +113,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Dashboard navigation"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/30 bg-white/90 px-1 pb-[max(0.65rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-black/90"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/30 bg-white/70 px-1 pb-[max(0.65rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.08)] backdrop-blur-md dark:border-white/10 dark:bg-white/10"
     >
       <ul
         className="mx-auto grid max-w-lg gap-0.5"

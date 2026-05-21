@@ -8,11 +8,12 @@
 
 html {
   scroll-behavior: smooth;
+  background: transparent;
 }
 
 body {
   min-height: 100vh;
-  background: #fff7f1;
+  background: transparent;
 }
 
 .dark {
@@ -20,7 +21,7 @@ body {
 }
 
 html.dark body {
-  background: #000000;
+  background: transparent;
 }
 
 ::selection {
@@ -29,7 +30,7 @@ html.dark body {
 }
 
 .glass-card {
-  @apply border border-white/60 bg-white/70 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-black;
+  @apply border border-white/60 bg-white/70 shadow-glass backdrop-blur-md dark:border-white/10 dark:bg-white/10;
 }
 
 .section-heading {

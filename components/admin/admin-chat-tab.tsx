@@ -63,7 +63,7 @@ export function AdminChatTab() {
   };
 
   return (
-    <div className="flex min-h-[60dvh] flex-col">
+    <div className="flex min-h-[60dvh] w-full min-w-0 flex-col">
       <div>
         <h2 className="text-xl font-black text-neutral-950 dark:text-white">Admin chat</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">

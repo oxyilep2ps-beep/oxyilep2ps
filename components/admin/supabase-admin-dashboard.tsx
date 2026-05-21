@@ -341,7 +341,7 @@ export function SupabaseAdminDashboard() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 lg:flex-row lg:py-10"
+      className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-6 px-0 py-6 sm:px-2 lg:flex-row lg:py-10"
     >
       <aside className="glass-card w-full shrink-0 rounded-2xl p-4 lg:w-56">
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-brand-500">Oxyile Admin</p>
@@ -378,7 +378,7 @@ export function SupabaseAdminDashboard() {
         </nav>
       </aside>
 
-      <main className="min-w-0 flex-1">
+      <main className="min-w-0 flex-1 overflow-x-auto">
         <>
             <h1 className="text-2xl font-black text-neutral-950 dark:text-white sm:text-3xl">
               {tab === 'pending' ? 'Pending Reviews' : 'Approved Users Vault'}
@@ -818,7 +818,7 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid gap-1 text-sm sm:grid-cols-[140px_1fr]">
+    <div className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-[140px_1fr]">
       <dt className="text-neutral-500">{label}</dt>
       <dd className="text-neutral-800 dark:text-neutral-200">{value || '—'}</dd>
     </div>

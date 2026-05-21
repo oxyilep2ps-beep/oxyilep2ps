@@ -50,7 +50,7 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
   }
 
   return (
-    <div className="relative min-h-[calc(100dvh-4rem)]">
+    <div className="relative min-h-[calc(100dvh-4rem)] bg-transparent">
       {children}
     </div>
   );

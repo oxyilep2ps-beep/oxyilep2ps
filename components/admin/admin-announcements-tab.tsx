@@ -63,7 +63,7 @@ export function AdminAnnouncementsTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       <div>
         <h2 className="text-xl font-black text-neutral-950 dark:text-white">Announcements Manager</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">

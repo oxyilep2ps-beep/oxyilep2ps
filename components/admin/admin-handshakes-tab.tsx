@@ -43,7 +43,7 @@ export function AdminHandshakesTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 space-y-6 overflow-x-auto">
       <div>
         <h2 className="text-xl font-black text-neutral-950 dark:text-white">Active Contracts</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
@@ -90,7 +90,7 @@ export function AdminHandshakesTab() {
                 {row.status === 'ACTIVE' && row.payment_status === 'PAID' && emi > 0 && (
                   <div className="mt-3 rounded-xl bg-brand-500/5 p-3 text-xs">
                     <p className="font-bold text-brand-700 dark:text-brand-300">EMI schedule (preview)</p>
-                    <ul className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-4">
+                    <ul className="mt-2 grid min-w-[200px] grid-cols-1 gap-1 sm:grid-cols-2 md:grid-cols-4">
                       {Array.from({ length: Math.min(months, 12) }, (_, i) => (
                         <li key={i} className="text-neutral-600">
                           M{i + 1}: £{emi.toFixed(2)}
