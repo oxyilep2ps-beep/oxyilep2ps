@@ -1,9 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { CalendarDays, Clock3, Newspaper, TrendingUp } from 'lucide-react';
 import { Footer } from '@/components/footer';
+import { BLOG_POSTS } from '@/lib/blog/posts';
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -14,13 +16,13 @@ function Section({ children }: { children: React.ReactNode }) {
   return <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">{children}</section>;
 }
 
-const articles = [
-  { title: 'How P2P lending is reshaping UK borrowing', tag: 'Guide', read: '6 min read', tone: 'from-brand-500 to-brand-300' },
-  { title: 'Market update: inflation, rates, and investor demand', tag: 'Market', read: '4 min read', tone: 'from-slate-800 to-slate-500' },
-  { title: 'Building a balanced investor portfolio in 2026', tag: 'Strategy', read: '8 min read', tone: 'from-amber-500 to-brand-500' },
-  { title: 'KYC, AML, and why compliance builds trust', tag: 'Compliance', read: '5 min read', tone: 'from-emerald-500 to-brand-400' },
-  { title: 'Choosing the right loan term for monthly flexibility', tag: 'Borrowing', read: '7 min read', tone: 'from-orange-500 to-rose-500' },
-  { title: 'Secondary market basics for smart investors', tag: 'Investing', read: '6 min read', tone: 'from-violet-500 to-brand-500' },
+const tones = [
+  'from-brand-500 to-brand-300',
+  'from-slate-800 to-slate-500',
+  'from-amber-500 to-brand-500',
+  'from-emerald-500 to-brand-400',
+  'from-orange-500 to-rose-500',
+  'from-violet-500 to-brand-500',
 ];
 
 export default function BlogsPage() {
@@ -33,12 +35,13 @@ export default function BlogsPage() {
       </motion.div>
 
       <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {articles.map((article) => (
-          <motion.article key={article.title} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} className="glass-card group overflow-hidden rounded-[2rem] transition hover:-translate-y-1">
-            <div className={`h-44 bg-gradient-to-br ${article.tone} p-5 text-white`}>
+        {BLOG_POSTS.map((article, index) => (
+          <motion.article key={article.slug} variants={fadeUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} className="glass-card group overflow-hidden rounded-[2rem] transition hover:-translate-y-1">
+            <Link href={`/blog/${article.slug}`}>
+            <div className={`h-44 bg-gradient-to-br ${tones[index % tones.length]} p-5 text-white`}>
               <div className="flex items-center justify-between text-white/90">
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-md"><Newspaper size={13} /> {article.tag}</span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-md"><Clock3 size={13} /> {article.read}</span>
+                <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-md"><Clock3 size={13} /> {article.readTime}</span>
               </div>
               <div className="mt-16 flex items-end justify-between">
                 <div>
@@ -53,8 +56,9 @@ export default function BlogsPage() {
                 <CalendarDays size={14} /> 11 May 2026
               </div>
               <h2 className="mt-4 text-xl font-bold text-slate-950 dark:text-white">{article.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">Rich imagery placeholders and polished layouts support a premium reading experience across all screen sizes.</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{article.excerpt}</p>
             </div>
+            </Link>
           </motion.article>
         ))}
       </div>

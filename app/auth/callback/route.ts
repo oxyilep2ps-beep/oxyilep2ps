@@ -14,6 +14,10 @@ export async function GET(request: Request) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      if (next.startsWith('/reset-password') || next.startsWith('/forgot-password')) {
+        return NextResponse.redirect(`${origin}${next}`);
+      }
+
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')

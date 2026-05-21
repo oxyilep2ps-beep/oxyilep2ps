@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Download, FileSignature, Loader2, Megaphone, ShieldCheck, Users, X } from 'lucide-react';
-import { AdminAnnouncementsTab } from '@/components/admin/admin-announcements-tab';
-import { AdminHandshakesTab } from '@/components/admin/admin-handshakes-tab';
+import { Check, Download, Loader2, ShieldCheck, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getKycSignedUrlAction } from '@/app/actions/admin-users';
 import { DocumentViewer } from '@/components/admin/document-viewer';
@@ -13,7 +11,7 @@ import type { KycDocumentPaths, Profile } from '@/lib/types/profile';
 import { cn } from '@/lib/utils';
 import { exportKycDossierPdf } from '@/lib/pdf/export-kyc-pdf';
 
-type Tab = 'pending' | 'approved' | 'announcements' | 'handshakes';
+type Tab = 'pending' | 'approved';
 type ReviewAction = 'APPROVED' | 'REJECTED';
 type DocumentKind = 'image' | 'pdf' | 'video' | 'other';
 
@@ -217,10 +215,6 @@ export function SupabaseAdminDashboard() {
   const signedUrlCache = useRef<Record<string, string>>({});
 
   const load = useCallback(async (targetTab: Tab = tab) => {
-    if (targetTab === 'announcements' || targetTab === 'handshakes') {
-      setLoading(false);
-      return;
-    }
 
     setLoading(true);
     try {
@@ -381,42 +375,11 @@ export function SupabaseAdminDashboard() {
             Approved Users
             <span className="ml-auto rounded-full bg-white/20 px-2 py-0.5 text-xs">{approvedCount}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setTab('announcements')}
-            className={cn(
-              'flex w-full items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-semibold transition',
-              tab === 'announcements'
-                ? 'bg-brand-500 text-white shadow-glow'
-                : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/5'
-            )}
-          >
-            <Megaphone size={18} />
-            Announcements
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('handshakes')}
-            className={cn(
-              'flex w-full items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-semibold transition',
-              tab === 'handshakes'
-                ? 'bg-brand-500 text-white shadow-glow'
-                : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/5'
-            )}
-          >
-            <FileSignature size={18} />
-            Active Handshakes
-          </button>
         </nav>
       </aside>
 
       <main className="min-w-0 flex-1">
-        {tab === 'announcements' ? (
-          <AdminAnnouncementsTab />
-        ) : tab === 'handshakes' ? (
-          <AdminHandshakesTab />
-        ) : (
-          <>
+        <>
             <h1 className="text-2xl font-black text-neutral-950 dark:text-white sm:text-3xl">
               {tab === 'pending' ? 'Pending Reviews' : 'Approved Users Vault'}
             </h1>
@@ -460,7 +423,6 @@ export function SupabaseAdminDashboard() {
               </ul>
             )}
           </>
-        )}
       </main>
 
       <RejectReasonDialog

@@ -26,6 +26,8 @@ export type UserPresence = {
   last_seen: string;
 };
 
+export type HandshakePaymentStatus = 'PENDING' | 'PAID';
+
 export type HandshakeRow = {
   id: string;
   lender_id: string;
@@ -33,6 +35,9 @@ export type HandshakeRow = {
   amount: number;
   rate: number;
   duration: number;
+  emi_amount: number | null;
+  total_return: number | null;
+  payment_status: HandshakePaymentStatus;
   polygon_tx_hash: string | null;
   status: 'PENDING' | 'ACTIVE';
   lender_approved_at: string | null;

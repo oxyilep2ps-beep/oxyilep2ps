@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { SignUpWizard, type SignUpWizardFiles } from '@/components/sign-up-wizard';
 import { Footer } from '@/components/footer';
 import { createClient } from '@/lib/supabase/client';
-import { getAuthRedirectPath } from '@/lib/auth/routing';
 import type { KycSubmissionPayload } from '@/lib/types/kyc';
 
 export default function SignUpPage() {
@@ -96,11 +95,7 @@ export default function SignUpPage() {
       // eslint-disable-next-line no-console
       console.log('UPLOADED FILES PATHS:', data.documents ?? null);
 
-      const dest = getAuthRedirectPath(
-        data.profile ? { role: data.profile.role as 'ADMIN' | 'INVESTOR' | 'BORROWER', status: data.profile.status as 'PENDING' | 'APPROVED' } : null,
-        data.profile?.email ?? meta.email
-      );
-      router.push(dest);
+      router.push('/verify-email');
       router.refresh();
     } catch (e) {
       // eslint-disable-next-line no-console

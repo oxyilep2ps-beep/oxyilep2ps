@@ -1,3 +1,5 @@
+import { AdminShell } from '@/components/admin/admin-shell';
+
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-[calc(100vh-5rem)] bg-[#fff7f1] dark:bg-black">{children}</div>;
+  return <AdminShell>{children}</AdminShell>;
 }

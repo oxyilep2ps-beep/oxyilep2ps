@@ -114,6 +114,12 @@ function SignInForm() {
             </div>
           </label>
 
+          <div className="mt-2 text-right">
+            <Link href="/forgot-password" className="text-xs font-semibold text-brand-600 hover:text-brand-500 dark:text-brand-300">
+              Forgot password?
+            </Link>
+          </div>
+
           {error && (
             <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
               {error}

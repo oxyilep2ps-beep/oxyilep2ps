@@ -47,6 +47,7 @@ export async function getRecommendedProfiles(): Promise<{
     .select('id, role, full_legal_name, username, bio, avatar_url, cover_url')
     .eq('status', 'APPROVED')
     .eq('role', targetRole)
+    .neq('role', 'ADMIN')
     .neq('id', user.id)
     .order('created_at', { ascending: false })
     .limit(30);

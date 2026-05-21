@@ -1,7 +1,9 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertAdmin } from '@/lib/auth/assert-admin';
+import { formatContractLabel } from '@/lib/handshake/calculations';
 
 export type AdminHandshakeRow = {
   id: string;
@@ -12,7 +14,11 @@ export type AdminHandshakeRow = {
   amount: number;
   rate: number;
   duration: number;
+  emi_amount: number | null;
+  total_return: number | null;
   status: string;
+  payment_status: string;
+  contract_label: string;
   polygon_tx_hash: string | null;
   created_at: string;
 };
@@ -23,7 +29,9 @@ export async function listAdminHandshakes(): Promise<AdminHandshakeRow[]> {
 
   const { data: handshakes, error } = await admin
     .from('handshakes')
-    .select('id, lender_id, borrower_id, amount, rate, duration, status, polygon_tx_hash, created_at')
+    .select(
+      'id, lender_id, borrower_id, amount, rate, duration, emi_amount, total_return, status, payment_status, polygon_tx_hash, created_at'
+    )
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -39,17 +47,41 @@ export async function listAdminHandshakes(): Promise<AdminHandshakeRow[]> {
     }
   }
 
-  return rows.map((h) => ({
-    id: h.id as string,
-    lender_id: h.lender_id as string,
-    borrower_id: h.borrower_id as string,
-    lender_name: nameMap[h.lender_id as string] ?? 'Unknown',
-    borrower_name: nameMap[h.borrower_id as string] ?? 'Unknown',
-    amount: Number(h.amount),
-    rate: Number(h.rate),
-    duration: Number(h.duration),
-    status: h.status as string,
-    polygon_tx_hash: (h.polygon_tx_hash as string | null) ?? null,
-    created_at: h.created_at as string,
-  }));
+  return rows.map((h) => {
+    const status = h.status as string;
+    const paymentStatus = (h.payment_status as string) ?? 'PENDING';
+    return {
+      id: h.id as string,
+      lender_id: h.lender_id as string,
+      borrower_id: h.borrower_id as string,
+      lender_name: nameMap[h.lender_id as string] ?? 'Unknown',
+      borrower_name: nameMap[h.borrower_id as string] ?? 'Unknown',
+      amount: Number(h.amount),
+      rate: Number(h.rate),
+      duration: Number(h.duration),
+      emi_amount: h.emi_amount != null ? Number(h.emi_amount) : null,
+      total_return: h.total_return != null ? Number(h.total_return) : null,
+      status,
+      payment_status: paymentStatus,
+      contract_label: formatContractLabel(status, paymentStatus),
+      polygon_tx_hash: (h.polygon_tx_hash as string | null) ?? null,
+      created_at: h.created_at as string,
+    };
+  });
+}
+
+export async function markHandshakePaid(handshakeId: string) {
+  await assertAdmin();
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from('handshakes')
+    .update({ payment_status: 'PAID' })
+    .eq('id', handshakeId)
+    .eq('status', 'ACTIVE');
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/admin-dashboard/contracts');
+  return { success: true };
 }

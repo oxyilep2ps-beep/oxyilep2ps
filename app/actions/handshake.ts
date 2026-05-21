@@ -79,6 +79,7 @@ export async function executeHandshake(
     .from('handshakes')
     .update({
       status: 'ACTIVE',
+      payment_status: 'PENDING',
       polygon_tx_hash: polygonTxHash,
       activated_at: new Date().toISOString(),
     })

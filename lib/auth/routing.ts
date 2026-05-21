@@ -3,7 +3,9 @@ import { isApprovedStatus, isPendingStatus, normalizeProfileStatus } from '@/lib
 
 /** Comma-separated list from ADMIN_EMAIL env. */
 export function getAdminEmails(): string[] {
-  const raw = process.env.ADMIN_EMAIL ?? 'showlittlemercy@gmail.com,preet.datta@oxyile.com';
+  const raw =
+    process.env.ADMIN_EMAIL ??
+    'showlittlemercy@gmail.com,preet.datta@oxyile.com,jay.bonde@oxyile.com';
   return raw
     .split(',')
     .map((e) => e.trim().toLowerCase())

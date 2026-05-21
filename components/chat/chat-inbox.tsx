@@ -56,6 +56,7 @@ export function ChatInbox() {
         .select('id, role, full_legal_name, username, avatar_url')
         .eq('status', 'APPROVED')
         .eq('role', oppositeRole(myRole))
+        .neq('role', 'ADMIN')
         .neq('id', user.id)
         .order('full_legal_name', { ascending: true })
         .limit(50);
