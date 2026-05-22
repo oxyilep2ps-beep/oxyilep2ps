@@ -6,6 +6,7 @@ import { NavigationLoadingProvider } from '@/components/navigation-loading-provi
 import { SiteShell } from '@/components/site-shell';
 import { PremiumLiquidBackground } from '@/components/premium-liquid-background';
 import { ClickPaperBlast } from '@/components/click-paper-blast';
+import { OliverBot } from '@/components/oliver/oliver-bot';
 
 export const metadata: Metadata = {
   title: 'Oxyile — P2P Lending & Investment',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <PremiumLiquidBackground />
             <ClickPaperBlast />
             <SiteShell>{children}</SiteShell>
+            <OliverBot />
           </NavigationLoadingProvider>
         </ThemeProvider>
       </body>

@@ -51,12 +51,21 @@ export async function upsertAdminProfile(input: {
   const user = await assertAdmin();
   const admin = createAdminClient();
 
+  const { data: existing } = await admin
+    .from('admin_profiles')
+    .select('display_name, bio, avatar_url, cover_url')
+    .eq('id', user.id)
+    .maybeSingle();
+
   const patch = {
     id: user.id,
-    display_name: input.display_name ?? null,
-    bio: input.bio ?? null,
-    avatar_url: input.avatar_url ?? null,
-    cover_url: input.cover_url ?? null,
+    display_name:
+      input.display_name !== undefined ? input.display_name || null : (existing?.display_name as string | null) ?? null,
+    bio: input.bio !== undefined ? input.bio || null : (existing?.bio as string | null) ?? null,
+    avatar_url:
+      input.avatar_url !== undefined ? input.avatar_url : (existing?.avatar_url as string | null) ?? null,
+    cover_url:
+      input.cover_url !== undefined ? input.cover_url : (existing?.cover_url as string | null) ?? null,
     updated_at: new Date().toISOString(),
   };
 
@@ -64,6 +73,7 @@ export async function upsertAdminProfile(input: {
   if (error) throw new Error(error.message);
 
   revalidatePath('/admin-dashboard/profile');
+  revalidatePath('/admin-dashboard/profile/edit');
   return { success: true };
 }
 
@@ -75,7 +85,7 @@ export async function uploadAdminProfileImage(
 
   const file = formData.get('file');
   const field = formData.get('field') as 'avatar' | 'cover';
-  if (!(file instanceof File) || !field) {
+  if (!file || typeof file === 'string') {
     throw new Error('Invalid upload');
   }
 
@@ -85,15 +95,16 @@ export async function uploadAdminProfileImage(
 
   const { error: uploadError } = await admin.storage.from(bucket).upload(path, buffer, {
     upsert: true,
-    contentType: file.type || 'image/jpeg',
+    contentType: 'image/jpeg',
   });
 
   if (uploadError) throw new Error(uploadError.message);
 
   const { data } = admin.storage.from(bucket).getPublicUrl(path);
+  const cacheBust = `${data.publicUrl}?t=${Date.now()}`;
   const dbField = field === 'avatar' ? 'avatar_url' : 'cover_url';
 
-  await upsertAdminProfile({ [dbField]: data.publicUrl });
+  await upsertAdminProfile({ [dbField]: cacheBust });
 
-  return { url: data.publicUrl, field: dbField };
+  return { url: cacheBust, field: dbField };
 }

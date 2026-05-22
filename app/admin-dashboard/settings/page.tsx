@@ -25,18 +25,31 @@ export default function AdminSettingsPage() {
         </p>
       </div>
 
-      <Link
-        href="/admin-dashboard/profile"
-        className="glass-card flex items-center gap-4 rounded-2xl p-5 transition hover:bg-brand-500/5"
-      >
-        <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-500/15 text-brand-600">
-          <User size={22} />
-        </span>
-        <div>
-          <p className="font-bold text-neutral-950 dark:text-white">Admin profile settings</p>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">Avatar, cover photo, and bio</p>
+      <div className="glass-card flex flex-col gap-3 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-500/15 text-brand-600">
+            <User size={22} />
+          </span>
+          <div>
+            <p className="font-bold text-neutral-950 dark:text-white">Admin profile</p>
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">View or edit avatar, cover, and bio</p>
+          </div>
         </div>
-      </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin-dashboard/profile"
+            className="rounded-full border border-white/50 px-4 py-2 text-sm font-semibold backdrop-blur-md dark:border-white/10"
+          >
+            View
+          </Link>
+          <Link
+            href="/admin-dashboard/profile/edit"
+            className="rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white"
+          >
+            Edit
+          </Link>
+        </div>
+      </div>
 
       <AdminAnnouncementsTab />
 

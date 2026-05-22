@@ -1,9 +1,9 @@
-import { AdminProfileSettings } from '@/components/admin/admin-profile-settings';
+import { AdminProfileView } from '@/components/admin/admin-profile-view';
 
 export const metadata = {
-  title: 'Admin Profile — Oxyile',
+  title: 'My Profile — Oxyile Admin',
 };
 
-export default function AdminProfilePage() {
-  return <AdminProfileSettings />;
+export default function AdminProfileViewPage() {
+  return <AdminProfileView />;
 }

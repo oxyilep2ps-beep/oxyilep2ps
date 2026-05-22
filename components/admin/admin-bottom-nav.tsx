@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Briefcase, FileSignature, MessageCircle, Settings, Users } from 'lucide-react';
+import { Briefcase, FileSignature, MessageCircle, Settings, User, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const items: {
@@ -15,6 +15,7 @@ const items: {
   { href: '/admin-dashboard/contracts', label: 'Contracts', icon: FileSignature },
   { href: '/admin-dashboard/careers', label: 'Careers', icon: Briefcase },
   { href: '/admin-dashboard/chat', label: 'Chat', icon: MessageCircle },
+  { href: '/admin-dashboard/profile', label: 'Profile', icon: User, exact: true },
   { href: '/admin-dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

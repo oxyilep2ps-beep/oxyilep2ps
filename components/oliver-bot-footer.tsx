@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Instagram, Linkedin, Mail, Twitter } from 'lucide-react';
+import { openOliverWidget } from '@/components/oliver/oliver-bot';
 import { SOCIAL_LINKS, supportMailto } from '@/lib/social-links';
 
 export function OliverBotFooter() {
-  const [open, setOpen] = useState(false);
 
   return (
     <footer className="mt-16 border-t border-white/6 bg-white dark:bg-black dark:border-white/6">
@@ -72,31 +70,16 @@ export function OliverBotFooter() {
           </div>
 
           <div>
-            <button onClick={() => setOpen(true)} className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-4 py-2 text-sm font-semibold text-white shadow-glow">Need Help?</button>
+            <button
+              type="button"
+              onClick={() => openOliverWidget()}
+              className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-4 py-2 text-sm font-semibold text-white shadow-glow"
+            >
+              Need Help?
+            </button>
           </div>
         </div>
       </div>
-
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ pointerEvents: open ? 'auto' : 'none' }} className="fixed right-6 bottom-6 z-50">
-        {open && (
-          <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="w-80 rounded-2xl bg-white p-4 shadow-2xl dark:bg-black">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold">Oliver — Oxyile AI Support</p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">24/7 assistant for onboarding and product queries</p>
-              </div>
-              <button onClick={() => setOpen(false)} className="text-sm text-neutral-500">×</button>
-            </div>
-
-            <div className="mt-4 text-sm text-neutral-700 dark:text-neutral-300">Hi — I can help with KYC, onboarding, and loan matching. Ask me anything or request human support.</div>
-
-            <div className="mt-4 flex gap-2">
-              <button className="flex-1 rounded-full border border-white/6 px-3 py-2 text-sm">Chat</button>
-              <a href="#support" className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-3 py-2 text-sm font-semibold text-white">Contact</a>
-            </div>
-          </motion.div>
-        )}
-      </motion.div>
     </footer>
   );
 }
