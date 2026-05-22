@@ -39,6 +39,9 @@ export type HandshakeRow = {
   total_return: number | null;
   payment_status: HandshakePaymentStatus;
   polygon_tx_hash: string | null;
+  gocardless_subscription_id?: string | null;
+  auto_emi_active?: boolean;
+  mandate_linked?: boolean;
   status: 'PENDING' | 'ACTIVE';
   lender_approved_at: string | null;
   borrower_approved_at: string | null;

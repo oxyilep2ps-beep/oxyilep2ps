@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Bot, MessageCircle, Send, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { matchOliverReply } from '@/lib/oliver/faq';
+import { parseOliverReply } from '@/lib/oliver/parser';
 import { cn } from '@/lib/utils';
 
 type BotMessage = { id: string; role: 'user' | 'bot'; text: string };
@@ -33,22 +33,29 @@ export function OliverBot() {
     const reply: BotMessage = {
       id: `b-${Date.now()}`,
       role: 'bot',
-      text: matchOliverReply(text),
+      text: parseOliverReply(text),
     };
 
     setMessages((m) => [...m, userMsg, reply]);
     setInput('');
   };
 
+  const toggleOpen = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen((v) => !v);
+  };
+
   return (
-    <>
+    <div className="pointer-events-none fixed inset-0 z-[120]" aria-hidden={!open}>
       <AnimatePresence>
         {open && (
           <motion.div
             initial={{ opacity: 0, y: 16, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
-            className="fixed bottom-[calc(5.5rem+4.5rem+env(safe-area-inset-bottom))] right-4 z-[45] flex h-[min(420px,65dvh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95"
+            className="pointer-events-auto fixed bottom-[calc(5.5rem+4.5rem+env(safe-area-inset-bottom))] right-4 z-[121] flex h-[min(420px,65dvh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-white/60 bg-white/90 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/90"
+            onClick={(e) => e.stopPropagation()}
           >
             <header className="flex items-center gap-3 border-b border-white/40 bg-brand-500/10 px-4 py-3 dark:border-white/10">
               <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-brand-500 to-orange-400 text-white shadow-glow">
@@ -60,7 +67,7 @@ export function OliverBot() {
               </div>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={toggleOpen}
                 aria-label="Close Oliver"
                 className="rounded-full p-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10"
               >
@@ -91,13 +98,13 @@ export function OliverBot() {
 
             <form
               onSubmit={send}
-              className="flex gap-2 border-t border-white/40 px-3 py-3 dark:border-white/10"
+              className="pointer-events-auto flex gap-2 border-t border-white/40 px-3 py-3 dark:border-white/10"
             >
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask Oliver…"
-                className="min-w-0 flex-1 rounded-full border border-white/50 bg-white/80 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500/40 dark:border-white/10 dark:bg-black/40"
+                className="min-w-0 flex-1 rounded-full border border-white/50 bg-white/80 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500/40 dark:border-white/10 dark:bg-white/10"
               />
               <button
                 type="submit"
@@ -112,12 +119,13 @@ export function OliverBot() {
 
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Open Oliver support bot"
-        className="fixed bottom-[calc(5.5rem+1rem+env(safe-area-inset-bottom))] right-4 z-[44] grid h-14 w-14 place-items-center rounded-full bg-brand-500 text-white shadow-glow transition hover:bg-brand-400"
+        onClick={toggleOpen}
+        aria-label={open ? 'Close Oliver support bot' : 'Open Oliver support bot'}
+        aria-expanded={open}
+        className="pointer-events-auto fixed bottom-[calc(5.5rem+1rem+env(safe-area-inset-bottom))] right-4 z-[122] grid h-14 w-14 place-items-center rounded-full bg-brand-500 text-white shadow-glow transition hover:bg-brand-400"
       >
         {open ? <X size={22} /> : <MessageCircle size={22} />}
       </button>
-    </>
+    </div>
   );
 }

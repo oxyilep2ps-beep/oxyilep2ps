@@ -69,9 +69,33 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         )
         .order('created_at', { ascending: false });
 
+      const rows = (data ?? []) as HandshakeRow[];
+      const borrowerIds = [...new Set(rows.map((r) => r.borrower_id))];
+      const mandateSet = new Set<string>();
+
+      if (borrowerIds.length > 0) {
+        const { data: mandates } = await supabase
+          .from('gocardless_mandates')
+          .select('user_id, status')
+          .in('user_id', borrowerIds)
+          .eq('status', 'active');
+        for (const m of mandates ?? []) {
+          mandateSet.add(m.user_id as string);
+        }
+      }
+
       const map: Record<string, HandshakeRow> = {};
-      for (const row of (data ?? []) as HandshakeRow[]) {
-        map[row.id] = row;
+      for (const row of rows) {
+        const linked =
+          mandateSet.has(row.borrower_id) ||
+          row.payment_status === 'PAID' ||
+          Boolean(row.gocardless_subscription_id) ||
+          Boolean(row.auto_emi_active);
+        map[row.id] = {
+          ...row,
+          auto_emi_active: Boolean(row.auto_emi_active),
+          mandate_linked: linked,
+        };
       }
       setHandshakeMap(map);
       return map;

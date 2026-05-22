@@ -18,17 +18,57 @@ function polygonUrl(hash: string | null): string | null {
   return `https://amoy.polygonscan.com/tx/${hash}`;
 }
 
+function paymentStatusLine(local: HandshakeRow): string | null {
+  if (local.status !== 'ACTIVE') return null;
+  const bank = local.mandate_linked ?? local.payment_status === 'PAID';
+  const contract = Boolean(local.polygon_tx_hash);
+  const emi = local.auto_emi_active;
+  if (bank && contract && emi) {
+    return 'Bank Linked ✅ | Smart Contract Minted 🔗 | Auto-EMI Active';
+  }
+  const parts: string[] = [];
+  if (bank) parts.push('Bank Linked ✅');
+  if (contract) parts.push('Smart Contract Minted 🔗');
+  if (emi) parts.push('Auto-EMI Active');
+  return parts.length ? parts.join(' | ') : null;
+}
+
 export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps) {
   const [busy, setBusy] = useState(false);
   const [local, setLocal] = useState(handshake);
 
+  const isBorrower = myId === local.borrower_id;
+  const isLender = myId === local.lender_id;
+
   const approvedByMe =
-    (myId === local.lender_id && Boolean(local.lender_approved_at)) ||
-    (myId === local.borrower_id && Boolean(local.borrower_approved_at));
+    (isLender && Boolean(local.lender_approved_at)) ||
+    (isBorrower && Boolean(local.borrower_approved_at));
 
   const bothApproved = Boolean(local.lender_approved_at && local.borrower_approved_at);
   const label = formatContractLabel(local.status, local.payment_status);
   const txLink = polygonUrl(local.polygon_tx_hash);
+  const railLine = paymentStatusLine(local);
+
+  const redirectToMandate = async () => {
+    const res = await fetch('/api/payments/setup-mandate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        borrowerId: local.borrower_id,
+        lenderId: local.lender_id,
+        handshakeId: local.id,
+      }),
+    });
+    const body = (await res.json()) as {
+      ok?: boolean;
+      authorisation_url?: string;
+      error?: string;
+    };
+    if (!res.ok || !body.ok || !body.authorisation_url) {
+      throw new Error(body.error ?? 'Could not start GoCardless');
+    }
+    window.location.href = body.authorisation_url;
+  };
 
   const approve = async () => {
     setBusy(true);
@@ -36,8 +76,8 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
     const patch: Record<string, string> = {};
     const now = new Date().toISOString();
 
-    if (myId === local.lender_id && !local.lender_approved_at) patch.lender_approved_at = now;
-    if (myId === local.borrower_id && !local.borrower_approved_at) patch.borrower_approved_at = now;
+    if (isLender && !local.lender_approved_at) patch.lender_approved_at = now;
+    if (isBorrower && !local.borrower_approved_at) patch.borrower_approved_at = now;
 
     const { error } = await supabase.from('handshakes').update(patch).eq('id', local.id);
     if (error) {
@@ -55,21 +95,32 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
     const lenderOk = Boolean(next.lender_approved_at);
     const borrowerOk = Boolean(next.borrower_approved_at);
 
-    if (lenderOk && borrowerOk) {
-      const res = await fetch(`/api/handshakes/${local.id}/execute`, { method: 'POST' });
-      const body = (await res.json()) as { ok?: boolean; polygonTxHash?: string };
-      if (body.ok) {
-        setLocal({
-          ...next,
-          status: 'ACTIVE',
-          payment_status: 'PENDING',
-          polygon_tx_hash: body.polygonTxHash ?? next.polygon_tx_hash,
-        });
+    if (isBorrower && lenderOk && borrowerOk) {
+      try {
+        await redirectToMandate();
+        return;
+      } catch (e) {
+        console.error(e);
       }
+    }
+
+    if (isLender && lenderOk && borrowerOk) {
+      onUpdated();
+      setBusy(false);
+      return;
     }
 
     onUpdated();
     setBusy(false);
+  };
+
+  const linkBankLater = async () => {
+    setBusy(true);
+    try {
+      await redirectToMandate();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -113,14 +164,14 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
       <div
         className={cn(
           'px-4 py-2 text-center text-xs font-bold uppercase tracking-wide',
-          local.status === 'ACTIVE' && local.payment_status === 'PAID'
+          local.status === 'ACTIVE' && (railLine || local.auto_emi_active)
             ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
             : local.status === 'ACTIVE'
               ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200'
               : 'bg-neutral-200/80 text-neutral-700 dark:bg-white/10 dark:text-neutral-300'
         )}
       >
-        {label}
+        {railLine ?? label}
       </div>
 
       {local.status === 'PENDING' && !bothApproved && (
@@ -128,16 +179,31 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
           <button
             type="button"
             disabled={busy || approvedByMe}
-            onClick={approve}
+            onClick={() => void approve()}
             className="w-full rounded-full bg-brand-500 py-2.5 text-xs font-bold text-white shadow-glow hover:bg-brand-400 disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="mx-auto animate-spin" size={16} />
             ) : approvedByMe ? (
               'You approved'
+            ) : isBorrower ? (
+              'Approve & link bank'
             ) : (
               'Approve handshake'
             )}
+          </button>
+        </div>
+      )}
+
+      {local.status === 'ACTIVE' && isBorrower && bothApproved && !local.auto_emi_active && (
+        <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void linkBankLater()}
+            className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white"
+          >
+            {busy ? 'Redirecting…' : 'Link bank (GoCardless)'}
           </button>
         </div>
       )}

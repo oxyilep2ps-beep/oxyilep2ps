@@ -46,6 +46,7 @@ export const PROTECTED_PREFIXES = [
   '/dashboard',
   '/chats',
   '/user',
+  '/payments',
 ] as const;
 
 export const AUTH_PAGES = ['/signin', '/signup'] as const;
@@ -64,7 +65,10 @@ export function canAccessPath(
   email: string
 ): boolean {
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
-    return pathname.startsWith('/admin-dashboard');
+    return (
+      pathname.startsWith('/admin-dashboard') ||
+      pathname.startsWith('/payments/mandate-complete')
+    );
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);
@@ -78,7 +82,8 @@ export function canAccessPath(
       return (
         pathname.startsWith('/dashboard') ||
         pathname.startsWith('/chats') ||
-        pathname.startsWith('/user/')
+        pathname.startsWith('/user/') ||
+        pathname.startsWith('/payments/mandate-complete')
       );
     }
   }
