@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-const GOCARDLESS_BASE_URL = 'https://api-sandbox.gocardless.com';
-const GOCARDLESS_VERSION = '2015-04-29';
-
 type SetupMandateBody = {
   borrowerId?: string;
   lenderId?: string;
@@ -23,42 +20,66 @@ type GoCardlessBillingRequestFlowResponse = {
   };
 };
 
-async function postToGoCardless<T>(path: string, payload: unknown): Promise<T> {
+const GOCARDLESS_HEADERS = {
+  Authorization: `Bearer ${process.env.GOCARDLESS_ACCESS_TOKEN}`,
+  'GoCardless-Version': '2015-04-29',
+  'Content-Type': 'application/json',
+  Accept: 'application/json',
+};
+
+async function parseGoCardlessError(response: Response, step: string) {
+  const errorJson = await response.json();
+  console.error(`[GoCardless] ${step} failed`, errorJson);
+  throw new Error(`GoCardless ${step} failed with status ${response.status}`);
+}
+
+async function createBillingRequest(): Promise<GoCardlessBillingRequestResponse> {
   const token = process.env.GOCARDLESS_ACCESS_TOKEN;
 
   if (!token) {
     throw new Error('GOCARDLESS_ACCESS_TOKEN is not configured');
   }
 
-  const response = await fetch(`${GOCARDLESS_BASE_URL}${path}`, {
+  const response = await fetch('https://api-sandbox.gocardless.com/billing_requests', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'GoCardless-Version': GOCARDLESS_VERSION,
-    },
-    body: JSON.stringify(payload),
+    headers: GOCARDLESS_HEADERS,
+    body: JSON.stringify({
+      billing_requests: {
+        mandate_request: {
+          currency: 'GBP',
+        },
+      },
+    }),
   });
 
-  const text = await response.text();
-  let json: unknown = null;
-
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = { raw: text };
+  if (!response.ok) {
+    await parseGoCardlessError(response, 'create billing request');
   }
+
+  return response.json() as Promise<GoCardlessBillingRequestResponse>;
+}
+
+async function createBillingRequestFlow(billingRequestId: string): Promise<GoCardlessBillingRequestFlowResponse> {
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/payments/mandate-complete`;
+
+  const response = await fetch('https://api-sandbox.gocardless.com/billing_request_flows', {
+    method: 'POST',
+    headers: GOCARDLESS_HEADERS,
+    body: JSON.stringify({
+      billing_request_flows: {
+        redirect_uri: redirectUri,
+        links: {
+          billing_request: billingRequestId,
+        },
+      },
+    }),
+  });
 
   if (!response.ok) {
-    console.error('[GoCardless] API error', {
-      path,
-      status: response.status,
-      response: json,
-    });
-    throw new Error(`GoCardless API error ${response.status}`);
+    await parseGoCardlessError(response, 'create billing request flow');
   }
 
-  return json as T;
+  return response.json() as Promise<GoCardlessBillingRequestFlowResponse>;
 }
 
 export async function POST(request: Request) {
@@ -89,23 +110,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Only the borrower can start mandate setup' }, { status: 403 });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
-    const redirectUri = `${appUrl.replace(/\/$/, '')}/payments/mandate-complete`;
-
-    const billingRequest = await postToGoCardless<GoCardlessBillingRequestResponse>('/billing_requests', {
-      billing_requests: {
-        mandate_request: {
-          currency: 'GBP',
-        },
-        metadata: {
-          borrower_id: borrowerId,
-          lender_id: lenderId,
-          handshake_id: handshakeId,
-          platform: 'oxyile',
-        },
-      },
-    });
-
+    const billingRequest = await createBillingRequest();
     const billingRequestId = billingRequest.billing_requests?.id;
 
     if (!billingRequestId) {
@@ -113,24 +118,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Missing Billing Request id' }, { status: 502 });
     }
 
-    const callbackUrl = new URL(redirectUri);
-    callbackUrl.searchParams.set('status', 'success');
-    callbackUrl.searchParams.set('handshakeId', handshakeId);
-
-    const exitUrl = new URL(redirectUri);
-    exitUrl.searchParams.set('status', 'cancelled');
-    exitUrl.searchParams.set('handshakeId', handshakeId);
-
-    const flow = await postToGoCardless<GoCardlessBillingRequestFlowResponse>('/billing_request_flows', {
-      billing_request_flows: {
-        redirect_uri: callbackUrl.toString(),
-        exit_uri: exitUrl.toString(),
-        links: {
-          billing_request: billingRequestId,
-        },
-      },
-    });
-
+    const flow = await createBillingRequestFlow(billingRequestId);
     const authorisationUrl = flow.billing_request_flows?.authorisation_url;
 
     if (!authorisationUrl) {
