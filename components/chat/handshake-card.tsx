@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { ExternalLink, FileSignature, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatContractLabel } from '@/lib/handshake/calculations';
-import type { HandshakeRow } from '@/lib/chat/types';
+import type { HandshakeRow, MemberRole } from '@/lib/chat/types';
 import { cn } from '@/lib/utils';
 
 type HandshakeCardProps = {
   handshake: HandshakeRow;
   myId: string;
+  myRole: MemberRole;
   onUpdated: () => void;
 };
 
@@ -33,23 +34,34 @@ function paymentStatusLine(local: HandshakeRow): string | null {
   return parts.length ? parts.join(' | ') : null;
 }
 
-export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps) {
+function pendingStatusLine(local: HandshakeRow): string {
+  const lenderApproved = Boolean(local.lender_approved_at);
+  const borrowerApproved = Boolean(local.borrower_approved_at);
+
+  if (lenderApproved && !borrowerApproved) return 'Waiting for Borrower to Link Bank';
+  if (!lenderApproved && borrowerApproved) return 'Waiting for Investor';
+  if (lenderApproved && borrowerApproved) return 'Waiting for Bank Link';
+  return 'Waiting for Investor and Borrower';
+}
+
+export function HandshakeCard({ handshake, myId, myRole, onUpdated }: HandshakeCardProps) {
   const [busy, setBusy] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState(handshake);
 
-  const isBorrower = myId === local.borrower_id;
-  const isLender = myId === local.lender_id;
+  const isBorrower = myRole === 'BORROWER' && myId === local.borrower_id;
+  const isInvestor = myRole === 'INVESTOR' && myId === local.lender_id;
 
   const approvedByMe =
-    (isLender && Boolean(local.lender_approved_at)) ||
+    (isInvestor && Boolean(local.lender_approved_at)) ||
     (isBorrower && Boolean(local.borrower_approved_at));
 
   const bothApproved = Boolean(local.lender_approved_at && local.borrower_approved_at);
   const label = formatContractLabel(local.status, local.payment_status);
   const txLink = polygonUrl(local.polygon_tx_hash);
   const railLine = paymentStatusLine(local);
+  const statusText = local.status === 'PENDING' ? pendingStatusLine(local) : (railLine ?? label);
 
   const redirectToMandate = async () => {
     setIsProcessingPayment(true);
@@ -65,12 +77,11 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
       }),
     });
     const body = (await res.json()) as {
-      ok?: boolean;
       authorisation_url?: string;
       error?: string;
     };
 
-    if (!res.ok || !body.ok || !body.authorisation_url) {
+    if (!res.ok || !body.authorisation_url) {
       setIsProcessingPayment(false);
       throw new Error(body.error ?? 'Could not start GoCardless');
     }
@@ -85,7 +96,7 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
     const patch: Record<string, string> = {};
     const now = new Date().toISOString();
 
-    if (isLender && !local.lender_approved_at) patch.lender_approved_at = now;
+    if (isInvestor && !local.lender_approved_at) patch.lender_approved_at = now;
     if (isBorrower && !local.borrower_approved_at) patch.borrower_approved_at = now;
 
     const { error } = await supabase.from('handshakes').update(patch).eq('id', local.id);
@@ -117,7 +128,7 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
       }
     }
 
-    if (isLender && lenderOk && borrowerOk) {
+    if (isInvestor && lenderOk && borrowerOk) {
       onUpdated();
       setBusy(false);
       return;
@@ -187,10 +198,12 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
             ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
             : local.status === 'ACTIVE'
               ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200'
-              : 'bg-neutral-200/80 text-neutral-700 dark:bg-white/10 dark:text-neutral-300'
+              : local.lender_approved_at || local.borrower_approved_at
+                ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200'
+                : 'bg-neutral-200/80 text-neutral-700 dark:bg-white/10 dark:text-neutral-300'
         )}
       >
-        {railLine ?? label}
+        {statusText}
       </div>
 
       {local.status === 'PENDING' && !bothApproved && (

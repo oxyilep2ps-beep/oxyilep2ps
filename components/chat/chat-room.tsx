@@ -352,7 +352,7 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
     );
   }
 
-  if (!peer || !myId) return null;
+  if (!peer || !myId || !myRole) return null;
 
   const presenceLabel =
     peerPresence?.status === 'online'
@@ -398,6 +398,7 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
                   <HandshakeCard
                     handshake={handshake}
                     myId={myId}
+                    myRole={myRole}
                     onUpdated={() => loadHandshakes(myId, peer.id)}
                   />
                 </div>
