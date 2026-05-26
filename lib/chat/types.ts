@@ -30,6 +30,7 @@ export type HandshakePaymentStatus = 'PENDING' | 'PAID';
 
 export type HandshakeRow = {
   id: string;
+  txn_id?: string | null;
   lender_id: string;
   borrower_id: string;
   amount: number;

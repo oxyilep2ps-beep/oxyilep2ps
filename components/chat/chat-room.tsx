@@ -399,6 +399,7 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
                     handshake={handshake}
                     myId={myId}
                     myRole={myRole}
+                    peer={peer}
                     onUpdated={() => loadHandshakes(myId, peer.id)}
                   />
                 </div>

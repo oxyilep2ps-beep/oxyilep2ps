@@ -1,16 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { ExternalLink, FileSignature, Loader2 } from 'lucide-react';
+import { Download, ExternalLink, FileSignature, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatContractLabel } from '@/lib/handshake/calculations';
-import type { HandshakeRow, MemberRole } from '@/lib/chat/types';
+import type { ChatPeer, HandshakeRow, MemberRole } from '@/lib/chat/types';
+import { generateContractPDF } from '@/lib/pdf/contract-pdf';
 import { cn } from '@/lib/utils';
 
 type HandshakeCardProps = {
   handshake: HandshakeRow;
   myId: string;
   myRole: MemberRole;
+  peer: ChatPeer;
   onUpdated: () => void;
 };
 
@@ -44,7 +46,7 @@ function pendingStatusLine(local: HandshakeRow): string {
   return 'Waiting for Investor and Borrower';
 }
 
-export function HandshakeCard({ handshake, myId, myRole, onUpdated }: HandshakeCardProps) {
+export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: HandshakeCardProps) {
   const [busy, setBusy] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +64,11 @@ export function HandshakeCard({ handshake, myId, myRole, onUpdated }: HandshakeC
   const txLink = polygonUrl(local.polygon_tx_hash);
   const railLine = paymentStatusLine(local);
   const statusText = local.status === 'PENDING' ? pendingStatusLine(local) : (railLine ?? label);
+  const contractReady = Boolean(
+    local.status === 'ACTIVE' &&
+      local.polygon_tx_hash &&
+      (local.mandate_linked || local.auto_emi_active || local.gocardless_subscription_id)
+  );
 
   const redirectToMandate = async () => {
     setIsProcessingPayment(true);
@@ -153,6 +160,33 @@ export function HandshakeCard({ handshake, myId, myRole, onUpdated }: HandshakeC
     }
   };
 
+  const downloadContract = () => {
+    generateContractPDF({
+      perspective: myRole,
+      contract: {
+        id: local.id,
+        txn_id: local.txn_id,
+        lender_id: local.lender_id,
+        borrower_id: local.borrower_id,
+        current_user_name: myRole === 'BORROWER' ? 'Borrower' : 'Investor',
+        counterparty_name: peer.full_legal_name,
+        counterparty_username: peer.username ? `@${peer.username.replace(/^@/, '')}` : null,
+        borrower_name: myRole === 'INVESTOR' ? peer.full_legal_name : undefined,
+        lender_name: myRole === 'BORROWER' ? peer.full_legal_name : undefined,
+        amount: Number(local.amount),
+        rate: Number(local.rate),
+        duration: Number(local.duration),
+        emi_amount: local.emi_amount,
+        total_return: local.total_return,
+        polygon_tx_hash: local.polygon_tx_hash,
+        gocardless_subscription_id: local.gocardless_subscription_id ?? null,
+        payment_status: local.payment_status,
+        status: local.status,
+        created_at: local.created_at,
+      },
+    });
+  };
+
   return (
     <article className="w-full max-w-[300px] overflow-hidden rounded-2xl border-2 border-brand-400/60 bg-gradient-to-br from-brand-500/15 via-white/90 to-orange-100/40 shadow-glow dark:from-brand-500/20 dark:via-black/60 dark:to-neutral-900/80">
       <div className="flex items-center gap-2 border-b border-brand-300/40 bg-brand-500/20 px-4 py-2.5 dark:border-brand-500/30">
@@ -227,7 +261,7 @@ export function HandshakeCard({ handshake, myId, myRole, onUpdated }: HandshakeC
         </div>
       )}
 
-      {local.status === 'ACTIVE' && isBorrower && bothApproved && !local.auto_emi_active && (
+      {local.status === 'ACTIVE' && isBorrower && bothApproved && !contractReady && (
         <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
           <button
             type="button"
@@ -236,6 +270,19 @@ export function HandshakeCard({ handshake, myId, myRole, onUpdated }: HandshakeC
             className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white"
           >
             {busy || isProcessingPayment ? 'Redirecting…' : 'Link bank (GoCardless)'}
+          </button>
+        </div>
+      )}
+
+      {contractReady && (
+        <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+          <button
+            type="button"
+            onClick={downloadContract}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-neutral-950 py-2.5 text-xs font-black text-white shadow-glow hover:bg-neutral-800 dark:bg-white dark:text-neutral-950"
+          >
+            <Download size={15} />
+            📥 Download Contract PDF
           </button>
         </div>
       )}
