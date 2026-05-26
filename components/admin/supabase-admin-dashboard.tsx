@@ -59,6 +59,11 @@ type NormalizedKyc = {
   submittedAt?: string;
 };
 
+type QuestionnaireRow = {
+  question: string;
+  answer: string;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -142,7 +147,7 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
         proofOfIdentity: pickOptionalText(documents?.proofOfIdentity, identity?.idProofPath),
         livenessVideo: pickOptionalText(documents?.livenessVideo, identity?.livenessPath),
         proofOfAddress: pickOptionalText(documents?.proofOfAddress, identity?.addressProofPath),
-        incomeVerification: pickOptionalText(documents?.incomeVerification),
+        incomeVerification: pickOptionalText(documents?.incomeVerification, identity?.incomeVerificationPath),
       },
     },
     lender: lender
@@ -199,7 +204,71 @@ function buildDocumentItems(kyc: NormalizedKyc): ResolvedDocument[] {
       kind: getDocumentKind(kyc.identity.documents.incomeVerification ?? null),
       loaded: true,
     },
-  ].filter((document) => Boolean(document.path));
+  ];
+}
+
+function answerFromChoice(value: number | null | undefined): string {
+  if (value === 0) return 'Yes';
+  if (value === 1) return 'No';
+  return 'Not answered';
+}
+
+function buildQuestionnaireRows(kyc: NormalizedKyc, profile: Profile): QuestionnaireRow[] {
+  const rows: QuestionnaireRow[] = [
+    { question: 'Selected account role', answer: kyc.accountRole === 'lender' ? 'Investor / Lender' : 'Borrower' },
+    { question: 'Proof of identity document type', answer: kyc.identity.proofOfIdentityType },
+    {
+      question: 'Proof of identity uploaded?',
+      answer: kyc.identity.documents.proofOfIdentity ? 'Yes' : 'Not provided',
+    },
+    {
+      question: 'Liveness selfie/video uploaded?',
+      answer: kyc.identity.documents.livenessVideo ? 'Yes' : 'Not provided',
+    },
+    {
+      question: 'Proof of address uploaded?',
+      answer: kyc.identity.documents.proofOfAddress ? 'Yes' : 'Not provided',
+    },
+  ];
+
+  if ((profile.role === 'INVESTOR' || kyc.accountRole === 'lender') && kyc.lender) {
+    rows.push(
+      { question: 'Investor categorisation', answer: kyc.lender.investorCategory },
+      {
+        question: 'FCA appropriateness: understands capital is at risk?',
+        answer: answerFromChoice(kyc.lender.appropriatenessAnswers[0]),
+      },
+      {
+        question: 'FCA appropriateness: understands lack of FSCS protection?',
+        answer: answerFromChoice(kyc.lender.appropriatenessAnswers[1]),
+      },
+      {
+        question: 'FCA appropriateness: understands investments are illiquid?',
+        answer: answerFromChoice(kyc.lender.appropriatenessAnswers[2]),
+      },
+      { question: 'Declared source of funds', answer: kyc.lender.sourceOfFunds },
+      { question: 'Investor bank sort code provided?', answer: kyc.lender.bankSortCode !== '—' ? 'Yes' : 'Not provided' },
+      {
+        question: 'Investor bank account number provided?',
+        answer: kyc.lender.bankAccountNumber !== '—' ? 'Yes' : 'Not provided',
+      }
+    );
+  }
+
+  if ((profile.role === 'BORROWER' || kyc.accountRole === 'borrower') && kyc.borrower) {
+    rows.push(
+      { question: 'Purpose of loan', answer: kyc.borrower.purposeOfLoan },
+      { question: 'Employment status/details', answer: kyc.borrower.employmentStatus },
+      { question: 'Annual income', answer: formatCurrency(kyc.borrower.annualIncome) },
+      { question: 'Income verification uploaded?', answer: kyc.borrower.hasIncomeVerification ? 'Yes' : 'Not provided' },
+      { question: 'Open Banking income verification consent?', answer: formatBoolean(kyc.borrower.openBankingConsent) },
+      { question: 'Credit check consent via Experian/Equifax?', answer: formatBoolean(kyc.borrower.creditCheckConsent) },
+      { question: 'Monthly rent or EMI', answer: formatCurrency(kyc.borrower.monthlyRentOrEmi) },
+      { question: 'Other monthly expenses', answer: formatCurrency(kyc.borrower.otherMonthlyExpenses) }
+    );
+  }
+
+  return rows.map((row) => ({ ...row, answer: row.answer || 'Not provided' }));
 }
 
 export function SupabaseAdminDashboard() {
@@ -489,6 +558,7 @@ function ProfileCard({
 }) {
   const dossier = useMemo(() => normalizeKyc(profile), [profile]);
   const documents = useMemo(() => buildDocumentItems(dossier), [dossier]);
+  const questionnaireRows = useMemo(() => buildQuestionnaireRows(dossier, profile), [dossier, profile]);
   const [exporting, setExporting] = useState(false);
   const [exportDocuments, setExportDocuments] = useState<ResolvedDocument[] | null>(null);
   const dossierRef = useRef<HTMLDivElement>(null);
@@ -530,8 +600,26 @@ function ProfileCard({
         headerHtml: [
           dossier.basic.fullLegalName,
           dossier.basic.email,
-          `${profile.role} · ${profile.status}`,
+          `ROLE: ${profile.role} · STATUS: ${profile.status}`,
         ].join('\n'),
+        sections: [
+          {
+            title: 'Basic Details',
+            rows: [
+              ['Legal Name', dossier.basic.fullLegalName],
+              ['Email', dossier.basic.email],
+              ['UK Phone', dossier.basic.ukPhone],
+              ['Date of Birth', dossier.basic.dateOfBirth],
+              ['Current Address', dossier.basic.currentAddress],
+              ['3-Year Address History', dossier.basic.addressHistory3Years],
+              ['Submitted At', dossier.submittedAt ? new Date(dossier.submittedAt).toLocaleString('en-GB') : 'Not provided'],
+            ],
+          },
+          {
+            title: 'Onboarding Questionnaire',
+            rows: questionnaireRows.map((row) => [row.question, row.answer]),
+          },
+        ],
         documents: resolvedDocuments.map((doc) => ({
           label: doc.label,
           url: doc.url,
@@ -543,7 +631,7 @@ function ProfileCard({
       setExporting(false);
       setExportDocuments(null);
     }
-  }, [documents, dossier.basic.fullLegalName, exporting, resolveDocumentUrl]);
+  }, [documents, dossier, exporting, profile.role, profile.status, questionnaireRows, resolveDocumentUrl]);
 
   const docsForExport = exportDocuments ?? documents;
 
@@ -603,6 +691,14 @@ function ProfileCard({
             <DetailSection title="Identity & AML">
               <Row label="ID type" value={dossier.identity.proofOfIdentityType} />
               <Row label="Liveness captured" value={dossier.identity.documents.livenessVideo ? 'Yes' : 'No'} />
+            </DetailSection>
+
+            <DetailSection title="Onboarding questionnaire">
+              <div className="space-y-2">
+                {questionnaireRows.map((row) => (
+                  <Row key={row.question} label={row.question} value={row.answer} />
+                ))}
+              </div>
             </DetailSection>
 
             <DetailSection title="Submitted documents">

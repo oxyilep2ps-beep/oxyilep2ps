@@ -99,6 +99,15 @@ export function DocumentViewer({ documents, resolveUrl }: DocumentViewerProps) {
                   <div className="absolute inset-0 grid place-items-center text-brand-500">
                     <Loader2 className="animate-spin" size={20} />
                   </div>
+                ) : !item.path ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/60 text-neutral-500 dark:bg-white/5">
+                    <div className="rounded-2xl border border-white/40 bg-white/80 p-3 text-neutral-400 dark:bg-white/5">
+                      {thumbnailIcon(kind)}
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-[0.24em]">
+                      Not provided
+                    </span>
+                  </div>
                 ) : item.url && kind === 'image' ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={item.url} alt={fileName} className="h-full w-full object-cover" />
@@ -118,7 +127,7 @@ export function DocumentViewer({ documents, resolveUrl }: DocumentViewerProps) {
                 <p className="text-sm font-semibold text-neutral-950 dark:text-white">{item.label}</p>
                 <p className="truncate text-xs text-neutral-500 dark:text-white/55">{fileName}</p>
                 <p className={cn('text-[10px] font-bold uppercase tracking-[0.22em]', item.error ? 'text-red-500' : 'text-brand-500')}>
-                  {item.error ?? (item.loaded ? 'Tap to open' : 'Loading…')}
+                  {item.error ?? (!item.path ? 'Not provided' : item.loaded ? 'Tap to open' : 'Loading…')}
                 </p>
               </div>
             </button>

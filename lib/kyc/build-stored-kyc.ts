@@ -22,6 +22,7 @@ export function buildStoredKycData(payload: KycSubmissionPayload, documents: Kyc
       idProofPath: documents.proofOfIdentity ?? null,
       livenessPath: documents.livenessVideo ?? null,
       addressProofPath: documents.proofOfAddress ?? null,
+      incomeVerificationPath: documents.incomeVerification ?? null,
     },
     ...(payload.lender ? { lender: payload.lender } : {}),
     ...(payload.borrower ? { borrower: payload.borrower } : {}),

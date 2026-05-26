@@ -5,6 +5,11 @@ export type PdfExportDocument = {
   error?: string;
 };
 
+export type PdfExportSection = {
+  title: string;
+  rows: [string, string][];
+};
+
 const PAGE_MARGIN_MM = 15;
 const BLOCK_GAP_MM = 10;
 const BRAND = { r: 255, g: 90, b: 31 };
@@ -16,28 +21,32 @@ const LINE = { r: 255, g: 210, b: 190 };
 async function loadImageDimensions(
   url: string
 ): Promise<{ width: number; height: number; dataUrl: string } | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(null);
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
-      resolve({
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-        dataUrl: canvas.toDataURL('image/png'),
-      });
-    };
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        resolve({
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+          dataUrl,
+        });
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  } catch {
+    return null;
+  }
 }
 
 function fitImageRect(
@@ -119,6 +128,7 @@ function drawHeader(
 export async function exportKycDossierPdf(params: {
   fileName: string;
   headerHtml: string;
+  sections?: PdfExportSection[];
   documents: PdfExportDocument[];
 }): Promise<void> {
   const [{ jsPDF }] = await Promise.all([import('jspdf')]);
@@ -146,6 +156,55 @@ export async function exportKycDossierPdf(params: {
   drawPageShell(pdf, pageWidth, pageHeight);
   drawHeader(pdf, pageWidth, headerLines);
   y = 108;
+
+  const drawSection = (section: PdfExportSection) => {
+    const headerHeight = 12;
+    const rowLineHeight = 4.6;
+    const rowGap = 3;
+    const rowHeights = section.rows.map(([label, value]) => {
+      const labelLines = pdf.splitTextToSize(label || 'Not provided', 58) as string[];
+      const valueLines = pdf.splitTextToSize(value || 'Not provided', contentWidth - 76) as string[];
+      return Math.max(labelLines.length, valueLines.length) * rowLineHeight + rowGap;
+    });
+    const blockHeight = headerHeight + rowHeights.reduce((sum, h) => sum + h, 0) + 7;
+
+    ensureSpace(blockHeight);
+
+    pdf.setFillColor(255, 255, 255);
+    pdf.setDrawColor(LINE.r, LINE.g, LINE.b);
+    pdf.roundedRect(PAGE_MARGIN_MM, y, contentWidth, blockHeight, 5, 5, 'FD');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.setTextColor(BRAND.r, BRAND.g, BRAND.b);
+    pdf.text(section.title.toUpperCase(), PAGE_MARGIN_MM + 5, y + 8);
+
+    y += headerHeight + 2;
+
+    section.rows.forEach(([label, value], index) => {
+      const rowHeight = rowHeights[index];
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(8.3);
+      pdf.setTextColor(MUTED.r, MUTED.g, MUTED.b);
+      pdf.text(pdf.splitTextToSize(label || 'Not provided', 58) as string[], PAGE_MARGIN_MM + 5, y);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8.7);
+      pdf.setTextColor(DARK.r, DARK.g, DARK.b);
+      pdf.text(
+        pdf.splitTextToSize(value || 'Not provided', contentWidth - 76) as string[],
+        PAGE_MARGIN_MM + 70,
+        y
+      );
+
+      y += rowHeight;
+    });
+
+    y += BLOCK_GAP_MM;
+  };
+
+  for (const section of params.sections ?? []) {
+    drawSection(section);
+  }
 
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(13);
