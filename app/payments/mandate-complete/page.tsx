@@ -13,6 +13,8 @@ function MandateCompleteInner() {
 
   const status = searchParams.get('status');
   const handshakeId = searchParams.get('handshakeId');
+  const billingRequestId = searchParams.get('billingRequestId') ?? searchParams.get('billing_request_id');
+  const redirectFlowId = searchParams.get('redirect_flow_id') ?? searchParams.get('billing_request_flow_id');
   const stub = searchParams.get('gocardless_stub') === '1';
 
   useEffect(() => {
@@ -34,7 +36,9 @@ function MandateCompleteInner() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             handshakeId,
-            stub: stub || status === 'success',
+            billingRequestId,
+            redirectFlowId,
+            stub,
           }),
         });
         const body = (await res.json()) as { ok?: boolean; error?: string };
@@ -55,7 +59,7 @@ function MandateCompleteInner() {
     };
 
     void run();
-  }, [status, handshakeId, stub, router]);
+  }, [status, handshakeId, billingRequestId, redirectFlowId, stub, router]);
 
   return (
     <section className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center px-4 py-16 text-center">

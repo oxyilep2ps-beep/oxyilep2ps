@@ -34,10 +34,29 @@ async function handleMandateEvent(event: GoCardlessWebhookEvent) {
     .eq('mandate_id', mandateId);
 }
 
-function handleWebhookEvent(event: GoCardlessWebhookEvent) {
+async function handleSubscriptionEvent(event: GoCardlessWebhookEvent) {
+  const subscriptionId = event.links?.subscription;
+  if (!subscriptionId) return;
+
+  const admin = createAdminClient();
+  const verified = event.action === 'created' || event.action === 'active';
+
+  await admin
+    .from('handshakes')
+    .update({
+      payment_status: verified ? 'ACTIVE' : 'PENDING',
+      auto_emi_active: verified,
+    })
+    .eq('gocardless_subscription_id', subscriptionId);
+}
+
+async function handleWebhookEvent(event: GoCardlessWebhookEvent) {
   switch (event.resource_type) {
     case 'mandates':
-      void handleMandateEvent(event);
+      await handleMandateEvent(event);
+      break;
+    case 'subscriptions':
+      await handleSubscriptionEvent(event);
       break;
     case 'payments':
       break;
@@ -66,7 +85,7 @@ export async function POST(request: Request) {
   try {
     const events = webhooks.parse(rawBody, webhookSecret, signatureHeader) as GoCardlessWebhookEvent[];
     for (const event of events) {
-      handleWebhookEvent(event);
+      await handleWebhookEvent(event);
     }
     void goCardlessClient;
     return new NextResponse(null, { status: 200 });

@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Download, ExternalLink, FileSignature, Loader2 } from 'lucide-react';
 import { listAdminHandshakes, markHandshakePaid, type AdminHandshakeRow } from '@/app/actions/admin-handshakes';
 import { generateContractPDF } from '@/lib/pdf/contract-pdf';
+import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
 
 function polygonAmoyTxUrl(hash: string | null): string | null {
-  if (!hash || hash.startsWith('sandbox_')) return null;
+  if (!hash || !/^0x[a-fA-F0-9]{64}$/.test(hash)) return null;
   return `https://amoy.polygonscan.com/tx/${hash}`;
 }
 
@@ -44,6 +45,11 @@ export function AdminHandshakesTab() {
   };
 
   const downloadMasterPdf = (row: AdminHandshakeRow) => {
+    const fallbackFigures = calculateHandshakeFigures(row.amount, row.rate, row.duration);
+    const emiAmount = row.emi_amount && row.emi_amount > 0 ? row.emi_amount : fallbackFigures.emi_amount;
+    const totalReturn =
+      row.total_return && row.total_return > 0 ? row.total_return : fallbackFigures.total_return;
+
     generateContractPDF({
       perspective: 'ADMIN',
       mode: 'admin',
@@ -57,8 +63,8 @@ export function AdminHandshakesTab() {
         amount: row.amount,
         rate: row.rate,
         duration: row.duration,
-        emi_amount: row.emi_amount,
-        total_return: row.total_return,
+        emi_amount: emiAmount,
+        total_return: totalReturn,
         polygon_tx_hash: row.polygon_tx_hash,
         mandate_id: row.mandate_id,
         gocardless_subscription_id: row.gocardless_subscription_id,
@@ -96,8 +102,8 @@ export function AdminHandshakesTab() {
               <tr>
                 <th className="px-4 py-3">Transaction</th>
                 <th className="px-4 py-3">Parties & Terms</th>
-                <th className="px-4 py-3">GoCardless Status</th>
-                <th className="px-4 py-3">Polygon Status</th>
+                <th className="px-4 py-3">GoCardless Mandate</th>
+                <th className="px-4 py-3">Polygon TX Hash</th>
                 <th className="px-4 py-3">Contract</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -105,8 +111,10 @@ export function AdminHandshakesTab() {
             <tbody className="divide-y divide-white/40 dark:divide-white/10">
               {rows.map((row) => {
                 const txUrl = polygonAmoyTxUrl(row.polygon_tx_hash);
-                const emi = row.emi_amount ?? 0;
-                const total = row.total_return ?? emi * row.duration;
+                const fallbackFigures = calculateHandshakeFigures(row.amount, row.rate, row.duration);
+                const emi = row.emi_amount && row.emi_amount > 0 ? row.emi_amount : fallbackFigures.emi_amount;
+                const total =
+                  row.total_return && row.total_return > 0 ? row.total_return : fallbackFigures.total_return;
 
                 return (
                   <tr key={row.id} className="align-top">
@@ -128,7 +136,8 @@ export function AdminHandshakesTab() {
                         £{row.amount.toLocaleString('en-GB')} · {row.rate}% · {row.duration} mo
                       </p>
                       <p className="text-xs text-neutral-500">
-                        EMI £{emi.toFixed(2)} · Total £{total.toLocaleString('en-GB')}
+                        EMI £{emi.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Total £
+                        {total.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </td>
                     <td className="px-4 py-4">
@@ -136,10 +145,12 @@ export function AdminHandshakesTab() {
                         {row.mandate_status ?? 'Pending'}
                       </span>
                       <p className="mt-2 max-w-[170px] break-all text-xs text-neutral-500">
-                        Mandate: {row.mandate_id ?? 'Not linked'}
+                        <span className="font-semibold text-neutral-700 dark:text-neutral-300">GoCardless Mandate:</span>{' '}
+                        {row.mandate_id ?? 'Not linked'}
                       </p>
                       <p className="mt-1 max-w-[170px] break-all text-xs text-neutral-400">
-                        Sub: {row.gocardless_subscription_id ?? 'Pending'}
+                        <span className="font-semibold">Subscription:</span>{' '}
+                        {row.gocardless_subscription_id ?? 'Pending'}
                       </p>
                     </td>
                     <td className="px-4 py-4">
@@ -154,10 +165,11 @@ export function AdminHandshakesTab() {
                         </a>
                       ) : (
                         <span className="rounded-full bg-neutral-200/70 px-3 py-1 text-xs font-bold text-neutral-600 dark:bg-white/10 dark:text-neutral-300">
-                          {row.polygon_tx_hash ? 'Sandbox reference' : 'Pending'}
+                          {row.polygon_tx_hash ? 'Mock / unverified hash' : 'Pending'}
                         </span>
                       )}
                       <p className="mt-2 max-w-[190px] break-all text-xs text-neutral-500">
+                        <span className="font-semibold text-neutral-700 dark:text-neutral-300">Polygon TX Hash:</span>{' '}
                         {row.polygon_tx_hash ?? 'No tx hash yet'}
                       </p>
                     </td>

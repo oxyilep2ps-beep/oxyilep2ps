@@ -26,7 +26,7 @@ export type UserPresence = {
   last_seen: string;
 };
 
-export type HandshakePaymentStatus = 'PENDING' | 'PAID';
+export type HandshakePaymentStatus = 'PENDING' | 'ACTIVE' | 'PAID';
 
 export type HandshakeRow = {
   id: string;

@@ -88,6 +88,7 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
       for (const row of rows) {
         const linked =
           mandateSet.has(row.borrower_id) ||
+          row.payment_status === 'ACTIVE' ||
           row.payment_status === 'PAID' ||
           Boolean(row.gocardless_subscription_id) ||
           Boolean(row.auto_emi_active);

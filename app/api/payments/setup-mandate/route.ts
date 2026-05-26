@@ -25,8 +25,15 @@ export async function POST(req: Request) {
     });
 
     // Step 2: Create Billing Request Flow
+    const redirectUrl = new URL(
+      '/payments/mandate-complete',
+      process.env.NEXT_PUBLIC_APP_URL ?? req.url
+    );
+    redirectUrl.searchParams.set('handshakeId', handshakeId);
+    redirectUrl.searchParams.set('billingRequestId', billingRequest.id);
+
     const flow = await client.billingRequestFlows.create({
-      redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/payments/mandate-complete?handshakeId=${handshakeId}`,
+      redirect_uri: redirectUrl.toString(),
       links: {
         billing_request: billingRequest.id,
       },

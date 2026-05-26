@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createMonthlyEmiSubscription } from '@/lib/gocardless/subscriptions';
+import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
 
 export async function POST(request: Request) {
   try {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
           .from('gocardless_mandates')
           .select('mandate_id')
           .eq('user_id', user.id)
+          .eq('status', 'active')
           .maybeSingle()
       ).data?.mandate_id;
 
@@ -45,9 +47,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'No active mandate' }, { status: 400 });
     }
 
-    const emi = Number(handshake.emi_amount ?? 0);
-    const amountPence = Math.max(100, Math.round(emi * 100));
-    const duration = Number(handshake.duration ?? 12);
+    const figures = calculateHandshakeFigures(
+      Number(handshake.amount ?? 0),
+      Number(handshake.rate ?? 0),
+      Number(handshake.duration ?? 1)
+    );
+    const emi = figures.emi_amount;
+    const amountPence = Math.max(1, Math.round(emi * 100));
+    const duration = Math.max(1, Math.round(Number(handshake.duration ?? 12)));
+
+    if (!Number.isFinite(emi) || emi <= 0 || !Number.isFinite(figures.total_return) || figures.total_return <= 0) {
+      return NextResponse.json({ ok: false, error: 'Invalid EMI amount for subscription' }, { status: 400 });
+    }
 
     const sub = await createMonthlyEmiSubscription({
       mandateId,
@@ -61,21 +72,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: sub.error }, { status: 500 });
     }
 
-    await admin
+    const { error: handshakeUpdateError } = await admin
       .from('handshakes')
       .update({
+        emi_amount: emi,
+        total_return: figures.total_return,
         gocardless_subscription_id: sub.subscription_id,
+        payment_status: 'ACTIVE',
         auto_emi_active: true,
       })
       .eq('id', body.handshakeId);
 
-    await admin.from('gocardless_mandates').upsert({
+    if (handshakeUpdateError) {
+      throw new Error(handshakeUpdateError.message);
+    }
+
+    const { error: mandateUpsertError } = await admin.from('gocardless_mandates').upsert({
       user_id: user.id,
       mandate_id: mandateId,
       status: 'active',
       handshake_id: body.handshakeId,
       updated_at: new Date().toISOString(),
     });
+
+    if (mandateUpsertError) {
+      throw new Error(mandateUpsertError.message);
+    }
 
     return NextResponse.json({
       ok: true,

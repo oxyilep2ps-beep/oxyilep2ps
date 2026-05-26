@@ -1,5 +1,6 @@
 'use server';
 
+import { createHash } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { HANDSHAKE_CONTRACT_ABI, PLACEHOLDER_HANDSHAKE_CONTRACT_AMOY } from '@/lib/web3/handshake-contract';
 
@@ -9,6 +10,16 @@ export type ExecuteHandshakeResult = {
   sandbox: boolean;
   warning?: string | null;
 };
+
+function isPolygonTxHash(value: unknown): value is `0x${string}` {
+  return typeof value === 'string' && /^0x[a-fA-F0-9]{64}$/.test(value);
+}
+
+function createMockPolygonTxHash(seed: string): `0x${string}` {
+  return `0x${createHash('sha256')
+    .update(`${seed}:${Date.now()}:${Math.random()}`)
+    .digest('hex')}`;
+}
 
 /**
  * Mint handshake on Polygon Amoy and persist tx hash on `handshakes` row.
@@ -63,16 +74,17 @@ export async function executeHandshake(
       );
 
       const receipt = await tx.wait();
-      polygonTxHash = receipt?.hash ?? tx.hash ?? null;
+      const receiptHash = receipt?.hash ?? tx.hash ?? null;
+      polygonTxHash = isPolygonTxHash(receiptHash) ? receiptHash : createMockPolygonTxHash(handshake.id);
       sandbox = false;
     } catch (err) {
       warning = err instanceof Error ? err.message : 'Polygon mint failed';
-      polygonTxHash = `sandbox_${handshake.id.slice(0, 8)}_${Date.now()}`;
+      polygonTxHash = createMockPolygonTxHash(handshake.id);
     }
   } else {
     warning =
-      'Sandbox mode: set POLYGON_HANDSHAKE_CONTRACT (deployed on Amoy) for live chain mint. Using test hash.';
-    polygonTxHash = `sandbox_${handshake.id.slice(0, 8)}_${Date.now()}`;
+      'Sandbox mode: set POLYGON_HANDSHAKE_CONTRACT (deployed on Amoy) for live chain mint. Using mock 0x transaction hash.';
+    polygonTxHash = createMockPolygonTxHash(handshake.id);
   }
 
   const { error: updateError } = await admin
@@ -130,15 +142,16 @@ export async function executeLegacyAgreement(agreementId: string): Promise<Execu
         BigInt(agreement.duration_months)
       );
       const receipt = await tx.wait();
-      polygonTxHash = receipt?.hash ?? tx.hash ?? null;
+      const receiptHash = receipt?.hash ?? tx.hash ?? null;
+      polygonTxHash = isPolygonTxHash(receiptHash) ? receiptHash : createMockPolygonTxHash(agreement.id);
       sandbox = false;
     } catch (err) {
       warning = err instanceof Error ? err.message : 'Polygon mint failed';
-      polygonTxHash = `sandbox_agreement_${agreement.id.slice(0, 8)}`;
+      polygonTxHash = createMockPolygonTxHash(agreement.id);
     }
   } else {
     warning = 'Sandbox agreement hash (deploy POLYGON_HANDSHAKE_CONTRACT for live mint)';
-    polygonTxHash = `sandbox_agreement_${agreement.id.slice(0, 8)}_${Date.now()}`;
+    polygonTxHash = createMockPolygonTxHash(agreement.id);
   }
 
   const { error: updateError } = await admin

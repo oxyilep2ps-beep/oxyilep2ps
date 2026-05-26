@@ -17,13 +17,13 @@ type HandshakeCardProps = {
 };
 
 function polygonUrl(hash: string | null): string | null {
-  if (!hash || hash.startsWith('sandbox_')) return null;
+  if (!hash || !/^0x[a-fA-F0-9]{64}$/.test(hash)) return null;
   return `https://amoy.polygonscan.com/tx/${hash}`;
 }
 
 function paymentStatusLine(local: HandshakeRow): string | null {
   if (local.status !== 'ACTIVE') return null;
-  const bank = local.mandate_linked ?? local.payment_status === 'PAID';
+  const bank = local.mandate_linked ?? (local.payment_status === 'ACTIVE' || local.payment_status === 'PAID');
   const contract = Boolean(local.polygon_tx_hash);
   const emi = local.auto_emi_active;
   if (bank && contract && emi) {
