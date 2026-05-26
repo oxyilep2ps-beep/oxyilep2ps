@@ -35,6 +35,8 @@ function paymentStatusLine(local: HandshakeRow): string | null {
 
 export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps) {
   const [busy, setBusy] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState(handshake);
 
   const isBorrower = myId === local.borrower_id;
@@ -50,6 +52,9 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
   const railLine = paymentStatusLine(local);
 
   const redirectToMandate = async () => {
+    setIsProcessingPayment(true);
+    setError(null);
+
     const res = await fetch('/api/payments/setup-mandate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -64,14 +69,18 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
       authorisation_url?: string;
       error?: string;
     };
+
     if (!res.ok || !body.ok || !body.authorisation_url) {
+      setIsProcessingPayment(false);
       throw new Error(body.error ?? 'Could not start GoCardless');
     }
+
     window.location.href = body.authorisation_url;
   };
 
   const approve = async () => {
     setBusy(true);
+    setError(null);
     const supabase = createClient();
     const patch: Record<string, string> = {};
     const now = new Date().toISOString();
@@ -81,6 +90,7 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
 
     const { error } = await supabase.from('handshakes').update(patch).eq('id', local.id);
     if (error) {
+      setError(error.message);
       setBusy(false);
       return;
     }
@@ -95,12 +105,15 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
     const lenderOk = Boolean(next.lender_approved_at);
     const borrowerOk = Boolean(next.borrower_approved_at);
 
-    if (isBorrower && lenderOk && borrowerOk) {
+    if (isBorrower) {
       try {
         await redirectToMandate();
         return;
       } catch (e) {
-        console.error(e);
+        const message = e instanceof Error ? e.message : 'Could not start GoCardless checkout';
+        console.error('[HandshakeCard] GoCardless redirect failed', e);
+        setError(message);
+        setIsProcessingPayment(false);
       }
     }
 
@@ -116,8 +129,14 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
 
   const linkBankLater = async () => {
     setBusy(true);
+    setError(null);
     try {
       await redirectToMandate();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Could not start GoCardless checkout';
+      console.error('[HandshakeCard] GoCardless redirect failed', e);
+      setError(message);
+      setIsProcessingPayment(false);
     } finally {
       setBusy(false);
     }
@@ -178,11 +197,11 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
         <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
           <button
             type="button"
-            disabled={busy || approvedByMe}
+            disabled={busy || isProcessingPayment || approvedByMe}
             onClick={() => void approve()}
             className="w-full rounded-full bg-brand-500 py-2.5 text-xs font-bold text-white shadow-glow hover:bg-brand-400 disabled:opacity-50"
           >
-            {busy ? (
+            {busy || isProcessingPayment ? (
               <Loader2 className="mx-auto animate-spin" size={16} />
             ) : approvedByMe ? (
               'You approved'
@@ -199,13 +218,19 @@ export function HandshakeCard({ handshake, myId, onUpdated }: HandshakeCardProps
         <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || isProcessingPayment}
             onClick={() => void linkBankLater()}
             className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white"
           >
-            {busy ? 'Redirecting…' : 'Link bank (GoCardless)'}
+            {busy || isProcessingPayment ? 'Redirecting…' : 'Link bank (GoCardless)'}
           </button>
         </div>
+      )}
+
+      {error && (
+        <p className="border-t border-red-200/60 px-3 py-2 text-center text-[11px] font-semibold text-red-600 dark:border-red-900/40 dark:text-red-300">
+          {error}
+        </p>
       )}
 
       {txLink && (
