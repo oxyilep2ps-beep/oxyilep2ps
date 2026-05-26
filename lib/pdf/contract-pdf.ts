@@ -34,6 +34,16 @@ export type GenerateContractPdfOptions = {
   mode?: ContractPdfMode;
 };
 
+const BRAND = { r: 255, g: 90, b: 31 };
+const DARK = { r: 25, g: 28, b: 36 };
+const MUTED = { r: 96, g: 104, b: 117 };
+const PAPER = { r: 255, g: 249, b: 245 };
+const LINE = { r: 255, g: 205, b: 185 };
+const PAGE = { width: 210, height: 297, margin: 16 };
+const CONTENT_WIDTH = PAGE.width - PAGE.margin * 2;
+const FOOTER_Y = PAGE.height - 10;
+const SAFE_BOTTOM = PAGE.height - 20;
+
 function money(value: number | null | undefined): string {
   return `GBP ${Number(value ?? 0).toLocaleString('en-GB', {
     minimumFractionDigits: 2,
@@ -53,7 +63,7 @@ function printableDate(value: string | null | undefined): string {
 }
 
 function polygonUrl(hash: string | null | undefined): string {
-  if (!hash) return 'Pending';
+  if (!hash) return 'Pending verification';
   if (hash.startsWith('sandbox_')) return `Sandbox reference: ${hash}`;
   return `https://amoy.polygonscan.com/tx/${hash}`;
 }
@@ -62,19 +72,206 @@ function fileSafe(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, '-');
 }
 
-function addFooter(doc: jsPDF, txnId: string) {
-  const pageCount = doc.getNumberOfPages();
+function setText(doc: jsPDF, color = DARK) {
+  doc.setTextColor(color.r, color.g, color.b);
+}
 
+function addPageShell(doc: jsPDF, txnId: string) {
+  doc.setFillColor(PAPER.r, PAPER.g, PAPER.b);
+  doc.rect(0, 0, PAGE.width, PAGE.height, 'F');
+
+  doc.setFillColor(255, 237, 228);
+  doc.circle(188, 24, 30, 'F');
+  doc.circle(18, 275, 22, 'F');
+
+  doc.setDrawColor(LINE.r, LINE.g, LINE.b);
+  doc.setLineWidth(0.25);
+  doc.line(PAGE.margin, FOOTER_Y - 4, PAGE.width - PAGE.margin, FOOTER_Y - 4);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(116, 116, 116);
+  doc.text(`Oxyile Digital Agreement | ${txnId}`, PAGE.margin, FOOTER_Y);
+}
+
+function addFooterPageNumbers(doc: jsPDF, txnId: string) {
+  const pageCount = doc.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
     doc.setPage(page);
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(120);
-    doc.text(
-      `Oxyile P2P Digital Agreement | ${txnId} | Page ${page} of ${pageCount}`,
-      14,
-      287
-    );
+    doc.setTextColor(116, 116, 116);
+    doc.text(`Page ${page} of ${pageCount}`, PAGE.width - PAGE.margin, FOOTER_Y, { align: 'right' });
+    doc.text(`Oxyile Digital Agreement | ${txnId}`, PAGE.margin, FOOTER_Y);
   }
+}
+
+function ensureSpace(doc: jsPDF, y: number, needed: number, txnId: string): number {
+  if (y + needed <= SAFE_BOTTOM) return y;
+  doc.addPage();
+  addPageShell(doc, txnId);
+  return PAGE.margin + 6;
+}
+
+function roundedPanel(doc: jsPDF, x: number, y: number, w: number, h: number, fill: [number, number, number]) {
+  doc.setFillColor(...fill);
+  doc.setDrawColor(LINE.r, LINE.g, LINE.b);
+  doc.setLineWidth(0.35);
+  doc.roundedRect(x, y, w, h, 4, 4, 'FD');
+}
+
+function writeWrapped(
+  doc: jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  options?: { fontSize?: number; lineHeight?: number; color?: typeof DARK; bold?: boolean }
+): number {
+  doc.setFont('helvetica', options?.bold ? 'bold' : 'normal');
+  doc.setFontSize(options?.fontSize ?? 9);
+  setText(doc, options?.color ?? DARK);
+  const lines = doc.splitTextToSize(text, maxWidth) as string[];
+  doc.text(lines, x, y);
+  return y + lines.length * (options?.lineHeight ?? 4.5);
+}
+
+function addHeader(doc: jsPDF, txnId: string) {
+  doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
+  doc.roundedRect(PAGE.margin, 14, CONTENT_WIDTH, 31, 5, 5, 'F');
+  doc.setFillColor(255, 255, 255);
+  doc.circle(PAGE.margin + 13, 29.5, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
+  doc.text('O', PAGE.margin + 10.1, 34);
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(19);
+  doc.text('Oxyile', PAGE.margin + 25, 27);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('P2P Digital Loan Agreement', PAGE.margin + 25, 36);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(txnId, PAGE.width - PAGE.margin - 5, 27, { align: 'right', maxWidth: 70 });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.text('Unique Transaction ID', PAGE.width - PAGE.margin - 5, 36, { align: 'right' });
+}
+
+function addMetadataSection(doc: jsPDF, contract: ContractPdfData, txnId: string, generatedAt: string): number {
+  const y = 53;
+  roundedPanel(doc, PAGE.margin, y, CONTENT_WIDTH, 32, [255, 255, 255]);
+
+  const columns = [
+    ['Transaction ID', txnId],
+    ['Agreement Timestamp', printableDate(contract.created_at)],
+    ['Generated Date', printableDate(generatedAt)],
+  ];
+
+  columns.forEach(([label, value], index) => {
+    const x = PAGE.margin + 6 + index * 58;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
+    doc.text(label.toUpperCase(), x, y + 10);
+    writeWrapped(doc, value, x, y + 17, 51, { fontSize: 9.5, lineHeight: 4.3, bold: true });
+  });
+
+  return y + 42;
+}
+
+function addTable(
+  doc: jsPDF,
+  title: string,
+  y: number,
+  rows: string[][],
+  txnId: string,
+  options?: { darkHeader?: boolean; columnWidth?: number }
+): number {
+  y = ensureSpace(doc, y, 38, txnId);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  setText(doc);
+  doc.text(title, PAGE.margin, y);
+
+  autoTable(doc, {
+    startY: y + 5,
+    head: [['Field', 'Details']],
+    body: rows,
+    margin: { left: PAGE.margin, right: PAGE.margin },
+    tableWidth: CONTENT_WIDTH,
+    theme: 'grid',
+    rowPageBreak: 'avoid',
+    pageBreak: 'auto',
+    styles: {
+      font: 'helvetica',
+      fontSize: 8.8,
+      cellPadding: { top: 3.5, right: 3.5, bottom: 3.5, left: 3.5 },
+      overflow: 'linebreak',
+      lineColor: [255, 215, 198],
+      lineWidth: 0.25,
+      textColor: [38, 42, 50],
+      valign: 'middle',
+      minCellHeight: 8,
+    },
+    headStyles: {
+      fillColor: options?.darkHeader ? [25, 28, 36] : [BRAND.r, BRAND.g, BRAND.b],
+      textColor: [255, 255, 255],
+      fontSize: 8.5,
+      fontStyle: 'bold',
+      cellPadding: { top: 4, right: 3.5, bottom: 4, left: 3.5 },
+    },
+    alternateRowStyles: { fillColor: [255, 249, 245] },
+    columnStyles: {
+      0: { cellWidth: options?.columnWidth ?? 52, fontStyle: 'bold', textColor: [80, 86, 98] },
+      1: { cellWidth: CONTENT_WIDTH - (options?.columnWidth ?? 52) },
+    },
+    didDrawPage: () => addPageShell(doc, txnId),
+  });
+
+  const lastY = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 38;
+  return lastY + 11;
+}
+
+function addBlockchainBlock(doc: jsPDF, y: number, contract: ContractPdfData, txnId: string): number {
+  y = ensureSpace(doc, y, 52, txnId);
+  const hash = contract.polygon_tx_hash ?? 'Pending';
+  const verification = polygonUrl(contract.polygon_tx_hash);
+  const blockHeight = 46;
+
+  roundedPanel(doc, PAGE.margin, y, CONTENT_WIDTH, blockHeight, [255, 255, 255]);
+  doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
+  doc.roundedRect(PAGE.margin + 5, y + 6, 36, 8, 3, 3, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('POLYGON VERIFIED', PAGE.margin + 23, y + 11.3, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  setText(doc);
+  doc.text('Blockchain Verification', PAGE.margin + 47, y + 12);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
+  doc.text('Network: Polygon Amoy', PAGE.margin + 47, y + 18);
+
+  const hashY = writeWrapped(doc, `Transaction Hash: ${hash}`, PAGE.margin + 6, y + 29, CONTENT_WIDTH - 12, {
+    fontSize: 8.2,
+    lineHeight: 4.2,
+    color: DARK,
+    bold: true,
+  });
+  writeWrapped(doc, verification, PAGE.margin + 6, hashY + 1, CONTENT_WIDTH - 12, {
+    fontSize: 8,
+    lineHeight: 4.1,
+    color: BRAND,
+  });
+
+  return y + blockHeight + 11;
 }
 
 function scheduleRows(emi: number, duration: number): string[][] {
@@ -86,32 +283,21 @@ function scheduleRows(emi: number, duration: number): string[][] {
 }
 
 export function generateContractPDF({ contract, perspective, mode = 'user' }: GenerateContractPdfOptions) {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const txnId = contract.txn_id ?? `OXY-TXN-PENDING-${contract.id.slice(0, 8)}`;
   const emi = Number(contract.emi_amount ?? 0);
   const totalReturn = Number(contract.total_return ?? emi * contract.duration);
   const generatedAt = new Date().toISOString();
 
-  doc.setFillColor(255, 90, 31);
-  doc.rect(0, 0, 210, 30, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.text('Oxyile', 14, 14);
-  doc.setFontSize(12);
-  doc.text('P2P Digital Loan Agreement', 14, 23);
+  addPageShell(doc, txnId);
+  addHeader(doc, txnId);
+  let y = addMetadataSection(doc, contract, txnId, generatedAt);
 
-  doc.setTextColor(20, 20, 20);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Transaction ID: ${txnId}`, 14, 42);
-  doc.text(`Agreement Timestamp: ${printableDate(contract.created_at)}`, 14, 48);
-  doc.text(`Generated: ${printableDate(generatedAt)}`, 14, 54);
-
-  autoTable(doc, {
-    startY: 64,
-    head: [['Loan Terms', 'Value']],
-    body: [
+  y = addTable(
+    doc,
+    'Loan Terms',
+    y,
+    [
       ['Loan Amount', money(contract.amount)],
       ['Interest Rate', `${contract.rate}% p.a.`],
       ['Duration', `${contract.duration} months`],
@@ -120,24 +306,12 @@ export function generateContractPDF({ contract, perspective, mode = 'user' }: Ge
       ['Contract Status', contract.status ?? 'ACTIVE'],
       ['Payment Status', contract.payment_status ?? 'PENDING'],
     ],
-    styles: { fontSize: 9, cellPadding: 3 },
-    headStyles: { fillColor: [255, 90, 31], textColor: 255 },
-  });
+    txnId
+  );
 
-  autoTable(doc, {
-    startY: 126,
-    head: [['Blockchain Verification', 'Value']],
-    body: [
-      ['Network', 'Polygon Amoy'],
-      ['Verification', polygonUrl(contract.polygon_tx_hash)],
-      ['Transaction Hash', contract.polygon_tx_hash ?? 'Pending'],
-    ],
-    styles: { fontSize: 8.5, cellPadding: 3 },
-    headStyles: { fillColor: [20, 20, 20], textColor: 255 },
-    columnStyles: { 1: { cellWidth: 125 } },
-  });
+  y = addBlockchainBlock(doc, y, contract, txnId);
 
-  const partyRows: string[][] =
+  const partyRows =
     mode === 'admin'
       ? [
           ['Lender', `${contract.lender_name ?? 'Unknown'} (${contract.lender_id ?? 'n/a'})`],
@@ -153,57 +327,65 @@ export function generateContractPDF({ contract, perspective, mode = 'user' }: Ge
           ['Counterparty Handle', contract.counterparty_username ?? 'Not set'],
         ];
 
-  autoTable(doc, {
-    startY: 180,
-    head: [[mode === 'admin' ? 'Master Party Data' : 'Party Summary', 'Value']],
-    body: partyRows,
-    styles: { fontSize: 8.5, cellPadding: 3 },
-    headStyles: { fillColor: [255, 90, 31], textColor: 255 },
-    columnStyles: { 1: { cellWidth: 125 } },
-  });
-
-  doc.addPage();
-  doc.setTextColor(20, 20, 20);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  y = addTable(doc, mode === 'admin' ? 'Master Party Data' : 'Party Summary', y, partyRows, txnId);
 
   if (perspective === 'BORROWER') {
-    doc.text('Borrower Repayment Schedule', 14, 18);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(
-      `GoCardless mandate: ${contract.mandate_id ?? 'Authorised mandate reference pending reconciliation'}`,
-      14,
-      27
+    y = addTable(
+      doc,
+      'Borrower Repayment Schedule',
+      y,
+      [
+        ['Mandate Reference', contract.mandate_id ?? 'Authorised mandate reference pending reconciliation'],
+        ['Collection Method', 'GoCardless Direct Debit'],
+        ['Repayment Frequency', 'Monthly'],
+      ],
+      txnId
     );
+
+    y = ensureSpace(doc, y, 60, txnId);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    setText(doc);
+    doc.text('EMI Breakdown', PAGE.margin, y);
     autoTable(doc, {
-      startY: 36,
+      startY: y + 5,
       head: [['Installment', 'EMI', 'Collection Method']],
       body: scheduleRows(emi, contract.duration),
-      styles: { fontSize: 8.5, cellPadding: 2.5 },
-      headStyles: { fillColor: [255, 90, 31], textColor: 255 },
+      margin: { left: PAGE.margin, right: PAGE.margin },
+      tableWidth: CONTENT_WIDTH,
+      rowPageBreak: 'avoid',
+      pageBreak: 'auto',
+      styles: {
+        fontSize: 8.2,
+        cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+        overflow: 'linebreak',
+        lineColor: [255, 215, 198],
+        lineWidth: 0.2,
+      },
+      headStyles: { fillColor: [BRAND.r, BRAND.g, BRAND.b], textColor: 255 },
+      alternateRowStyles: { fillColor: [255, 249, 245] },
+      didDrawPage: () => addPageShell(doc, txnId),
     });
   } else if (perspective === 'INVESTOR') {
-    doc.text('Investor Return Overview', 14, 18);
-    autoTable(doc, {
-      startY: 28,
-      head: [['Metric', 'Value']],
-      body: [
+    addTable(
+      doc,
+      'Investor Return Overview',
+      y,
+      [
         ['Principal Deployed', money(contract.amount)],
         ['Expected Total Return', money(totalReturn)],
         ['Estimated Interest Earned', money(totalReturn - contract.amount)],
         ['Borrower', contract.borrower_name ?? contract.counterparty_name ?? 'Verified borrower'],
         ['Borrower Public Handle', contract.counterparty_username ?? 'Not set'],
       ],
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { fillColor: [255, 90, 31], textColor: 255 },
-    });
+      txnId
+    );
   } else {
-    doc.text('Admin Master Contract View', 14, 18);
-    autoTable(doc, {
-      startY: 28,
-      head: [['Field', 'Value']],
-      body: [
+    addTable(
+      doc,
+      'Admin Master Contract View',
+      y,
+      [
         ['Transaction ID', txnId],
         ['Handshake ID', contract.id],
         ['Lender', `${contract.lender_name ?? 'Unknown'} (${contract.lender_id ?? 'n/a'})`],
@@ -212,12 +394,11 @@ export function generateContractPDF({ contract, perspective, mode = 'user' }: Ge
         ['Subscription', contract.gocardless_subscription_id ?? 'Pending'],
         ['Polygon Tx', contract.polygon_tx_hash ?? 'Pending'],
       ],
-      styles: { fontSize: 8.5, cellPadding: 3 },
-      headStyles: { fillColor: [20, 20, 20], textColor: 255 },
-      columnStyles: { 1: { cellWidth: 130 } },
-    });
+      txnId,
+      { darkHeader: true, columnWidth: 48 }
+    );
   }
 
-  addFooter(doc, txnId);
+  addFooterPageNumbers(doc, txnId);
   doc.save(`${fileSafe(txnId)}-oxyile-contract.pdf`);
 }

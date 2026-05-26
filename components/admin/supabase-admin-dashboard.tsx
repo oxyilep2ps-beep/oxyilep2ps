@@ -10,6 +10,7 @@ import { RejectReasonDialog } from '@/components/admin/reject-reason-dialog';
 import type { KycDocumentPaths, Profile } from '@/lib/types/profile';
 import { cn } from '@/lib/utils';
 import { exportKycDossierPdf } from '@/lib/pdf/export-kyc-pdf';
+import { generateAdminApprovedUsersPDF } from '@/lib/pdf/admin-approved-users-pdf';
 
 type Tab = 'pending' | 'approved';
 type ReviewAction = 'APPROVED' | 'REJECTED';
@@ -210,6 +211,7 @@ export function SupabaseAdminDashboard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  const [exportingApproved, setExportingApproved] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<Profile | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const signedUrlCache = useRef<Record<string, string>>({});
@@ -337,6 +339,15 @@ export function SupabaseAdminDashboard() {
     void submitReview({ userId: rejectTarget.id, action: 'REJECTED', reason: rejectReason });
   }, [rejectReason, rejectTarget, submitReview]);
 
+  const handleExportApprovedUsers = useCallback(() => {
+    setExportingApproved(true);
+    try {
+      generateAdminApprovedUsersPDF(profiles.filter((profile) => profile.status === 'APPROVED'));
+    } finally {
+      setExportingApproved(false);
+    }
+  }, [profiles]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -380,14 +391,30 @@ export function SupabaseAdminDashboard() {
 
       <main className="min-w-0 flex-1 overflow-x-auto">
         <>
-            <h1 className="text-2xl font-black text-neutral-950 dark:text-white sm:text-3xl">
-              {tab === 'pending' ? 'Pending Reviews' : 'Approved Users Vault'}
-            </h1>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-              {tab === 'pending'
-                ? 'Review KYC submissions and approve or permanently reject applicants.'
-                : 'Secure view of all verified investors and borrowers.'}
-            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-black text-neutral-950 dark:text-white sm:text-3xl">
+                  {tab === 'pending' ? 'Pending Reviews' : 'Approved Users Vault'}
+                </h1>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+                  {tab === 'pending'
+                    ? 'Review KYC submissions and approve or permanently reject applicants.'
+                    : 'Secure view of all verified investors and borrowers.'}
+                </p>
+              </div>
+
+              {tab === 'approved' && (
+                <button
+                  type="button"
+                  onClick={handleExportApprovedUsers}
+                  disabled={exportingApproved || loading || profiles.length === 0}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-5 py-3 text-sm font-bold text-white shadow-glow transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {exportingApproved ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  Export Certified Network
+                </button>
+              )}
+            </div>
 
             {message && (
               <motion.p
