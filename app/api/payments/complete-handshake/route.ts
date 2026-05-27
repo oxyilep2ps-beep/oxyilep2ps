@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import gocardless from 'gocardless-nodejs';
+import { Environments } from 'gocardless-nodejs/constants';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { executeHandshake } from '@/app/actions/handshake';
@@ -42,6 +44,72 @@ function findMandateId(value: unknown): string | null {
   return null;
 }
 
+const goCardlessClient = gocardless(
+  process.env.GOCARDLESS_ACCESS_TOKEN ?? '',
+  process.env.GOCARDLESS_ENVIRONMENT === 'live' ? Environments.Live : Environments.Sandbox
+);
+
+type GoCardlessBillingRequestShape = {
+  id?: string;
+  links?: {
+    mandate_request_mandate?: string;
+    customer_billing_detail?: string;
+    customer_bank_account?: string;
+    [key: string]: unknown;
+  };
+  mandate_request?: {
+    links?: {
+      mandate?: string;
+      [key: string]: unknown;
+    };
+  };
+  [key: string]: unknown;
+};
+
+async function getBillingRequestViaSdk(billingRequestId: string): Promise<unknown | null> {
+  const api = goCardlessClient as unknown as {
+    billingRequests?: {
+      find?: (id: string) => Promise<GoCardlessBillingRequestShape>;
+      get?: (id: string) => Promise<GoCardlessBillingRequestShape>;
+      retrieve?: (id: string) => Promise<GoCardlessBillingRequestShape>;
+    };
+  };
+
+  const billingRequests = api.billingRequests;
+  if (!billingRequests) return null;
+
+  if (typeof billingRequests.find === 'function') {
+    return billingRequests.find(billingRequestId);
+  }
+  if (typeof billingRequests.get === 'function') {
+    return billingRequests.get(billingRequestId);
+  }
+  if (typeof billingRequests.retrieve === 'function') {
+    return billingRequests.retrieve(billingRequestId);
+  }
+
+  return null;
+}
+
+async function getBillingRequestViaHttp(token: string, billingRequestId: string): Promise<unknown> {
+  const response = await fetch(`${getGoCardlessBaseUrl()}/billing_requests/${billingRequestId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'GoCardless-Version': '2015-04-29',
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Could not verify GoCardless mandate: ${response.status} ${text}`);
+  }
+
+  return (await response.json()) as unknown;
+}
+
 async function resolveMandateId(params: {
   explicitMandateId?: string;
   billingRequestId?: string;
@@ -60,20 +128,10 @@ async function resolveMandateId(params: {
     throw new Error('GoCardless billing request reference missing');
   }
 
-  const response = await fetch(`${getGoCardlessBaseUrl()}/billing_requests/${params.billingRequestId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-      'GoCardless-Version': '2015-04-29',
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Could not verify GoCardless mandate: ${response.status} ${text}`);
-  }
-
-  const body = (await response.json()) as unknown;
+  // Preferred path: official SDK (handles API versioning internally).
+  const body =
+    (await getBillingRequestViaSdk(params.billingRequestId)) ??
+    (await getBillingRequestViaHttp(token, params.billingRequestId));
   const mandateId = findMandateId(body);
 
   if (!mandateId) {
