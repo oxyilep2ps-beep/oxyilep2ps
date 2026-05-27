@@ -35,13 +35,9 @@ WHERE amount IS NOT NULL
     OR total_return <= 0
   );
 
--- Existing sandbox_/flow-like values are not chain hashes. Replace them with
--- deterministic mock 0x hashes so the admin UI never confuses GoCardless IDs
--- with Polygon transaction hashes.
+-- Existing sandbox_/flow-like values are not valid chain hashes.
+-- Clear them so only real mined transaction hashes remain in UI/DB.
 UPDATE public.handshakes
-SET polygon_tx_hash =
-  '0x' ||
-  md5(id::text || COALESCE(created_at::text, '')) ||
-  md5(COALESCE(polygon_tx_hash, '') || id::text)
+SET polygon_tx_hash = NULL
 WHERE polygon_tx_hash IS NOT NULL
   AND polygon_tx_hash !~ '^0x[0-9a-fA-F]{64}$';

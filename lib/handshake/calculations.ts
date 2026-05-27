@@ -7,8 +7,8 @@ export function calculateHandshakeFigures(amount: number, annualRatePercent: num
   const emi = totalReturn / months;
 
   return {
-    emi_amount: emi,
-    total_return: totalReturn,
+    emi_amount: parseFloat(emi.toFixed(2)),
+    total_return: parseFloat(totalReturn.toFixed(2)),
   };
 }
 
