@@ -20,7 +20,14 @@ export function WaitlistModal() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [postalCode, setPostalCode] = useState('');
   const [role, setRole] = useState<'borrower' | 'investor'>('borrower');
+  const [incomeSource, setIncomeSource] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [incomeBracket, setIncomeBracket] = useState('');
+  const [loanReason, setLoanReason] = useState('');
+  const [desiredLoanLimit, setDesiredLoanLimit] = useState('');
   const [answers, setAnswers] = useState<Record<string, boolean>>({
     uk_resident: false,
     understands_risk: false,
@@ -48,6 +55,19 @@ export function WaitlistModal() {
     setBusy(true);
     setError(null);
     try {
+      const questionnaireAnswers: Record<string, string> = Object.fromEntries(
+        QUESTIONS.map((q) => [q.label, answers[q.key] ? 'Yes' : 'No'])
+      );
+
+      if (role === 'investor') {
+        questionnaireAnswers['Source of Income'] = incomeSource || 'Not provided';
+        questionnaireAnswers['Current Company/Employer'] = companyName || 'Not provided';
+        questionnaireAnswers['Estimated Annual Income/Package Bracket'] = incomeBracket || 'Not provided';
+      } else {
+        questionnaireAnswers['Primary Reason for Loan'] = loanReason || 'Not provided';
+        questionnaireAnswers['Desired Loan Limit Amount (GBP)'] = desiredLoanLimit || 'Not provided';
+      }
+
       const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,10 +75,10 @@ export function WaitlistModal() {
           name,
           email,
           phone,
+          address,
+          postal_code: postalCode,
           role,
-          questionnaire_answers: Object.fromEntries(
-            QUESTIONS.map((q) => [q.label, answers[q.key] ? 'Yes' : 'No'])
-          ),
+          questionnaire_answers: questionnaireAnswers,
         }),
       });
       const body = (await res.json()) as { ok?: boolean; error?: string };
@@ -121,6 +141,20 @@ export function WaitlistModal() {
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
               />
+              <input
+                placeholder="Postal code"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value)}
+                className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+              />
+            </div>
+            <input
+              placeholder="Address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'borrower' | 'investor')}
@@ -130,6 +164,56 @@ export function WaitlistModal() {
                 <option value="investor">Investor</option>
               </select>
             </div>
+
+            {role === 'investor' ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  placeholder="Source of Income"
+                  value={incomeSource}
+                  onChange={(e) => setIncomeSource(e.target.value)}
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                />
+                <input
+                  placeholder="Current Company/Employer"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                />
+                <select
+                  value={incomeBracket}
+                  onChange={(e) => setIncomeBracket(e.target.value)}
+                  className="sm:col-span-2 w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                >
+                  <option value="">Estimated Annual Income/Package Bracket</option>
+                  <option>Below £30,000</option>
+                  <option>£30,000 - £60,000</option>
+                  <option>£60,000 - £100,000</option>
+                  <option>£100,000+</option>
+                </select>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <select
+                  value={loanReason}
+                  onChange={(e) => setLoanReason(e.target.value)}
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                >
+                  <option value="">Primary Reason for Loan</option>
+                  <option>Business</option>
+                  <option>Personal</option>
+                  <option>Debt Consolidation</option>
+                  <option>Education</option>
+                  <option>Other</option>
+                </select>
+                <input
+                  placeholder="Desired Loan Limit Amount (GBP)"
+                  value={desiredLoanLimit}
+                  onChange={(e) => setDesiredLoanLimit(e.target.value)}
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                />
+              </div>
+            )}
+
             <div className="rounded-xl border border-white/50 bg-white/40 p-3 dark:border-white/10 dark:bg-black/30">
               <p className="text-[11px] font-bold uppercase tracking-wider text-brand-500">Strategic Questions</p>
               <div className="mt-2 space-y-2">

@@ -49,7 +49,7 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
   y += 6;
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(brand.r, brand.g, brand.b);
-  pdf.text('Questionnaire', 14, y);
+  pdf.text('Financial Profiling & Strategy', 14, y);
   y += 8;
   pdf.setTextColor(30, 30, 30);
   pdf.setFont('helvetica', 'normal');
@@ -60,6 +60,12 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
   } else {
     for (const [question, answer] of entries) {
       const answerText = typeof answer === 'boolean' ? (answer ? 'Yes' : 'No') : String(answer);
+      if (y > 265) {
+        pdf.addPage();
+        y = 20;
+      }
+      pdf.setFillColor(255, 245, 240);
+      pdf.roundedRect(12, y - 4, 186, 8, 2, 2, 'F');
       pdf.setFont('helvetica', 'bold');
       pdf.text(question, 14, y);
       y += 5;

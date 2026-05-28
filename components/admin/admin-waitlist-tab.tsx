@@ -11,6 +11,16 @@ import {
 } from '@/app/actions/admin-waitlist';
 import { exportWaitlistProfilePdf } from '@/lib/pdf/waitlist-profile-pdf';
 
+function firstValue(record: Record<string, string | boolean>, keys: string[]): string {
+  for (const key of keys) {
+    if (key in record) {
+      const value = record[key];
+      return typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value);
+    }
+  }
+  return 'Not provided';
+}
+
 export function AdminWaitlistTab() {
   const [rows, setRows] = useState<WaitlistRow[]>([]);
   const [metrics, setMetrics] = useState<WaitlistMetrics | null>(null);
@@ -116,6 +126,45 @@ export function AdminWaitlistTab() {
                 <div><dt className="text-neutral-500">Address</dt><dd>{detail.address ?? 'Not provided'}</dd></div>
                 <div><dt className="text-neutral-500">Postal code</dt><dd>{detail.postal_code ?? 'Not provided'}</dd></div>
               </dl>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {detail.role === 'investor' ? (
+                  <>
+                    <div className="rounded-xl border border-brand-200 bg-brand-500/10 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Income Source</p>
+                      <p className="mt-1 text-sm font-semibold">
+                        {firstValue(detail.questionnaire_answers, ['Source of Income'])}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-brand-200 bg-brand-500/10 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Employer</p>
+                      <p className="mt-1 text-sm font-semibold">
+                        {firstValue(detail.questionnaire_answers, ['Current Company/Employer'])}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-brand-200 bg-brand-500/10 p-3 sm:col-span-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Income Bracket</p>
+                      <p className="mt-1 text-sm font-semibold">
+                        {firstValue(detail.questionnaire_answers, ['Estimated Annual Income/Package Bracket'])}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded-xl border border-brand-200 bg-brand-500/10 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Loan Reason</p>
+                      <p className="mt-1 text-sm font-semibold">
+                        {firstValue(detail.questionnaire_answers, ['Primary Reason for Loan'])}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-brand-200 bg-brand-500/10 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Desired Limit</p>
+                      <p className="mt-1 text-sm font-semibold">
+                        {firstValue(detail.questionnaire_answers, ['Desired Loan Limit Amount (GBP)'])}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
               <div className="mt-6 space-y-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-brand-500">Questionnaire</p>
                 {Object.entries(detail.questionnaire_answers).map(([q, a]) => (

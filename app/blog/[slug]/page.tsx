@@ -26,11 +26,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const dbPost = await getApprovedBlogBySlug(slug);
 
   if (dbPost) {
-    const paragraphs = String(dbPost.content)
-      .split(/\n\n+/)
-      .map((p) => p.trim())
-      .filter(Boolean);
-
     return (
       <article className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
         <Link href="/blogs" className="text-sm font-semibold text-brand-600 hover:text-brand-500">
@@ -54,13 +49,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             {new Date(dbPost.created_at as string).toLocaleDateString('en-GB')}
           </p>
         </header>
-        <div className="prose prose-neutral mt-10 max-w-none dark:prose-invert">
-          {paragraphs.map((para) => (
-            <p key={para.slice(0, 40)} className="mb-4 text-base leading-8 text-slate-700 dark:text-slate-200">
-              {para}
-            </p>
-          ))}
-        </div>
+        <div
+          className="prose prose-neutral mt-10 max-w-none dark:prose-invert"
+          dangerouslySetInnerHTML={{ __html: String(dbPost.content) }}
+        />
         <Footer />
       </article>
     );

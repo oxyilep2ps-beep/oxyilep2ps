@@ -27,7 +27,7 @@ const items: {
   { href: '/admin-dashboard/waitlist', label: 'Waitlist', icon: Users },
   { href: '/admin-dashboard/contracts', label: 'Contracts', icon: FileSignature },
   { href: '/admin-dashboard/support', label: 'Support', icon: Headphones },
-  { href: '/admin-dashboard/blogs', label: 'Blogs', icon: Newspaper },
+  { href: '/admin-dashboard/blogs', label: 'BlogMgr', icon: Newspaper },
   { href: '/admin-dashboard/oliver', label: 'Oliver', icon: Bot },
   { href: '/admin-dashboard/careers', label: 'Careers', icon: Briefcase },
   { href: '/admin-dashboard/chat', label: 'Chat', icon: MessageCircle },

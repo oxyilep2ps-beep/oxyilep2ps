@@ -3,27 +3,17 @@
 import { FormEvent, useState } from 'react';
 import { Check, Loader2, Upload } from 'lucide-react';
 import { submitHrBlog, uploadBlogCover } from '@/app/actions/hr-blogs';
-
-const CHECKLIST = [
-  'Catchy, benefit-led title',
-  'Minimum 500 words of substance',
-  'SEO keywords in first paragraph',
-  'Clear headings and scannable structure',
-  'Brand tone (confident, compliant, human)',
-  'Cover image uploaded and relevant',
-  'Call-to-action or next step for readers',
-];
+import { BlogQualityChecklist, evaluateBlogQuality } from '@/components/blog/blog-quality-checklist';
+import { RichTextEditor } from '@/components/blog/rich-text-editor';
 
 export function HrBlogEditor() {
   const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState('<p></p>');
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [checks, setChecks] = useState<boolean[]>(CHECKLIST.map(() => false));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const allChecked = checks.every(Boolean);
-  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+  const quality = evaluateBlogQuality(title, content, coverUrl);
 
   const onCover = async (file: File | null) => {
     if (!file) return;
@@ -35,12 +25,8 @@ export function HrBlogEditor() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!allChecked) {
-      setMessage('Complete the editorial checklist before submitting.');
-      return;
-    }
-    if (wordCount < 500) {
-      setMessage(`Article needs at least 500 words (currently ${wordCount}).`);
+    if (!quality.allGreen) {
+      setMessage('Perfect Blog checklist is not fully green. Please fix the highlighted gaps.');
       return;
     }
     setBusy(true);
@@ -49,9 +35,8 @@ export function HrBlogEditor() {
       await submitHrBlog({ title, content, cover_image: coverUrl });
       setMessage('Submitted for admin approval!');
       setTitle('');
-      setContent('');
+      setContent('<p></p>');
       setCoverUrl(null);
-      setChecks(CHECKLIST.map(() => false));
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Submit failed');
     } finally {
@@ -88,44 +73,24 @@ export function HrBlogEditor() {
         required
       />
 
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Write your article (min 500 words)..."
-        rows={14}
-        className="w-full rounded-2xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
-        required
-      />
-      <p className="text-xs text-neutral-500">{wordCount} words</p>
-
-      <div className="glass-card rounded-2xl p-5">
-        <p className="text-sm font-bold text-brand-600">Editorial Checklist</p>
-        <ul className="mt-3 space-y-2">
-          {CHECKLIST.map((item, i) => (
-            <li key={item}>
-              <label className="flex cursor-pointer items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={checks[i]}
-                  onChange={(e) => {
-                    const next = [...checks];
-                    next[i] = e.target.checked;
-                    setChecks(next);
-                  }}
-                  className="mt-1"
-                />
-                <span>{item}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
+      <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        <div>
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder="Write your article with headings, lists, and links..."
+          />
+        </div>
+        <div className="space-y-3">
+          <BlogQualityChecklist title={title} content={content} coverImage={coverUrl} />
+        </div>
       </div>
 
       {message && <p className="text-sm text-brand-600">{message}</p>}
 
       <button
         type="submit"
-        disabled={busy || !allChecked}
+        disabled={busy || !quality.allGreen}
         className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
