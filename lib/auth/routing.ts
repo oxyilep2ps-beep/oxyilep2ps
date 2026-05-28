@@ -17,6 +17,13 @@ export function isAdminEmail(email: string | undefined | null): boolean {
   return getAdminEmails().includes(email.toLowerCase());
 }
 
+const SUPER_HR_EMAIL = 'flacmily@gmail.com';
+
+export function isSuperHrEmail(email: string | undefined | null): boolean {
+  if (!email) return false;
+  return email.trim().toLowerCase() === SUPER_HR_EMAIL;
+}
+
 /** Post-login / post-signup redirect target from profile + email. */
 export function getAuthRedirectPath(
   profile: Pick<Profile, 'role' | 'status'> | null,
@@ -24,6 +31,10 @@ export function getAuthRedirectPath(
 ): string {
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return '/admin-dashboard';
+  }
+
+  if (isSuperHrEmail(email) || profile?.role === 'HR') {
+    return '/hr';
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);
@@ -42,6 +53,7 @@ export function getAuthRedirectPath(
 
 export const PROTECTED_PREFIXES = [
   '/admin-dashboard',
+  '/hr',
   '/pending-verification',
   '/dashboard',
   '/chats',
@@ -69,6 +81,10 @@ export function canAccessPath(
       pathname.startsWith('/admin-dashboard') ||
       pathname.startsWith('/payments/mandate-complete')
     );
+  }
+
+  if (isSuperHrEmail(email) || profile?.role === 'HR') {
+    return pathname.startsWith('/hr');
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);

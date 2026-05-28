@@ -2,6 +2,7 @@ export const navLinks = [
   { href: '/', label: 'How It Works' },
   { href: '/blogs', label: 'Blogs' },
   { href: '/investors', label: 'Investors' },
+  { href: '/waitlist', label: 'Waitlist' },
   { href: '/careers', label: 'Careers' },
   { href: '/contact', label: 'Contact' },
 ];

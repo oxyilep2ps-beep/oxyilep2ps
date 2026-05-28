@@ -1,10 +1,5 @@
-import { SupabaseAdminDashboard } from '@/components/admin/supabase-admin-dashboard';
+import { redirect } from 'next/navigation';
 
-export const metadata = {
-  title: 'Admin Dashboard — Oxyile',
-  description: 'KYC review and user approval for Oxyile administrators',
-};
-
-export default function AdminDashboardPage() {
-  return <SupabaseAdminDashboard />;
+export default function AdminDashboardIndexPage() {
+  redirect('/admin-dashboard/applications');
 }

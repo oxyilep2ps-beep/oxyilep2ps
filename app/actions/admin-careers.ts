@@ -1,7 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { assertAdmin } from '@/lib/auth/assert-admin';
+import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 
 export type JobApplicationRow = {
   id: string;
@@ -15,7 +15,7 @@ export type JobApplicationRow = {
 };
 
 export async function listJobApplications(): Promise<JobApplicationRow[]> {
-  await assertAdmin();
+  await assertHrOrAdmin();
   const admin = createAdminClient();
 
   const { data, error } = await admin

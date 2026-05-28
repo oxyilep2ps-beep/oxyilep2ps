@@ -2,7 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Briefcase, FileSignature, MessageCircle, Settings, User, Users } from 'lucide-react';
+import {
+  Bot,
+  Briefcase,
+  ClipboardList,
+  FileSignature,
+  Headphones,
+  MessageCircle,
+  Newspaper,
+  Palette,
+  Settings,
+  User,
+  Users,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const items: {
@@ -11,10 +23,15 @@ const items: {
   icon: typeof Users;
   exact?: boolean;
 }[] = [
-  { href: '/admin-dashboard', label: 'Users', icon: Users, exact: true },
+  { href: '/admin-dashboard/applications', label: 'Apps', icon: ClipboardList, exact: true },
+  { href: '/admin-dashboard/waitlist', label: 'Waitlist', icon: Users },
   { href: '/admin-dashboard/contracts', label: 'Contracts', icon: FileSignature },
+  { href: '/admin-dashboard/support', label: 'Support', icon: Headphones },
+  { href: '/admin-dashboard/blogs', label: 'Blogs', icon: Newspaper },
+  { href: '/admin-dashboard/oliver', label: 'Oliver', icon: Bot },
   { href: '/admin-dashboard/careers', label: 'Careers', icon: Briefcase },
   { href: '/admin-dashboard/chat', label: 'Chat', icon: MessageCircle },
+  { href: '/admin-dashboard/theme', label: 'Theme', icon: Palette },
   { href: '/admin-dashboard/profile', label: 'Profile', icon: User, exact: true },
   { href: '/admin-dashboard/settings', label: 'Settings', icon: Settings },
 ];
@@ -27,7 +44,7 @@ export function AdminBottomNav() {
       className="fixed inset-x-0 bottom-0 z-50 overflow-x-auto border-t border-white/20 bg-white/70 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-md dark:border-white/10 dark:bg-white/10"
       aria-label="Admin navigation"
     >
-      <ul className="mx-auto flex max-w-lg items-center justify-between">
+      <ul className="mx-auto flex min-w-max items-center justify-start gap-1 px-1 sm:justify-center">
         {items.map(({ href, label, icon: Icon, exact }) => {
           const active = exact ? pathname === href : pathname.startsWith(href);
           return (
@@ -35,11 +52,11 @@ export function AdminBottomNav() {
               <Link
                 href={href}
                 className={cn(
-                  'flex min-w-[3rem] flex-col items-center gap-0.5 rounded-xl px-1.5 py-1.5 text-[9px] font-semibold transition sm:min-w-0 sm:px-2 sm:text-[10px]',
+                  'flex min-w-[3.25rem] flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[9px] font-semibold transition',
                   active ? 'text-brand-500' : 'text-neutral-500 dark:text-neutral-400'
                 )}
               >
-                <Icon size={22} strokeWidth={active ? 2.5 : 2} />
+                <Icon size={20} strokeWidth={active ? 2.5 : 2} />
                 {label}
               </Link>
             </li>

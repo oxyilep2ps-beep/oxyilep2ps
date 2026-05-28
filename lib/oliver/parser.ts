@@ -1,4 +1,5 @@
 import { searchBotKnowledge } from '@/lib/bot-knowledge';
+import { fetchDynamicKnowledge, matchDynamicKnowledge } from '@/lib/oliver/dynamic-knowledge';
 
 const GREETING_PATTERNS: { pattern: RegExp; replies: string[] }[] = [
   {
@@ -13,22 +14,22 @@ const GREETING_PATTERNS: { pattern: RegExp; replies: string[] }[] = [
     pattern: /\b(how\s*are\s*you|how\s*is\s*your\s*day|how'?s\s*your\s*day|how\s*you\s*doing)\b/i,
     replies: [
       "I'm doing well, thank you — busy helping borrowers and investors! How's your day going?",
-      "All systems green on my side! What would you like to know about Oxyile?",
-      "Running smoothly — like a good EMI schedule. What can I help with?",
+      'All systems green on my side! What would you like to know about Oxyile?',
+      'Running smoothly — like a good EMI schedule. What can I help with?',
     ],
   },
   {
     pattern: /\b(thanks|thank\s*you|cheers|appreciate)\b/i,
     replies: [
       "You're welcome! Anything else about Oxyile?",
-      "Happy to help — that is what I am here for.",
+      'Happy to help — that is what I am here for.',
     ],
   },
   {
     pattern: /\b(bye|goodbye|see\s*you|later)\b/i,
     replies: [
       'Goodbye! Come back anytime you need help with Oxyile.',
-      "Take care — I will be here when you need me.",
+      "Take care — I'll be here when you need me.",
     ],
   },
 ];
@@ -37,7 +38,10 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-export function parseOliverReply(userText: string): string {
+export const OLIVER_FALLBACK_MARKDOWN =
+  "I'm still learning! For complex queries, please [Contact Support](/contact) or [Raise a Complaint](/raise-complaint).";
+
+export async function parseOliverReply(userText: string): Promise<string> {
   const trimmed = userText.trim();
   if (!trimmed) {
     return 'Type a question about Oxyile — handshakes, payments, KYC, or security.';
@@ -49,8 +53,12 @@ export function parseOliverReply(userText: string): string {
     }
   }
 
+  const dynamicEntries = await fetchDynamicKnowledge();
+  const dynamic = matchDynamicKnowledge(trimmed, dynamicEntries);
+  if (dynamic) return dynamic;
+
   const knowledge = searchBotKnowledge(trimmed);
   if (knowledge) return knowledge;
 
-  return "I'm not sure about that yet. Try keywords like handshake, EMI, GoCardless, Polygon, KYC, or admin approval — or browse Help in Settings.";
+  return OLIVER_FALLBACK_MARKDOWN;
 }

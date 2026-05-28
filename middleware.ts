@@ -6,6 +6,7 @@ import {
   isAdminEmail,
   isAuthPage,
   isProtectedPath,
+  isSuperHrEmail,
 } from '@/lib/auth/routing';
 import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
@@ -51,6 +52,7 @@ export async function middleware(request: NextRequest) {
   if (user && isProtectedPath(pathname)) {
     const allowed =
       isAdminEmail(email) ||
+      isSuperHrEmail(email) ||
       profile?.role === 'ADMIN' ||
       (profile ? canAccessPath(pathname, profile, email) : false);
 

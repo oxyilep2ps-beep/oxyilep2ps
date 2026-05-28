@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: profile, error: profileError } = await admin
       .from('profiles')
-      .select('id, email, full_legal_name, kyc_data, status')
+      .select('id, email, full_legal_name, kyc_data, status, role')
       .eq('id', body.userId)
       .maybeSingle();
 
@@ -91,13 +91,23 @@ export async function POST(request: Request) {
         status: 'APPROVED',
       });
 
-      revalidatePath('/admin-dashboard');
+      revalidatePath('/admin-dashboard/applications');
       return NextResponse.json({ ok: true, action: 'APPROVED' });
     }
 
     if (!body.reason?.trim()) {
       return NextResponse.json({ error: 'A rejection reason is required' }, { status: 400 });
     }
+
+    await admin.from('application_rejections').insert({
+      user_id: profile.id,
+      email: profile.email,
+      full_legal_name: profile.full_legal_name,
+      role: profile.role ?? null,
+      rejection_reason: body.reason.trim(),
+      kyc_data: profile.kyc_data,
+      rejected_by: adminUser.email,
+    });
 
     const storagePaths = collectStoragePaths(profile.kyc_data as { identity?: { documents?: KycDocumentPaths } } | null);
     if (storagePaths.length > 0) {

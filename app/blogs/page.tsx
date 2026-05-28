@@ -2,8 +2,10 @@
 
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
+import { useEffect, useState } from 'react';
 import { Footer } from '@/components/footer';
 import { BlogListAnimated } from '@/components/blog/blog-list-animated';
+import { BlogListDb, type PublicBlogCard } from '@/components/blog/blog-list-db';
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -15,6 +17,15 @@ function Section({ children }: { children: React.ReactNode }) {
 }
 
 export default function BlogsPage() {
+  const [approved, setApproved] = useState<PublicBlogCard[]>([]);
+
+  useEffect(() => {
+    void fetch('/api/blogs/approved')
+      .then((r) => r.json())
+      .then((body: { posts?: PublicBlogCard[] }) => setApproved(body.posts ?? []))
+      .catch(() => setApproved([]));
+  }, []);
+
   return (
     <Section>
       <motion.div variants={fadeUp} initial="hidden" animate="show">
@@ -23,11 +34,11 @@ export default function BlogsPage() {
           Blogs / Insights
         </h1>
         <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600 dark:text-slate-300">
-          Fintech articles, market updates, and P2P lending guides — nine stories on Web3, GoCardless, and
-          portfolio craft.
+          Fintech articles, market updates, and HR-approved editorial from the Oxyile team.
         </p>
       </motion.div>
 
+      <BlogListDb posts={approved} />
       <BlogListAnimated />
       <Footer />
     </Section>

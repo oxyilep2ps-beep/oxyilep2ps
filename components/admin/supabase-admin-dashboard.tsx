@@ -11,8 +11,9 @@ import type { KycDocumentPaths, Profile } from '@/lib/types/profile';
 import { cn } from '@/lib/utils';
 import { exportKycDossierPdf } from '@/lib/pdf/export-kyc-pdf';
 import { generateAdminApprovedUsersPDF } from '@/lib/pdf/admin-approved-users-pdf';
+import { listApplicationRejections, type RejectionRow } from '@/app/actions/admin-rejections';
 
-type Tab = 'pending' | 'approved';
+type Tab = 'pending' | 'approved' | 'rejected';
 type ReviewAction = 'APPROVED' | 'REJECTED';
 type DocumentKind = 'image' | 'pdf' | 'video' | 'other';
 
@@ -283,12 +284,22 @@ export function SupabaseAdminDashboard() {
   const [exportingApproved, setExportingApproved] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<Profile | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [rejections, setRejections] = useState<RejectionRow[]>([]);
+  const [rejectedCount, setRejectedCount] = useState(0);
   const signedUrlCache = useRef<Record<string, string>>({});
 
   const load = useCallback(async (targetTab: Tab = tab) => {
-
     setLoading(true);
     try {
+      if (targetTab === 'rejected') {
+        const rows = await listApplicationRejections();
+        setRejections(rows);
+        setRejectedCount(rows.length);
+        setProfiles([]);
+        setExpandedId(null);
+        return;
+      }
+
       const supabase = createClient();
       const [pendingResult, approvedResult, listResult] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'PENDING').neq('role', 'ADMIN'),
@@ -425,8 +436,8 @@ export function SupabaseAdminDashboard() {
     >
       <aside className="glass-card w-full shrink-0 rounded-2xl p-4 lg:w-56">
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-brand-500">Oxyile Admin</p>
-        <p className="mt-1 text-lg font-bold text-neutral-950 dark:text-white">Compliance Hub</p>
-        <nav className="mt-6 space-y-2">
+        <p className="mt-1 text-lg font-bold text-neutral-950 dark:text-white">Applications</p>
+        <nav className="mt-6 flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
           <button
             type="button"
             onClick={() => setTab('pending')}
@@ -452,8 +463,22 @@ export function SupabaseAdminDashboard() {
             )}
           >
             <ShieldCheck size={18} />
-            Approved Users
+            Approved
             <span className="ml-auto rounded-full bg-white/20 px-2 py-0.5 text-xs">{approvedCount}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('rejected')}
+            className={cn(
+              'flex w-full shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-left text-sm font-semibold transition',
+              tab === 'rejected'
+                ? 'bg-red-500 text-white shadow-glow'
+                : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/5'
+            )}
+          >
+            <X size={18} />
+            Rejected
+            <span className="ml-auto rounded-full bg-white/20 px-2 py-0.5 text-xs">{rejectedCount}</span>
           </button>
         </nav>
       </aside>
@@ -463,12 +488,14 @@ export function SupabaseAdminDashboard() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className="text-2xl font-black text-neutral-950 dark:text-white sm:text-3xl">
-                  {tab === 'pending' ? 'Pending Reviews' : 'Approved Users Vault'}
+                  {tab === 'pending' ? 'Pending Reviews' : tab === 'approved' ? 'Approved Users Vault' : 'Rejected Applications'}
                 </h1>
                 <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
                   {tab === 'pending'
                     ? 'Review KYC submissions and approve or permanently reject applicants.'
-                    : 'Secure view of all verified investors and borrowers.'}
+                    : tab === 'approved'
+                      ? 'Secure view of all verified investors and borrowers.'
+                      : 'Archived rejections with reasons and timestamps.'}
                 </p>
               </div>
 
@@ -499,6 +526,35 @@ export function SupabaseAdminDashboard() {
               <div className="mt-12 flex justify-center text-neutral-500">
                 <Loader2 className="animate-spin" size={28} />
               </div>
+            ) : tab === 'rejected' ? (
+              rejections.length === 0 ? (
+                <p className="mt-12 text-center text-sm text-neutral-500">No rejected applications archived yet.</p>
+              ) : (
+                <ul className="mt-6 space-y-3">
+                  {rejections.map((row) => (
+                    <li key={row.id} className="glass-card rounded-2xl p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-neutral-950 dark:text-white">{row.full_legal_name ?? 'Unknown'}</p>
+                          <p className="text-sm text-neutral-500">{row.email}</p>
+                          <p className="mt-1 text-xs text-neutral-400">
+                            {row.role ?? '—'} · Rejected {new Date(row.rejected_at).toLocaleString('en-GB')}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-bold text-red-700 dark:text-red-300">
+                          Rejected
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-neutral-700 dark:text-neutral-200">
+                        <span className="font-semibold text-brand-600">Reason:</span> {row.rejection_reason ?? '—'}
+                      </p>
+                      {row.rejected_by && (
+                        <p className="mt-1 text-xs text-neutral-500">Reviewed by {row.rejected_by}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )
             ) : profiles.length === 0 ? (
               <p className="mt-12 text-center text-sm text-neutral-500">No users in this list.</p>
             ) : (

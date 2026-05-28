@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { ChevronDown, Headphones, Mail, MapPin, PhoneCall } from 'lucide-react';
 import { Footer } from '@/components/footer';
@@ -23,6 +23,33 @@ const faqs = [
 export default function ContactPage() {
   const [open, setOpen] = useState<number | null>(0);
   const [chat, setChat] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setFormError(null);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, subject, message }),
+      });
+      const body = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !body.ok) throw new Error(body.error ?? 'Failed to send');
+      setSent(true);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Send failed');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Section>
@@ -55,13 +82,54 @@ export default function ContactPage() {
             </div>
             <button onClick={() => setChat(true)} className="rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-glow">Live chat</button>
           </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <input placeholder="Full name" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-white/10 dark:bg-black" />
-            <input placeholder="Email address" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-white/10 dark:bg-black" />
-            <input placeholder="Subject" className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-white/10 dark:bg-black" />
-            <textarea rows={5} placeholder="How can we help?" className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-white/10 dark:bg-black" />
-          </div>
-          <button className="mt-5 w-full rounded-full bg-brand-500 px-6 py-3.5 font-semibold text-white shadow-glow">Send message</button>
+          {sent ? (
+            <p className="mt-6 rounded-2xl bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+              Message sent — our team will reply to {email}.
+            </p>
+          ) : (
+            <form onSubmit={onSubmit}>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <input
+                  required
+                  placeholder="Full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-white/10 dark:bg-black"
+                />
+                <input
+                  required
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-white/10 dark:bg-black"
+                />
+                <input
+                  required
+                  placeholder="Subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-white/10 dark:bg-black"
+                />
+                <textarea
+                  required
+                  rows={5}
+                  placeholder="How can we help?"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-white/10 dark:bg-black"
+                />
+              </div>
+              {formError && <p className="mt-3 text-sm text-red-600">{formError}</p>}
+              <button
+                type="submit"
+                disabled={busy}
+                className="mt-5 w-full rounded-full bg-brand-500 px-6 py-3.5 font-semibold text-white shadow-glow disabled:opacity-60"
+              >
+                {busy ? 'Sending…' : 'Send message'}
+              </button>
+            </form>
+          )}
 
           <div className="mt-8 border-t border-slate-200/80 pt-6 dark:border-white/5">
             <h3 className="text-xl font-bold text-slate-950 dark:text-white">FAQs</h3>

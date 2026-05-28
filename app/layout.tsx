@@ -4,7 +4,7 @@ import { syne, inter } from '@/lib/fonts';
 import { ThemeProvider } from '@/components/theme-provider';
 import { NavigationLoadingProvider } from '@/components/navigation-loading-provider';
 import { SiteShell } from '@/components/site-shell';
-import { PremiumLiquidBackground } from '@/components/premium-liquid-background';
+import { GlobalThemeBackground } from '@/components/site/global-theme-background';
 import { ClickPaperBlast } from '@/components/click-paper-blast';
 import { OliverBot } from '@/components/oliver/oliver-bot';
 
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-transparent">
         <ThemeProvider>
           <NavigationLoadingProvider>
-            <PremiumLiquidBackground />
+            <GlobalThemeBackground />
             <ClickPaperBlast />
             <SiteShell>{children}</SiteShell>
             <OliverBot />

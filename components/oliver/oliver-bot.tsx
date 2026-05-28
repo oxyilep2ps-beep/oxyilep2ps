@@ -13,6 +13,25 @@ type BotMessage = { id: string; role: 'user' | 'bot'; text: string };
 
 const OPEN_EVENT = 'oxyile:open-oliver';
 
+function OliverMessageText({ text }: { text: string }) {
+  const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (match) {
+          return (
+            <Link key={i} href={match[2]} className="font-semibold text-brand-600 underline">
+              {match[1]}
+            </Link>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
 export function OliverBot() {
   const pathname = usePathname();
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
@@ -61,20 +80,22 @@ export function OliverBot() {
     setIsWidgetOpen(false);
   };
 
-  const send = (event?: FormEvent) => {
+  const send = async (event?: FormEvent) => {
     event?.preventDefault();
     const text = input.trim();
     if (!text) return;
 
     const userMsg: BotMessage = { id: `u-${Date.now()}`, role: 'user', text };
+    setMessages((m) => [...m, userMsg]);
+    setInput('');
+
+    const replyText = await parseOliverReply(text);
     const reply: BotMessage = {
       id: `b-${Date.now()}`,
       role: 'bot',
-      text: parseOliverReply(text),
+      text: replyText,
     };
-
-    setMessages((m) => [...m, userMsg, reply]);
-    setInput('');
+    setMessages((m) => [...m, reply]);
   };
 
   const handleFabClick = (e: React.MouseEvent) => {
@@ -153,7 +174,7 @@ export function OliverBot() {
                             : 'glass-card border border-white/50 text-neutral-800 dark:text-neutral-200'
                         )}
                       >
-                        {m.text}
+                        <OliverMessageText text={m.text} />
                       </div>
                     </div>
                   ))}
