@@ -357,6 +357,7 @@ function makeParticles(theme: ActiveTheme, viewport: Viewport): PrimaryParticle[
     const isBalloon = theme === 'aug';
     const isCloud = theme === 'nov';
     const isFloater = theme === 'may' || theme === 'jun';
+    const isFirework = theme === 'jul';
     const size = isAutumn
       ? autumnSizes[i % autumnSizes.length]
       : 30 + Math.random() * 70;
@@ -376,10 +377,16 @@ function makeParticles(theme: ActiveTheme, viewport: Viewport): PrimaryParticle[
         ? height + 40 + Math.random() * 180
         : isCloud
           ? 20 + Math.random() * (height * 0.55)
+          : isFloater
+            ? 18 + Math.random() * (height * 0.72)
+            : isFirework
+              ? height * (0.24 + Math.random() * 0.58)
           : -130 - Math.random() * (height * 0.7),
       size,
       duration: isCloud
         ? 60 + Math.random() * 6
+        : isAutumn
+          ? 15 + Math.random() * 10
         : isRain || isMatrix
           ? 5 + Math.random() * 2
           : isFloater
@@ -452,6 +459,7 @@ export function MonthlyThemeBackground({ setting }: { setting: SiteAnimationThem
             ['--dur' as string]: `${p.duration}s`,
             ['--delay' as string]: `${p.delay}s`,
             ['--r2' as string]: `${p.rotation}deg`,
+            zIndex: 0,
           }}
         >
           <div className="shape">{renderShape(active, p.color, p.char)}</div>
@@ -652,11 +660,11 @@ export function MonthlyThemeBackground({ setting }: { setting: SiteAnimationThem
             opacity: 0.6;
           }
           70% {
-            transform: scale(1.4) translateY(-10vh);
-            opacity: 0.3;
+            transform: scale(1.45) translateY(-8vh);
+            opacity: 0.45;
           }
           100% {
-            transform: scale(1.9) translateY(-18vh);
+            transform: scale(2.1) translateY(-16vh);
             opacity: 0;
           }
         }

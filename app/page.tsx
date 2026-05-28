@@ -12,6 +12,7 @@ import { ReviewsReputation } from '@/components/reviews-reputation';
 import { FaqsAccordion } from '@/components/faqs-accordion';
 import { TeamSection } from '@/components/team-section';
 import { OliverBotFooter } from '@/components/oliver-bot-footer';
+import { WaitlistModal } from '@/components/WaitlistModal';
 
 export default function Home() {
   return (
@@ -30,6 +31,7 @@ export default function Home() {
       <TeamSection />
       <FaqsAccordion />
       <OliverBotFooter />
+      <WaitlistModal />
     </>
   );
 }
