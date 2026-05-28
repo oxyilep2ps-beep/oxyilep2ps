@@ -354,6 +354,9 @@ function makeParticles(theme: ActiveTheme, viewport: Viewport): PrimaryParticle[
     const isAutumn = theme === 'sep';
     const isRain = theme === 'apr';
     const isMatrix = theme === 'oct';
+    const isBalloon = theme === 'aug';
+    const isCloud = theme === 'nov';
+    const isFloater = theme === 'may' || theme === 'jun';
     const size = isAutumn
       ? autumnSizes[i % autumnSizes.length]
       : 30 + Math.random() * 70;
@@ -364,10 +367,24 @@ function makeParticles(theme: ActiveTheme, viewport: Viewport): PrimaryParticle[
 
     items.push({
       id: `${theme}-${i}`,
-      left: isAutumn ? -18 + Math.random() * 22 : (Math.random() * width * 1.1) / width * 100,
-      top: -130 - Math.random() * (height * 0.7),
+      left: isAutumn
+        ? -18 + Math.random() * 22
+        : isCloud
+          ? -20 + Math.random() * 10
+          : (Math.random() * width * 1.1) / width * 100,
+      top: isBalloon
+        ? height + 40 + Math.random() * 180
+        : isCloud
+          ? 20 + Math.random() * (height * 0.55)
+          : -130 - Math.random() * (height * 0.7),
       size,
-      duration: isRain ? 3 + Math.random() * 1.6 : 11 + Math.random() * 8,
+      duration: isCloud
+        ? 60 + Math.random() * 6
+        : isRain || isMatrix
+          ? 5 + Math.random() * 2
+          : isFloater
+            ? 14 + Math.random() * 5
+            : 10 + Math.random() * 5,
       delay: Math.random() * 15,
       opacity: 0.3 + Math.random() * 0.3,
       tx,
@@ -395,6 +412,20 @@ export function MonthlyThemeBackground({ setting }: { setting: SiteAnimationThem
 
   const particles = useMemo(() => makeParticles(active, viewport), [active, viewport]);
   const secondary = useMemo(() => secondaryEnvironment(active), [active]);
+  const classNameByTheme: Record<ActiveTheme, string> = {
+    jan: 'gentleDrifter',
+    feb: 'gentleDrifter',
+    mar: 'tumbler',
+    apr: 'fastDropper',
+    may: 'floater',
+    jun: 'floater',
+    jul: 'firework',
+    aug: 'balloonRiser',
+    sep: 'tumbler',
+    oct: 'matrixDropper',
+    nov: 'cloudDrifter',
+    dec: 'gentleDrifter',
+  };
 
   return (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
@@ -403,7 +434,7 @@ export function MonthlyThemeBackground({ setting }: { setting: SiteAnimationThem
       {particles.map((p) => (
         <div
           key={p.id}
-          className={`absolute ${active === 'jul' ? 'firework' : active === 'aug' ? 'rise' : 'fall'}`}
+          className={`absolute ${classNameByTheme[active]}`}
           style={{
             width: p.size,
             height: p.size,
@@ -428,22 +459,42 @@ export function MonthlyThemeBackground({ setting }: { setting: SiteAnimationThem
       ))}
 
       <style jsx>{`
-        .fall {
+        .tumbler {
           animation:
-            fallToBottom var(--dur) linear infinite,
-            wobble 3.8s ease-in-out infinite;
+            fallDiagonal var(--dur) linear infinite,
+            spin360 5.5s linear infinite;
           animation-delay: calc(var(--delay) * -1);
         }
-        .rise {
+        .floater {
+          animation: floatErratic var(--dur) ease-in-out infinite;
+          animation-delay: calc(var(--delay) * -1);
+        }
+        .fastDropper {
           animation:
-            riseUp var(--dur) linear infinite,
-            wobble 3.8s ease-in-out infinite;
+            fastDrop var(--dur) linear infinite;
+          animation-delay: calc(var(--delay) * -1);
+        }
+        .matrixDropper {
+          animation: matrixDrop var(--dur) linear infinite;
+          animation-delay: calc(var(--delay) * -1);
+        }
+        .balloonRiser {
+          animation: balloonRise var(--dur) linear infinite;
+          animation-delay: calc(var(--delay) * -1);
+        }
+        .cloudDrifter {
+          animation: cloudDrift var(--dur) linear infinite;
+          animation-delay: calc(var(--delay) * -1);
+        }
+        .gentleDrifter {
+          animation:
+            gentleFall var(--dur) linear infinite,
+            pendulumSway 7.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
           animation-delay: calc(var(--delay) * -1);
         }
         .firework {
           animation:
-            burst var(--dur) ease-out infinite,
-            wobble 3s ease-in-out infinite;
+            burst var(--dur) ease-out infinite;
           animation-delay: calc(var(--delay) * -1);
         }
         .shape {
@@ -453,20 +504,143 @@ export function MonthlyThemeBackground({ setting }: { setting: SiteAnimationThem
           place-items: center;
           will-change: transform;
         }
-        @keyframes fallToBottom {
+        @keyframes gentleFall {
           0% {
-            transform: translate(0, -110px) rotate(0deg);
+            transform: translate(0, -10vh);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          95% {
+            transform: translate(var(--tx), 110vh);
+            opacity: 1;
           }
           100% {
-            transform: translate(var(--tx), 100vh) rotate(var(--r2));
+            transform: translate(var(--tx), 120vh);
+            opacity: 0;
           }
         }
-        @keyframes riseUp {
+        @keyframes fallDiagonal {
           0% {
-            transform: translate(0, 100vh) rotate(0deg);
+            transform: translate(0, -10vh);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          95% {
+            transform: translate(var(--tx), 110vh);
+            opacity: 1;
           }
           100% {
-            transform: translate(var(--tx), -140px) rotate(var(--r2));
+            transform: translate(var(--tx), 120vh);
+            opacity: 0;
+          }
+        }
+        @keyframes spin360 {
+          from {
+            rotate: 0deg;
+          }
+          to {
+            rotate: 360deg;
+          }
+        }
+        @keyframes floatErratic {
+          0% {
+            transform: translate(0, 0);
+            opacity: 0.35;
+          }
+          25% {
+            transform: translate(20vw, -30vh);
+            opacity: 0.6;
+          }
+          50% {
+            transform: translate(-10vw, -10vh);
+            opacity: 0.45;
+          }
+          75% {
+            transform: translate(8vw, -24vh);
+            opacity: 0.55;
+          }
+          100% {
+            transform: translate(0, 0);
+            opacity: 0.35;
+          }
+        }
+        @keyframes fastDrop {
+          0% {
+            transform: translate(0, -10vh);
+            opacity: 0;
+          }
+          8% {
+            opacity: 1;
+          }
+          95% {
+            transform: translate(10vw, 110vh);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(10vw, 120vh);
+            opacity: 0;
+          }
+        }
+        @keyframes matrixDrop {
+          0% {
+            transform: translateY(-10vh);
+            opacity: 0;
+          }
+          8% {
+            opacity: 1;
+          }
+          95% {
+            transform: translateY(110vh);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(120vh);
+            opacity: 0;
+          }
+        }
+        @keyframes balloonRise {
+          0% {
+            transform: translate(0, 110vh);
+            opacity: 0;
+          }
+          15% {
+            opacity: 0.6;
+          }
+          90% {
+            transform: translate(var(--tx), -20vh);
+            opacity: 0.6;
+          }
+          100% {
+            transform: translate(var(--tx), -26vh);
+            opacity: 0;
+          }
+        }
+        @keyframes cloudDrift {
+          0% {
+            transform: translateX(0);
+            opacity: 0.32;
+          }
+          100% {
+            transform: translateX(140vw);
+            opacity: 0.32;
+          }
+        }
+        @keyframes pendulumSway {
+          0% {
+            margin-left: 0;
+            rotate: -4deg;
+          }
+          50% {
+            margin-left: 8px;
+            rotate: 4deg;
+          }
+          100% {
+            margin-left: 0;
+            rotate: -4deg;
           }
         }
         @keyframes burst {
@@ -484,20 +658,6 @@ export function MonthlyThemeBackground({ setting }: { setting: SiteAnimationThem
           100% {
             transform: scale(1.9) translateY(-18vh);
             opacity: 0;
-          }
-        }
-        @keyframes wobble {
-          0% {
-            margin-left: 0;
-            rotate: -15deg;
-          }
-          50% {
-            margin-left: 12px;
-            rotate: 15deg;
-          }
-          100% {
-            margin-left: 0;
-            rotate: -15deg;
           }
         }
         @keyframes ripple {
