@@ -1,139 +1,243 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useTheme } from '@/components/theme-provider';
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { resolveActiveAnimationTheme, type SiteAnimationTheme } from '@/lib/site/animation-theme';
 
-type Particle = {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
+type ParticleDef = {
+  id: string;
+  xFrom: number;
+  yFrom: number;
+  xTo: number;
+  yTo: number;
   size: number;
-  alpha: number;
-  char?: string;
+  duration: number;
+  delay: number;
+  opacity: number;
+  rotation: number;
+  drift: number;
   color: string;
 };
 
-function themeParticles(theme: Exclude<SiteAnimationTheme, 'auto'>, width: number, height: number): Particle[] {
-  const count =
-    theme === 'oct' ? 80 : theme === 'jul' ? 55 : theme === 'sep' ? 45 : 40;
-  const palette: Record<string, string[]> = {
-    jan: ['#e8f4ff', '#ffffff', '#b8d4f0'],
-    feb: ['#ff6b9d', '#ff8fab', '#ffc2d4'],
-    mar: ['#ffb7d5', '#ffd6e8', '#ff9ec7'],
-    apr: ['#7ec8e3', '#a8d8ea', '#5ba8c9'],
-    may: ['#ffd166', '#ffe08a', '#f4a261'],
-    jun: ['#c8f27a', '#e9ff9a', '#9ae66e'],
-    jul: ['#ff5a1f', '#ffd166', '#ff8fab', '#7ec8e3'],
-    aug: ['#ff5a1f', '#ff8fab', '#7ec8e3', '#c8f27a'],
-    sep: ['#ff5a1f', '#ff814a', '#e03b00'],
-    oct: ['#00ff41', '#00cc33', '#39ff14'],
-    nov: ['#d4d4d8', '#a1a1aa', '#e4e4e7'],
-    dec: ['#ffffff', '#fde68a', '#fef3c7'],
+type Viewport = { width: number; height: number };
+
+function MapleLeaf({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className="h-full w-full" fill={color}>
+      <path d="M50 5l8 18 18-9-8 21 19 5-18 10 11 17-20-5-2 33h-6l-2-33-20 5 11-17-18-10 19-5-8-21 18 9z" />
+    </svg>
+  );
+}
+
+function Star({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className="h-full w-full" fill={color}>
+      <path d="M50 6l13 27 30 4-22 20 6 30-27-15-27 15 6-30L7 37l30-4z" />
+    </svg>
+  );
+}
+
+function Snowflake({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className="h-full w-full" stroke={color} strokeWidth="6" fill="none" strokeLinecap="round">
+      <line x1="50" y1="10" x2="50" y2="90" />
+      <line x1="15" y1="30" x2="85" y2="70" />
+      <line x1="15" y1="70" x2="85" y2="30" />
+      <line x1="50" y1="10" x2="42" y2="20" />
+      <line x1="50" y1="10" x2="58" y2="20" />
+      <line x1="50" y1="90" x2="42" y2="80" />
+      <line x1="50" y1="90" x2="58" y2="80" />
+    </svg>
+  );
+}
+
+function Raindrop({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 100 140" className="h-full w-full" fill={color}>
+      <path d="M50 4c11 24 32 44 32 71a32 32 0 11-64 0c0-27 21-47 32-71z" />
+    </svg>
+  );
+}
+
+function Heart({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className="h-full w-full" fill={color}>
+      <path d="M50 86S6 58 6 30a20 20 0 0136-13l8 10 8-10a20 20 0 0136 13c0 28-44 56-44 56z" />
+    </svg>
+  );
+}
+
+function Blossom({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className="h-full w-full" fill={color}>
+      <circle cx="50" cy="50" r="12" fill="#ffd6f0" />
+      <ellipse cx="50" cy="20" rx="14" ry="22" />
+      <ellipse cx="79" cy="39" rx="14" ry="22" transform="rotate(72 79 39)" />
+      <ellipse cx="68" cy="74" rx="14" ry="22" transform="rotate(144 68 74)" />
+      <ellipse cx="32" cy="74" rx="14" ry="22" transform="rotate(216 32 74)" />
+      <ellipse cx="21" cy="39" rx="14" ry="22" transform="rotate(288 21 39)" />
+    </svg>
+  );
+}
+
+function renderShape(theme: Exclude<SiteAnimationTheme, 'auto'>, color: string) {
+  if (theme === 'jan') return <Snowflake color={color} />;
+  if (theme === 'feb' || theme === 'aug') return <Heart color={color} />;
+  if (theme === 'mar') return <Blossom color={color} />;
+  if (theme === 'apr') return <Raindrop color={color} />;
+  if (theme === 'sep') return <MapleLeaf color={color} />;
+  if (theme === 'dec') return <Star color={color} />;
+  return (
+    <svg viewBox="0 0 100 100" className="h-full w-full" fill={color}>
+      <circle cx="50" cy="50" r="45" />
+    </svg>
+  );
+}
+
+function autumnTreeStyle() {
+  return (
+    <motion.div
+      className="pointer-events-none absolute -bottom-8 -left-10 w-[42vw] min-w-[320px] max-w-[560px] opacity-35"
+      style={{ transformOrigin: 'bottom center', willChange: 'transform' }}
+      animate={{ rotate: [-2, 2, -2] }}
+      transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+    >
+      <svg viewBox="0 0 480 500" className="h-auto w-full">
+        <defs>
+          <linearGradient id="trunk" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#7a4b2c" />
+            <stop offset="100%" stopColor="#4a2b1a" />
+          </linearGradient>
+        </defs>
+        <rect x="210" y="250" width="58" height="230" rx="26" fill="url(#trunk)" />
+        <circle cx="145" cy="190" r="78" fill="#ff8a4f" opacity="0.9" />
+        <circle cx="235" cy="140" r="96" fill="#ff5a1f" opacity="0.85" />
+        <circle cx="320" cy="210" r="82" fill="#e03b00" opacity="0.82" />
+        <circle cx="245" cy="230" r="78" fill="#ffb17a" opacity="0.75" />
+      </svg>
+    </motion.div>
+  );
+}
+
+function makeParticles(theme: Exclude<SiteAnimationTheme, 'auto'>, viewport: Viewport): ParticleDef[] {
+  const { width, height } = viewport;
+  const countByTheme: Record<Exclude<SiteAnimationTheme, 'auto'>, number> = {
+    jan: 24,
+    feb: 24,
+    mar: 22,
+    apr: 28,
+    may: 18,
+    jun: 18,
+    jul: 20,
+    aug: 20,
+    sep: 22,
+    oct: 30,
+    nov: 16,
+    dec: 24,
   };
 
-  const colors = palette[theme] ?? palette.sep;
-  return Array.from({ length: count }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    vx: (Math.random() - 0.5) * (theme === 'oct' ? 0.4 : 1.2),
-    vy: theme === 'apr' ? 2 + Math.random() * 2 : theme === 'jan' ? 0.5 + Math.random() : 0.3 + Math.random() * 0.8,
-    size: theme === 'oct' ? 10 + Math.random() * 6 : 2 + Math.random() * 5,
-    alpha: 0.35 + Math.random() * 0.45,
-    char: theme === 'oct' ? String.fromCharCode(0x30a0 + Math.floor(Math.random() * 96)) : undefined,
-    color: colors[Math.floor(Math.random() * colors.length)],
-  }));
+  const colors: Record<Exclude<SiteAnimationTheme, 'auto'>, string[]> = {
+    jan: ['#f8fcff', '#d8ecff', '#b7d9ff'],
+    feb: ['#ff6b9d', '#ff8fab', '#ffc2d4'],
+    mar: ['#ff9ec7', '#ffc5dd', '#ffd6ea'],
+    apr: ['#7ec8e3', '#9ed6ea', '#62b5db'],
+    may: ['#ffd166', '#ffe08a', '#ffc14d'],
+    jun: ['#d8ff84', '#bfff4f', '#f4ffbf'],
+    jul: ['#ff5a1f', '#ffd166', '#7ec8e3', '#ff8fab'],
+    aug: ['#ff5a1f', '#ff8fab', '#7ec8e3', '#c8f27a'],
+    sep: ['#ff5a1f', '#ff814a', '#e03b00', '#ffb17a'],
+    oct: ['#00ff41', '#00cc33', '#7cff7c'],
+    nov: ['#d4d4d8', '#e4e4e7', '#a1a1aa'],
+    dec: ['#ffffff', '#fef3c7', '#fde68a'],
+  };
+
+  const autumnSizes = [30, 50, 70];
+  const baseMin = 16;
+  const baseMax = 34;
+  const items: ParticleDef[] = [];
+
+  for (let i = 0; i < countByTheme[theme]; i += 1) {
+    const size =
+      theme === 'sep'
+        ? autumnSizes[i % autumnSizes.length]
+        : baseMin + Math.random() * (baseMax - baseMin);
+
+    const isRain = theme === 'apr';
+    const diagAutumn = theme === 'sep';
+    const xFrom = diagAutumn ? -width * (0.2 + Math.random() * 0.15) : Math.random() * width;
+    const yFrom = diagAutumn ? -120 - Math.random() * 220 : -120 - Math.random() * height;
+    const xTo = diagAutumn
+      ? width + width * (0.1 + Math.random() * 0.15)
+      : isRain
+        ? xFrom + (Math.random() - 0.5) * 30
+        : xFrom + (Math.random() - 0.5) * 180;
+    const yTo = height + 180;
+
+    items.push({
+      id: `${theme}-${i}`,
+      xFrom,
+      yFrom,
+      xTo,
+      yTo,
+      size,
+      duration: isRain ? 3 + Math.random() * 1.6 : 11 + Math.random() * 8,
+      delay: Math.random() * 8,
+      opacity: 0.3 + Math.random() * 0.3,
+      rotation: diagAutumn ? 360 : 180 + Math.random() * 240,
+      drift: (Math.random() - 0.5) * 40,
+      color: colors[theme][Math.floor(Math.random() * colors[theme].length)],
+    });
+  }
+
+  return items;
 }
 
 export function MonthlyThemeBackground({ setting }: { setting: SiteAnimationTheme }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const { theme } = useTheme();
   const active = resolveActiveAnimationTheme(setting);
+  const [viewport, setViewport] = useState<Viewport>({ width: 1400, height: 900 });
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-    let particles = themeParticles(active, width, height);
-    let frame = 0;
-
     const onResize = () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-      particles = themeParticles(active, width, height);
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
     };
+    onResize();
     window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
-    const draw = () => {
-      frame += 1;
-      ctx.clearRect(0, 0, width, height);
-
-      const isDark = theme === 'dark';
-      if (active === 'nov') {
-        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)';
-        ctx.fillRect(0, 0, width, height);
-      }
-
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.y > height + 10) {
-          p.y = -10;
-          p.x = Math.random() * width;
-        }
-        if (p.x < -10) p.x = width + 10;
-        if (p.x > width + 10) p.x = -10;
-
-        ctx.globalAlpha = p.alpha;
-        ctx.fillStyle = p.color;
-
-        if (active === 'feb' || active === 'aug') {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (active === 'oct' && p.char) {
-          ctx.font = `${p.size}px monospace`;
-          ctx.fillText(p.char, p.x, p.y);
-        } else if (active === 'sep') {
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate(frame * 0.01 + p.x * 0.001);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, p.size, p.size * 0.6, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        } else if (active === 'may') {
-          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 4);
-          grad.addColorStop(0, p.color);
-          grad.addColorStop(1, 'transparent');
-          ctx.fillStyle = grad;
-          ctx.fillRect(p.x - p.size * 4, p.y - p.size * 4, p.size * 8, p.size * 8);
-        } else {
-          ctx.fillRect(p.x, p.y, p.size, active === 'jan' ? p.size : p.size * 0.4);
-        }
-      }
-
-      ctx.globalAlpha = 1;
-      requestAnimationFrame(draw);
-    };
-
-    const id = requestAnimationFrame(draw);
-    return () => {
-      cancelAnimationFrame(id);
-      window.removeEventListener('resize', onResize);
-    };
-  }, [active, theme]);
+  const particles = useMemo(() => makeParticles(active, viewport), [active, viewport]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="pointer-events-none fixed inset-0 -z-10 h-full w-full"
-      aria-hidden
-    />
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
+      {active === 'sep' ? autumnTreeStyle() : null}
+
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute"
+          style={{
+            width: p.size,
+            height: p.size,
+            opacity: p.opacity,
+            willChange: 'transform',
+            filter: active === 'sep' ? 'drop-shadow(0 8px 10px rgba(0,0,0,0.16))' : 'none',
+          }}
+          initial={{ x: p.xFrom, y: p.yFrom, rotate: 0 }}
+          animate={{
+            x: [p.xFrom, p.xTo + p.drift, p.xTo],
+            y: [p.yFrom, p.yTo],
+            rotate: [0, p.rotation],
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            ease: active === 'apr' ? 'linear' : 'easeInOut',
+          }}
+        >
+          {renderShape(active, p.color)}
+        </motion.div>
+      ))}
+    </div>
   );
 }
