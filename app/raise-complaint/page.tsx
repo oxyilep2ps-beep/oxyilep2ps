@@ -2,15 +2,14 @@
 
 import { FormEvent, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Upload } from 'lucide-react';
 import { Footer } from '@/components/footer';
 
 export default function RaiseComplaintPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<'low' | 'normal' | 'high'>('normal');
+  const [screenshot, setScreenshot] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,11 +19,13 @@ export default function RaiseComplaintPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch('/api/complaints', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, subject, description, priority }),
-      });
+      const fd = new FormData();
+      fd.set('name', name);
+      fd.set('email', email);
+      fd.set('description', description);
+      if (screenshot) fd.set('screenshot', screenshot);
+
+      const res = await fetch('/api/complaints', { method: 'POST', body: fd });
       const body = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !body.ok) throw new Error(body.error ?? 'Submission failed');
       setDone(true);
@@ -70,30 +71,25 @@ export default function RaiseComplaintPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-2xl border border-white/60 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-black/40"
             />
-            <input
-              required
-              placeholder="Subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full rounded-2xl border border-white/60 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-black/40"
-            />
-            <select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value as typeof priority)}
-              className="w-full rounded-2xl border border-white/60 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-black/40"
-            >
-              <option value="low">Low priority</option>
-              <option value="normal">Normal priority</option>
-              <option value="high">High priority</option>
-            </select>
             <textarea
               required
               rows={6}
-              placeholder="Describe your complaint in detail"
+              placeholder="Describe your issue in detail"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full rounded-2xl border border-white/60 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-black/40"
             />
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-brand-500 px-4 py-2 text-sm font-bold text-white">
+              <Upload size={16} />
+              Attach screenshot (optional)
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => setScreenshot(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {screenshot && <p className="text-xs text-neutral-500">Attached: {screenshot.name}</p>}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               type="submit"

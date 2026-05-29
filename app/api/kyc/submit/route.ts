@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadAllKycDocuments, type WizardUploadFiles } from '@/lib/kyc/upload';
 import { buildStoredKycData, mapWizardRoleToProfileRole } from '@/lib/kyc/build-stored-kyc';
+import { buildFcaTestAnswers } from '@/lib/kyc/fca-answers';
 import { createSubmission } from '@/lib/data/kyc-store';
 import type { KycSubmissionPayload } from '@/lib/types/kyc';
 
@@ -52,6 +53,10 @@ export async function POST(request: Request) {
   // eslint-disable-next-line no-console
   console.log('BUILT kyc_data (server):', kyc_data);
   const profileRole = mapWizardRoleToProfileRole(kyc.role);
+  const fcaTestAnswers =
+    kyc.role === 'lender' && kyc.lender
+      ? buildFcaTestAnswers(kyc.lender.appropriatenessAnswers)
+      : {};
 
   const { error: profileError } = await admin.from('profiles').upsert(
     {
@@ -61,6 +66,10 @@ export async function POST(request: Request) {
       role: profileRole,
       status: 'PENDING',
       postal_code: kyc.basic.postalCode?.trim().toUpperCase() ?? null,
+      fca_test_answers: fcaTestAnswers,
+      proof_of_identity_url: documents.proofOfIdentity ?? null,
+      liveness_video_url: documents.livenessVideo ?? null,
+      proof_of_address_url: documents.proofOfAddress ?? null,
       kyc_data,
     },
     { onConflict: 'id' }

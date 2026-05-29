@@ -8,10 +8,22 @@ import type { KycDocumentPaths } from '@/lib/types/profile';
 
 const KYC_BUCKET = 'kyc-documents';
 
-function collectStoragePaths(kyc: { identity?: { documents?: KycDocumentPaths } } | null): string[] {
-  const docs = kyc?.identity?.documents;
-  if (!docs) return [];
-  return Object.values(docs).filter((p): p is string => Boolean(p));
+function collectStoragePaths(
+  kyc: { identity?: { documents?: KycDocumentPaths }; identityMeta?: KycDocumentPaths } | null,
+  profile?: {
+    proof_of_identity_url?: string | null;
+    liveness_video_url?: string | null;
+    proof_of_address_url?: string | null;
+  } | null
+): string[] {
+  const docs = kyc?.identity?.documents ?? kyc?.identityMeta;
+  const fromKyc = docs ? Object.values(docs).filter((p): p is string => Boolean(p)) : [];
+  const fromProfile = [
+    profile?.proof_of_identity_url,
+    profile?.liveness_video_url,
+    profile?.proof_of_address_url,
+  ].filter((p): p is string => Boolean(p));
+  return [...new Set([...fromKyc, ...fromProfile])];
 }
 
 export async function approveUserAction(userId: string) {
@@ -39,9 +51,16 @@ export async function rejectUserAction(userId: string) {
 
   const admin = createAdminClient();
 
-  const { data: profile } = await admin.from('profiles').select('kyc_data').eq('id', userId).maybeSingle();
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('kyc_data, proof_of_identity_url, liveness_video_url, proof_of_address_url')
+    .eq('id', userId)
+    .maybeSingle();
 
-  const paths = collectStoragePaths(profile?.kyc_data as { identity?: { documents?: KycDocumentPaths } });
+  const paths = collectStoragePaths(
+    profile?.kyc_data as { identity?: { documents?: KycDocumentPaths }; identityMeta?: KycDocumentPaths },
+    profile
+  );
   if (paths.length) {
     await admin.storage.from(KYC_BUCKET).remove(paths);
   }

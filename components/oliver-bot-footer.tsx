@@ -44,7 +44,7 @@ export function OliverBotFooter() {
             <ul className="mt-2 space-y-2 text-sm text-neutral-600 dark:text-neutral-300">
               <li><a href="#" className="hover:underline">Terms of Service</a></li>
               <li><a href="#" className="hover:underline">Privacy Policy</a></li>
-              <li><a href="#" className="hover:underline">Complaints</a></li>
+              <li><a href="/raise-complaint" className="hover:underline">Complaints</a></li>
               <li><a href="#support" className="hover:underline">Help Center</a></li>
             </ul>
           </div>

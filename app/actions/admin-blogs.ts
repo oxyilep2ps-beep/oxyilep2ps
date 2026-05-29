@@ -2,26 +2,27 @@
 
 import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
+import { slugifyBlogTitle } from '@/lib/blog/slug';
+import type { BlogRow } from '@/lib/blog/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export type AdminBlogRow = {
-  id: string;
-  title: string;
-  slug: string;
-  content: string;
-  cover_image: string | null;
-  author_id: string | null;
-  status: 'pending' | 'approved' | 'rejected';
-  created_at: string;
-};
-
-function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
+function mapRow(row: Record<string, unknown>): BlogRow {
+  return {
+    id: String(row.id),
+    title: String(row.title),
+    slug: String(row.slug),
+    content: String(row.content ?? ''),
+    cover_image_url: (row.cover_image_url as string | null) ?? (row.cover_image as string | null) ?? null,
+    author_id: (row.author_id as string | null) ?? null,
+    status: row.status as BlogRow['status'],
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+    approved_at: (row.approved_at as string | null) ?? null,
+    approved_by: (row.approved_by as string | null) ?? null,
+  };
 }
+
+export type AdminBlogRow = BlogRow;
 
 export async function listPendingBlogs(): Promise<AdminBlogRow[]> {
   await assertAdmin();
@@ -29,11 +30,11 @@ export async function listPendingBlogs(): Promise<AdminBlogRow[]> {
   const { data, error } = await admin
     .from('blogs')
     .select('*')
-    .eq('status', 'pending')
+    .eq('status', 'PENDING_APPROVAL')
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as AdminBlogRow[];
+  return (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
 }
 
 export async function listPublishedBlogs(): Promise<AdminBlogRow[]> {
@@ -42,25 +43,37 @@ export async function listPublishedBlogs(): Promise<AdminBlogRow[]> {
   const { data, error } = await admin
     .from('blogs')
     .select('*')
-    .eq('status', 'approved')
+    .eq('status', 'PUBLISHED')
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as AdminBlogRow[];
+  return (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
 }
 
-export async function createAdminBlog(payload: { title: string; content: string; cover_image?: string | null }) {
+export async function getAdminBlog(id: string): Promise<AdminBlogRow | null> {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const { data, error } = await admin.from('blogs').select('*').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapRow(data as Record<string, unknown>) : null;
+}
+
+export async function createAdminBlog(payload: {
+  title: string;
+  content: string;
+  cover_image_url?: string | null;
+}) {
   const user = await assertAdmin();
   const admin = createAdminClient();
-  const slug = `${slugify(payload.title)}-${Date.now().toString(36)}`;
+  const slug = `${slugifyBlogTitle(payload.title)}-${Date.now().toString(36)}`;
 
   const { error } = await admin.from('blogs').insert({
     title: payload.title.trim(),
     slug,
     content: payload.content.trim(),
-    cover_image: payload.cover_image ?? null,
+    cover_image_url: payload.cover_image_url ?? null,
     author_id: user.id,
-    status: 'approved',
+    status: 'PUBLISHED',
     approved_at: new Date().toISOString(),
     approved_by: user.id,
   });
@@ -71,7 +84,10 @@ export async function createAdminBlog(payload: { title: string; content: string;
   return { success: true, slug };
 }
 
-export async function approveBlog(id: string, updates?: { title?: string; content?: string; cover_image?: string | null }) {
+export async function approveBlog(
+  id: string,
+  updates?: { title?: string; content?: string; cover_image_url?: string | null }
+) {
   await assertAdmin();
   const admin = createAdminClient();
   const { data: user } = await admin.auth.getUser();
@@ -81,8 +97,8 @@ export async function approveBlog(id: string, updates?: { title?: string; conten
     .update({
       ...(updates?.title ? { title: updates.title } : {}),
       ...(updates?.content ? { content: updates.content } : {}),
-      ...(updates?.cover_image !== undefined ? { cover_image: updates.cover_image } : {}),
-      status: 'approved',
+      ...(updates?.cover_image_url !== undefined ? { cover_image_url: updates.cover_image_url } : {}),
+      status: 'PUBLISHED',
       approved_at: new Date().toISOString(),
       approved_by: user?.user?.id ?? null,
       updated_at: new Date().toISOString(),
@@ -92,6 +108,7 @@ export async function approveBlog(id: string, updates?: { title?: string; conten
   if (error) throw new Error(error.message);
   revalidatePath('/blogs');
   revalidatePath('/admin-dashboard/blogs');
+  revalidatePath('/blog');
   return { success: true };
 }
 
@@ -102,13 +119,49 @@ export async function rejectBlog(id: string) {
   const { error } = await admin
     .from('blogs')
     .update({
-      status: 'rejected',
+      status: 'REJECTED',
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
 
   if (error) throw new Error(error.message);
   revalidatePath('/admin-dashboard/blogs');
+  revalidatePath('/blogs');
+  return { success: true };
+}
+
+export async function updateAdminPublishedBlog(
+  id: string,
+  updates: { title: string; content: string; cover_image_url?: string | null }
+) {
+  await assertAdmin();
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from('blogs')
+    .update({
+      title: updates.title.trim(),
+      content: updates.content.trim(),
+      cover_image_url: updates.cover_image_url ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/blogs');
+  revalidatePath('/admin-dashboard/blogs');
+  revalidatePath('/blog');
+  return { success: true };
+}
+
+export async function deleteAdminBlog(id: string) {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin.from('blogs').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/blogs');
+  revalidatePath('/admin-dashboard/blogs');
+  revalidatePath('/blog');
   return { success: true };
 }
 
@@ -116,8 +169,8 @@ export async function listApprovedBlogsPublic() {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('blogs')
-    .select('id, title, slug, content, cover_image, created_at')
-    .eq('status', 'approved')
+    .select('id, title, slug, content, cover_image_url, cover_image, created_at')
+    .eq('status', 'PUBLISHED')
     .order('created_at', { ascending: false });
 
   if (error) return [];
@@ -128,9 +181,9 @@ export async function getApprovedBlogBySlug(slug: string) {
   const admin = createAdminClient();
   const { data } = await admin
     .from('blogs')
-    .select('id, title, slug, content, cover_image, created_at')
+    .select('id, title, slug, content, cover_image_url, cover_image, created_at')
     .eq('slug', slug)
-    .eq('status', 'approved')
+    .eq('status', 'PUBLISHED')
     .maybeSingle();
   return data;
 }

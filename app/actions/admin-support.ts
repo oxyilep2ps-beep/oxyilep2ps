@@ -19,6 +19,8 @@ export type ComplaintRow = {
   email: string;
   subject: string;
   description: string;
+  issue_description: string | null;
+  screenshot_url: string | null;
   priority: string;
   status: string;
   created_at: string;

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getAuthRedirectPath, isSuperHrEmail } from '@/lib/auth/routing';
+import { getAuthRedirectPath } from '@/lib/auth/routing';
+import { staffRoleForEmail } from '@/lib/auth/role-emails';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -20,20 +21,21 @@ export async function GET(request: Request) {
       }
 
       if (user) {
-        if (isSuperHrEmail(user.email)) {
+        const staffRole = staffRoleForEmail(user.email);
+        if (staffRole) {
           const admin = createAdminClient();
           const fullLegalName =
             (typeof user.user_metadata?.full_legal_name === 'string' && user.user_metadata.full_legal_name.trim()) ||
             (typeof user.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
             user.email?.split('@')[0] ||
-            'HR Tester';
+            staffRole;
 
           await admin.from('profiles').upsert(
             {
               id: user.id,
               email: user.email,
               full_legal_name: fullLegalName,
-              role: 'HR',
+              role: staffRole,
               status: 'APPROVED',
               updated_at: new Date().toISOString(),
             },

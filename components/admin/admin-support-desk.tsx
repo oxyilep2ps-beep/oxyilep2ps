@@ -107,7 +107,24 @@ export function AdminSupportDesk() {
                 </a>
               </div>
               <p className="mt-3 font-semibold text-brand-600">{row.subject}</p>
-              <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-200">{row.description}</p>
+              <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-200">
+                {row.issue_description ?? row.description}
+              </p>
+              {row.screenshot_url && (
+                <a
+                  href={row.screenshot_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-block"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={row.screenshot_url}
+                    alt="Complaint screenshot"
+                    className="max-h-48 rounded-xl border border-white/40 object-cover"
+                  />
+                </a>
+              )}
             </article>
           ))}
         </div>

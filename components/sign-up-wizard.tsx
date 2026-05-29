@@ -31,14 +31,11 @@ import {
   isValidUkSortCode,
 } from '@/lib/validation/kyc';
 import { cn } from '@/lib/utils';
+import { APPROPRIATENESS_QUESTIONS } from '@/lib/kyc/constants';
 
 const STEPS = ['Basic Details', 'Identity & AML', 'Role-specific'] as const;
 
-export const APPROPRIATENESS_QUESTIONS = [
-  'Do you understand that peer-to-peer lending capital is at risk and not covered by FSCS?',
-  'Can you afford to lose the amount you intend to lend without affecting essential living costs?',
-  'Do you understand that FSCS protection does not apply to P2P loan agreements on Oxyile?',
-] as const;
+export { APPROPRIATENESS_QUESTIONS };
 
 const SOURCE_OF_FUNDS_OPTIONS = [
   'Employment income',

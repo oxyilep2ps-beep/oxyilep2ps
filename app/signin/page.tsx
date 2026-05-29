@@ -7,7 +7,8 @@ import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Footer } from '@/components/footer';
 import { createClient } from '@/lib/supabase/client';
-import { getAuthRedirectPath, isSuperHrEmail } from '@/lib/auth/routing';
+import { getAuthRedirectPath } from '@/lib/auth/routing';
+import { staffRoleForEmail } from '@/lib/auth/role-emails';
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -38,8 +39,8 @@ function SignInForm() {
     }
 
     const user = data.user;
-    if (isSuperHrEmail(user.email)) {
-      await fetch('/api/auth/ensure-super-hr', { method: 'POST' });
+    if (staffRoleForEmail(user.email)) {
+      await fetch('/api/auth/ensure-staff-role', { method: 'POST' });
     }
 
     const { data: profile } = await supabase

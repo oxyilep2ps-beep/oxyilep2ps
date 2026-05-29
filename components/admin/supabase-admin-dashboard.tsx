@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { exportKycDossierPdf } from '@/lib/pdf/export-kyc-pdf';
 import { generateAdminApprovedUsersPDF } from '@/lib/pdf/admin-approved-users-pdf';
 import { listApplicationRejections, type RejectionRow } from '@/app/actions/admin-rejections';
+import { fcaAnswersToRows } from '@/lib/kyc/fca-answers';
 
 type Tab = 'pending' | 'approved' | 'rejected';
 type ReviewAction = 'APPROVED' | 'REJECTED';
@@ -32,10 +33,12 @@ type NormalizedKyc = {
     fullLegalName: string;
     email: string;
     ukPhone: string;
+    postalCode: string;
     dateOfBirth: string;
     currentAddress: string;
     addressHistory3Years: string;
   };
+  fcaTestAnswers: Record<string, string>;
   identity: {
     proofOfIdentityType: string;
     documents: KycDocumentPaths;
@@ -138,16 +141,33 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
       fullLegalName: pickText(basic?.fullLegalName, profile.full_legal_name),
       email: pickText(basic?.email, profile.email),
       ukPhone: pickText(basic?.ukPhone),
+      postalCode: pickText(basic?.postalCode, profile.postal_code),
       dateOfBirth: pickText(basic?.dateOfBirth),
       currentAddress: pickText(basic?.currentAddress),
       addressHistory3Years: pickText(basic?.addressHistory3Years),
     },
+    fcaTestAnswers:
+      profile.fca_test_answers && typeof profile.fca_test_answers === 'object'
+        ? (profile.fca_test_answers as Record<string, string>)
+        : {},
     identity: {
       proofOfIdentityType: pickText(identity?.proofOfIdentityType, raw?.proofOfIdentityType),
       documents: {
-        proofOfIdentity: pickOptionalText(documents?.proofOfIdentity, identity?.idProofPath),
-        livenessVideo: pickOptionalText(documents?.livenessVideo, identity?.livenessPath),
-        proofOfAddress: pickOptionalText(documents?.proofOfAddress, identity?.addressProofPath),
+        proofOfIdentity: pickOptionalText(
+          profile.proof_of_identity_url,
+          documents?.proofOfIdentity,
+          identity?.idProofPath
+        ),
+        livenessVideo: pickOptionalText(
+          profile.liveness_video_url,
+          documents?.livenessVideo,
+          identity?.livenessPath
+        ),
+        proofOfAddress: pickOptionalText(
+          profile.proof_of_address_url,
+          documents?.proofOfAddress,
+          identity?.addressProofPath
+        ),
         incomeVerification: pickOptionalText(documents?.incomeVerification, identity?.incomeVerificationPath),
       },
     },
@@ -169,6 +189,9 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
           creditCheckConsent: Boolean(borrower.creditCheckConsent),
           monthlyRentOrEmi: pickText(borrower.monthlyRentOrEmi),
           otherMonthlyExpenses: pickText(borrower.otherMonthlyExpenses),
+          hasIncomeVerification: Boolean(
+            pickOptionalText(identity?.incomeVerificationPath, documents?.incomeVerification)
+          ),
         }
       : undefined,
     submittedAt: pickOptionalText(raw?.submittedAt),
@@ -233,20 +256,25 @@ function buildQuestionnaireRows(kyc: NormalizedKyc, profile: Profile): Questionn
   ];
 
   if ((profile.role === 'INVESTOR' || kyc.accountRole === 'lender') && kyc.lender) {
+    const fcaRows = fcaAnswersToRows(kyc.fcaTestAnswers);
     rows.push(
       { question: 'Investor categorisation', answer: kyc.lender.investorCategory },
-      {
-        question: 'FCA appropriateness: understands capital is at risk?',
-        answer: answerFromChoice(kyc.lender.appropriatenessAnswers[0]),
-      },
-      {
-        question: 'FCA appropriateness: understands lack of FSCS protection?',
-        answer: answerFromChoice(kyc.lender.appropriatenessAnswers[1]),
-      },
-      {
-        question: 'FCA appropriateness: understands investments are illiquid?',
-        answer: answerFromChoice(kyc.lender.appropriatenessAnswers[2]),
-      },
+      ...(fcaRows.length > 0
+        ? fcaRows.map((row) => ({ question: row.question, answer: row.answer }))
+        : [
+            {
+              question: 'FCA appropriateness: understands capital is at risk?',
+              answer: answerFromChoice(kyc.lender.appropriatenessAnswers[0]),
+            },
+            {
+              question: 'FCA appropriateness: understands lack of FSCS protection?',
+              answer: answerFromChoice(kyc.lender.appropriatenessAnswers[1]),
+            },
+            {
+              question: 'FCA appropriateness: understands investments are illiquid?',
+              answer: answerFromChoice(kyc.lender.appropriatenessAnswers[2]),
+            },
+          ]),
       { question: 'Declared source of funds', answer: kyc.lender.sourceOfFunds },
       { question: 'Investor bank sort code provided?', answer: kyc.lender.bankSortCode !== '—' ? 'Yes' : 'Not provided' },
       {
@@ -665,6 +693,7 @@ function ProfileCard({
               ['Legal Name', dossier.basic.fullLegalName],
               ['Email', dossier.basic.email],
               ['UK Phone', dossier.basic.ukPhone],
+              ['Postal Code', dossier.basic.postalCode],
               ['Date of Birth', dossier.basic.dateOfBirth],
               ['Current Address', dossier.basic.currentAddress],
               ['3-Year Address History', dossier.basic.addressHistory3Years],
@@ -675,6 +704,16 @@ function ProfileCard({
             title: 'Onboarding Questionnaire',
             rows: questionnaireRows.map((row) => [row.question, row.answer]),
           },
+          ...(fcaAnswersToRows(dossier.fcaTestAnswers).length > 0
+            ? [
+                {
+                  title: 'FCA Appropriateness Test',
+                  rows: fcaAnswersToRows(dossier.fcaTestAnswers).map(
+                    (row) => [row.question, row.answer] as [string, string]
+                  ),
+                },
+              ]
+            : []),
         ],
         documents: resolvedDocuments.map((doc) => ({
           label: doc.label,
@@ -739,6 +778,7 @@ function ProfileCard({
               <Row label="Legal name" value={dossier.basic.fullLegalName} />
               <Row label="Email" value={dossier.basic.email} />
               <Row label="UK phone" value={dossier.basic.ukPhone} />
+              <Row label="Postal code" value={dossier.basic.postalCode} />
               <Row label="Date of birth" value={dossier.basic.dateOfBirth} />
               <Row label="Current address" value={dossier.basic.currentAddress} />
               <Row label="3-year address history" value={dossier.basic.addressHistory3Years} />
@@ -764,37 +804,20 @@ function ProfileCard({
             {(profile.role === 'INVESTOR' || dossier.accountRole === 'lender') && dossier.lender && (
               <DetailSection title="Investor (Lender)">
                 <Row label="Category" value={dossier.lender.investorCategory} />
-                <div className="my-3 space-y-1 text-sm border-l-2 border-brand-500 pl-3">
-                  <p className="text-xs font-bold text-neutral-500 uppercase">Appropriateness Test Details:</p>
-                  <ul className="space-y-1 text-neutral-800 dark:text-neutral-200">
-                    <li>
-                      1. Understand capital is at risk? <span className="font-bold text-brand-600">
-                        {dossier.lender.appropriatenessAnswers[0] === 0
-                          ? 'Yes'
-                          : dossier.lender.appropriatenessAnswers[0] === 1
-                            ? 'No'
-                            : '—'}
-                      </span>
-                    </li>
-                    <li>
-                      2. Understand lack of FSCS protection? <span className="font-bold text-brand-600">
-                        {dossier.lender.appropriatenessAnswers[1] === 0
-                          ? 'Yes'
-                          : dossier.lender.appropriatenessAnswers[1] === 1
-                            ? 'No'
-                            : '—'}
-                      </span>
-                    </li>
-                    <li>
-                      3. Understand investments are illiquid? <span className="font-bold text-brand-600">
-                        {dossier.lender.appropriatenessAnswers[2] === 0
-                          ? 'Yes'
-                          : dossier.lender.appropriatenessAnswers[2] === 1
-                            ? 'No'
-                            : '—'}
-                      </span>
-                    </li>
-                  </ul>
+                <div className="my-3 space-y-2 border-l-2 border-brand-500 pl-3 text-sm">
+                  <p className="text-xs font-bold uppercase text-neutral-500">FCA Appropriateness Test</p>
+                  {fcaAnswersToRows(dossier.fcaTestAnswers).length > 0 ? (
+                    <ul className="space-y-2 text-neutral-800 dark:text-neutral-200">
+                      {fcaAnswersToRows(dossier.fcaTestAnswers).map((row) => (
+                        <li key={row.question}>
+                          <span className="block text-neutral-600 dark:text-neutral-400">{row.question}</span>
+                          <span className="font-bold text-brand-600">{row.answer}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-neutral-500">No FCA answers recorded.</p>
+                  )}
                 </div>
                 <Row label="Source of funds" value={dossier.lender.sourceOfFunds} />
                 <Row label="Sort code" value={dossier.lender.bankSortCode} />

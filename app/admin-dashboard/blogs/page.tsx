@@ -1,5 +1,5 @@
-import { AdminBlogApprovalsTab } from '@/components/admin/admin-blog-approvals-tab';
+import { AdminBlogCmsTab } from '@/components/admin/admin-blog-cms-tab';
 
 export default function AdminBlogsPage() {
-  return <AdminBlogApprovalsTab />;
+  return <AdminBlogCmsTab />;
 }

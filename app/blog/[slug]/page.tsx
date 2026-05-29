@@ -31,10 +31,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         <Link href="/blogs" className="text-sm font-semibold text-brand-600 hover:text-brand-500">
           ← All insights
         </Link>
-        {dbPost.cover_image && (
+        {(dbPost.cover_image_url ?? dbPost.cover_image) && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={dbPost.cover_image as string}
+            src={(dbPost.cover_image_url ?? dbPost.cover_image) as string}
             alt=""
             className="mt-8 w-full rounded-2xl object-cover"
           />

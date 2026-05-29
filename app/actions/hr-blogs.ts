@@ -27,9 +27,9 @@ export async function submitHrBlog(payload: {
     title: payload.title.trim(),
     slug,
     content: payload.content.trim(),
-    cover_image: payload.cover_image ?? null,
+    cover_image_url: payload.cover_image ?? null,
     author_id: user.id,
-    status: 'pending',
+    status: 'PENDING_APPROVAL',
   });
 
   if (error) throw new Error(error.message);

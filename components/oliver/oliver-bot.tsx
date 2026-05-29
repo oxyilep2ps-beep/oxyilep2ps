@@ -37,6 +37,7 @@ export function OliverBot() {
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<BotMessage[]>([
     {
       id: 'welcome',
@@ -61,7 +62,7 @@ export function OliverBot() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isChatExpanded]);
+  }, [messages, isChatExpanded, isTyping]);
 
   const openWidget = useCallback(() => {
     setIsWidgetOpen(true);
@@ -88,14 +89,20 @@ export function OliverBot() {
     const userMsg: BotMessage = { id: `u-${Date.now()}`, role: 'user', text };
     setMessages((m) => [...m, userMsg]);
     setInput('');
+    setIsTyping(true);
 
     const replyText = await parseOliverReply(text);
-    const reply: BotMessage = {
-      id: `b-${Date.now()}`,
-      role: 'bot',
-      text: replyText,
-    };
-    setMessages((m) => [...m, reply]);
+    const delayMs = 1500 + Math.floor(Math.random() * 500);
+
+    window.setTimeout(() => {
+      const reply: BotMessage = {
+        id: `b-${Date.now()}`,
+        role: 'bot',
+        text: replyText,
+      };
+      setMessages((m) => [...m, reply]);
+      setIsTyping(false);
+    }, delayMs);
   };
 
   const handleFabClick = (e: React.MouseEvent) => {
@@ -178,6 +185,15 @@ export function OliverBot() {
                       </div>
                     </div>
                   ))}
+                  {isTyping && (
+                    <div className="flex justify-start">
+                      <div className="glass-card flex items-center gap-1 rounded-2xl border border-white/50 px-4 py-3 dark:border-white/10">
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-brand-500 [animation-delay:0ms]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-brand-500 [animation-delay:150ms]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-brand-500 [animation-delay:300ms]" />
+                      </div>
+                    </div>
+                  )}
                   <div ref={endRef} />
                 </div>
 

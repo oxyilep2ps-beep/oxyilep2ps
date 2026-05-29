@@ -1,5 +1,6 @@
 import type { Profile } from '@/lib/types/profile';
 import { isApprovedStatus, isPendingStatus, normalizeProfileStatus } from '@/lib/auth/profile-status';
+import { isBloggerStaffEmail, isHrStaffEmail } from '@/lib/auth/role-emails';
 
 /** Comma-separated list from ADMIN_EMAIL env. */
 export function getAdminEmails(): string[] {
@@ -17,11 +18,9 @@ export function isAdminEmail(email: string | undefined | null): boolean {
   return getAdminEmails().includes(email.toLowerCase());
 }
 
-const SUPER_HR_EMAIL = 'flacmily@gmail.com';
-
+/** @deprecated Use isHrStaffEmail */
 export function isSuperHrEmail(email: string | undefined | null): boolean {
-  if (!email) return false;
-  return email.trim().toLowerCase() === SUPER_HR_EMAIL;
+  return isHrStaffEmail(email);
 }
 
 /** Post-login / post-signup redirect target from profile + email. */
@@ -33,8 +32,12 @@ export function getAuthRedirectPath(
     return '/admin-dashboard';
   }
 
-  if (isSuperHrEmail(email) || profile?.role === 'HR') {
+  if (isHrStaffEmail(email) || profile?.role === 'HR') {
     return '/hr';
+  }
+
+  if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') {
+    return '/blogger';
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);
@@ -46,6 +49,8 @@ export function getAuthRedirectPath(
   if (isApprovedStatus(status)) {
     if (profile.role === 'INVESTOR' || profile.role === 'BORROWER') return '/dashboard';
     if (profile.role === 'ADMIN') return '/admin-dashboard';
+    if (profile.role === 'HR') return '/hr';
+    if (profile.role === 'BLOGGER') return '/blogger';
   }
 
   return '/pending-verification';
@@ -54,6 +59,7 @@ export function getAuthRedirectPath(
 export const PROTECTED_PREFIXES = [
   '/admin-dashboard',
   '/hr',
+  '/blogger',
   '/pending-verification',
   '/dashboard',
   '/chats',
@@ -83,8 +89,12 @@ export function canAccessPath(
     );
   }
 
-  if (isSuperHrEmail(email) || profile?.role === 'HR') {
+  if (isHrStaffEmail(email) || profile?.role === 'HR') {
     return pathname.startsWith('/hr');
+  }
+
+  if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') {
+    return pathname.startsWith('/blogger');
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);

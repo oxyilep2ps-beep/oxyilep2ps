@@ -1,5 +1,5 @@
-import { HrBlogEditor } from '@/components/hr/hr-blog-editor';
+import { redirect } from 'next/navigation';
 
-export default function HrBlogsPage() {
-  return <HrBlogEditor />;
+export default function HrBlogsRedirectPage() {
+  redirect('/blogger/blogs');
 }

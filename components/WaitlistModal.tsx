@@ -1,10 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
-
-const DISMISS_KEY = 'waitlist_dismissed';
-const SUBMITTED_KEY = 'waitlist_submitted';
 
 const QUESTIONS = [
   { key: 'uk_resident', label: 'Are you a UK resident?' },
@@ -34,19 +31,12 @@ export function WaitlistModal() {
     marketing_consent: true,
   });
 
-  const shouldSuppress = useMemo(() => {
-    if (typeof window === 'undefined') return true;
-    return Boolean(localStorage.getItem(DISMISS_KEY) || localStorage.getItem(SUBMITTED_KEY));
+  useEffect(() => {
+    const timer = window.setTimeout(() => setOpen(true), 1000);
+    return () => window.clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    if (shouldSuppress) return;
-    const timer = window.setTimeout(() => setOpen(true), 1500);
-    return () => window.clearTimeout(timer);
-  }, [shouldSuppress]);
-
   const close = () => {
-    if (typeof window !== 'undefined') localStorage.setItem(DISMISS_KEY, '1');
     setOpen(false);
   };
 
@@ -83,7 +73,6 @@ export function WaitlistModal() {
       });
       const body = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !body.ok) throw new Error(body.error ?? 'Could not submit waitlist');
-      if (typeof window !== 'undefined') localStorage.setItem(SUBMITTED_KEY, '1');
       setDone(true);
       window.setTimeout(() => setOpen(false), 1200);
     } catch (err) {

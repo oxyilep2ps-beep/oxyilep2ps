@@ -1,5 +1,5 @@
 /** Matches Supabase `profile_role` enum. */
-export type ProfileRole = 'ADMIN' | 'INVESTOR' | 'BORROWER' | 'HR';
+export type ProfileRole = 'ADMIN' | 'INVESTOR' | 'BORROWER' | 'HR' | 'BLOGGER';
 
 /** Matches Supabase `profile_status` enum. */
 export type ProfileStatus = 'PENDING' | 'APPROVED';
@@ -54,6 +54,10 @@ export interface Profile {
   email: string;
   full_legal_name: string;
   postal_code?: string | null;
+  fca_test_answers?: Record<string, string> | null;
+  proof_of_identity_url?: string | null;
+  liveness_video_url?: string | null;
+  proof_of_address_url?: string | null;
   borrower_sort_code?: string | null;
   borrower_account_number?: string | null;
   username?: string | null;

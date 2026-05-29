@@ -2,29 +2,37 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/auth/routing';
-import { isHrStaffEmail } from '@/lib/auth/role-emails';
+import { isBloggerStaffEmail } from '@/lib/auth/role-emails';
 
-const links = [{ href: '/hr', label: 'Overview' }, { href: '/hr/careers', label: 'Careers' }];
+const links = [
+  { href: '/blogger', label: 'Overview' },
+  { href: '/blogger/blogs', label: 'Blog Editor' },
+];
 
-export default async function HrLayout({ children }: { children: React.ReactNode }) {
+export default async function BloggerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect('/signin?redirect=/hr');
+  if (!user) redirect('/signin?redirect=/blogger');
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
 
-  if (!isAdminEmail(user.email) && !isHrStaffEmail(user.email) && profile?.role !== 'HR' && profile?.role !== 'ADMIN') {
+  if (
+    !isAdminEmail(user.email) &&
+    !isBloggerStaffEmail(user.email) &&
+    profile?.role !== 'BLOGGER' &&
+    profile?.role !== 'ADMIN'
+  ) {
     redirect('/dashboard');
   }
 
   return (
     <div className="mx-auto min-h-screen max-w-7xl px-4 pb-24 pt-8 sm:px-6">
       <header className="glass-card mb-8 rounded-2xl p-6">
-        <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Oxyile HR Portal</p>
-        <h1 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Careers & Applications</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Oxyile Blogger Portal</p>
+        <h1 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Editorial Studio</h1>
         <nav className="mt-6 flex flex-wrap gap-2">
           {links.map((link) => (
             <Link

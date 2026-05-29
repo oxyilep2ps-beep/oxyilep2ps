@@ -1,14 +1,16 @@
 export const navLinks = [
-  { href: '/', label: 'How It Works' },
+  { href: '/', label: 'Home' },
+  { href: '/about', label: 'About' },
   { href: '/blogs', label: 'Blogs' },
   { href: '/investors', label: 'Investors' },
   { href: '/waitlist', label: 'Waitlist' },
   { href: '/careers', label: 'Careers' },
+  { href: '/raise-complaint', label: 'Raise a Complaint' },
   { href: '/contact', label: 'Contact' },
 ];
 
 export const footerColumns = [
   { title: 'Platform', links: ['How It Works', 'Investors', 'Borrowers', 'Join Waitlist'] },
-  { title: 'Company', links: ['Blogs', 'Careers', 'Contact', 'About'] },
-  { title: 'Support', links: ['Security', 'Compliance', 'FAQs', 'Live Chat'] },
+  { title: 'Company', links: ['About', 'Blogs', 'Careers', 'Contact'] },
+  { title: 'Support', links: ['Raise a Complaint', 'Security', 'Compliance', 'FAQs'] },
 ];

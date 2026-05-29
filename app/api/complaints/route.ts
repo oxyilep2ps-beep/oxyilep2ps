@@ -1,27 +1,50 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+const BUCKET = 'complaint-screenshots';
+
+function toFile(value: FormDataEntryValue | null): File | null {
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as {
-      name?: string;
-      email?: string;
-      subject?: string;
-      description?: string;
-      priority?: 'low' | 'normal' | 'high';
-    };
+    const formData = await request.formData();
+    const name = formData.get('name')?.toString().trim();
+    const email = formData.get('email')?.toString().trim();
+    const description = formData.get('description')?.toString().trim();
+    const subject = formData.get('subject')?.toString().trim() || 'General complaint';
+    const screenshot = toFile(formData.get('screenshot'));
 
-    if (!body.name?.trim() || !body.email?.includes('@') || !body.subject?.trim() || !body.description?.trim()) {
-      return NextResponse.json({ ok: false, error: 'All fields are required' }, { status: 400 });
+    if (!name || !email?.includes('@') || !description) {
+      return NextResponse.json({ ok: false, error: 'Name, valid email, and description are required' }, { status: 400 });
     }
 
     const admin = createAdminClient();
+    let screenshotUrl: string | null = null;
+
+    if (screenshot) {
+      const ext = screenshot.name.split('.').pop() ?? 'png';
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, screenshot, {
+        upsert: true,
+        contentType: screenshot.type || undefined,
+      });
+      if (uploadError) {
+        return NextResponse.json({ ok: false, error: uploadError.message }, { status: 500 });
+      }
+      const { data } = admin.storage.from(BUCKET).getPublicUrl(path);
+      screenshotUrl = data.publicUrl;
+    }
+
     const { error } = await admin.from('complaints').insert({
-      name: body.name.trim(),
-      email: body.email.trim(),
-      subject: body.subject.trim(),
-      description: body.description.trim(),
-      priority: body.priority ?? 'normal',
+      name,
+      email,
+      subject,
+      description,
+      issue_description: description,
+      screenshot_url: screenshotUrl,
+      priority: 'normal',
     });
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
