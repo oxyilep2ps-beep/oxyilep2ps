@@ -39,7 +39,7 @@ export function BlogListDb({ posts }: { posts: PublicBlogCard[] }) {
               </div>
             )}
             <div className="p-6">
-              <p className="text-xs uppercase tracking-wider text-brand-500">HR Approved</p>
+              <p className="text-xs uppercase tracking-wider text-brand-500">Published</p>
               <h2 className="mt-2 text-xl font-bold text-slate-950 dark:text-white">{article.title}</h2>
               <p className="mt-2 line-clamp-3 text-sm text-slate-600 dark:text-slate-300">{article.excerpt}</p>
               <p className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-slate-500">

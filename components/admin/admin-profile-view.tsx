@@ -48,7 +48,7 @@ export function AdminProfileView() {
   return (
     <div className="mx-auto w-full min-w-0 max-w-3xl">
       <article className="glass-card overflow-hidden rounded-3xl border border-white/60 shadow-glass dark:border-white/10">
-        <div className="relative h-44 w-full sm:h-56">
+        <div className="relative h-48 w-full overflow-hidden">
           {profile.cover_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={profile.cover_url} alt="" className="h-full w-full object-cover" />
@@ -60,10 +60,10 @@ export function AdminProfileView() {
           )}
         </div>
 
-        <div className="relative px-4 pb-8 sm:px-8">
-          <div className="-mt-16 flex flex-col gap-4 sm:-mt-20 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-5">
-              <div className="h-28 w-28 shrink-0 overflow-hidden rounded-full border-4 border-white shadow-glow ring-2 ring-brand-500/25 dark:border-neutral-950 sm:h-32 sm:w-32">
+        <div className="relative px-4 pb-8 pt-0 sm:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+              <div className="-mt-16 h-28 w-28 shrink-0 overflow-hidden rounded-full border-4 border-white bg-white shadow-glow dark:border-neutral-950 dark:bg-neutral-950 sm:h-32 sm:w-32">
                 {profile.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={profile.avatar_url} alt={name} className="h-full w-full object-cover" />
@@ -73,7 +73,8 @@ export function AdminProfileView() {
                   </div>
                 )}
               </div>
-              <div className="min-w-0 pb-1">
+
+              <div className="min-w-0 flex flex-col gap-1 sm:pt-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-black text-neutral-950 dark:text-white sm:text-3xl">{name}</h1>
                   <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/15 px-2.5 py-0.5 text-xs font-bold text-brand-700 dark:text-brand-300">
@@ -81,14 +82,14 @@ export function AdminProfileView() {
                   </span>
                 </div>
                 {profile.email && (
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{profile.email}</p>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">{profile.email}</p>
                 )}
               </div>
             </div>
 
             <Link
               href="/admin-dashboard/profile/edit"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-glow hover:bg-brand-400 sm:w-auto"
+              className="ml-auto inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-glow hover:bg-brand-400"
             >
               <Pencil size={16} />
               Edit profile
