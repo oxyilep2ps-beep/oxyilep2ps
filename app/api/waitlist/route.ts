@@ -17,6 +17,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Name, valid email, and role are required' }, { status: 400 });
     }
 
+    const rawAnswers = body.questionnaire_answers ?? {};
+    const questionnaireAnswers = Object.fromEntries(
+      Object.entries(rawAnswers).filter(
+        ([key]) => key !== 'Current Company/Employer' && key !== 'current_company'
+      )
+    );
+
     const admin = createAdminClient();
     const { data, error } = await admin
       .from('waitlist')
@@ -27,7 +34,7 @@ export async function POST(request: Request) {
         address: body.address?.trim() || null,
         postal_code: body.postal_code?.trim() || null,
         role: body.role,
-        questionnaire_answers: body.questionnaire_answers ?? {},
+        questionnaire_answers: questionnaireAnswers,
       })
       .select('id, waitlist_rank')
       .single();

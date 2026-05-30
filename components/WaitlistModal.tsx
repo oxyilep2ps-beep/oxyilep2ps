@@ -9,6 +9,18 @@ const QUESTIONS = [
   { key: 'marketing_consent', label: 'May we email you about launch updates?' },
 ] as const;
 
+const INCOME_SOURCE_OPTIONS = [
+  'Salary / Employment',
+  'Business Profits / Self-Employed',
+  'Real Estate / Rental Income',
+  'Investments / Dividends',
+  'Pension / Retirement Funds',
+  'Savings',
+  'Trust Fund / Inheritance',
+  'Cryptocurrency Trading',
+  'Other',
+] as const;
+
 export function WaitlistModal() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -21,7 +33,6 @@ export function WaitlistModal() {
   const [postalCode, setPostalCode] = useState('');
   const [role, setRole] = useState<'borrower' | 'investor'>('borrower');
   const [incomeSource, setIncomeSource] = useState('');
-  const [companyName, setCompanyName] = useState('');
   const [incomeBracket, setIncomeBracket] = useState('');
   const [loanReason, setLoanReason] = useState('');
   const [desiredLoanLimit, setDesiredLoanLimit] = useState('');
@@ -51,7 +62,6 @@ export function WaitlistModal() {
 
       if (role === 'investor') {
         questionnaireAnswers['Source of Income'] = incomeSource || 'Not provided';
-        questionnaireAnswers['Current Company/Employer'] = companyName || 'Not provided';
         questionnaireAnswers['Estimated Annual Income/Package Bracket'] = incomeBracket || 'Not provided';
       } else {
         questionnaireAnswers['Primary Reason for Loan'] = loanReason || 'Not provided';
@@ -156,22 +166,22 @@ export function WaitlistModal() {
 
             {role === 'investor' ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  placeholder="Source of Income"
+                <select
                   value={incomeSource}
                   onChange={(e) => setIncomeSource(e.target.value)}
                   className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
-                />
-                <input
-                  placeholder="Current Company/Employer"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
-                />
+                >
+                  <option value="">Source of Income</option>
+                  {INCOME_SOURCE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
                 <select
                   value={incomeBracket}
                   onChange={(e) => setIncomeBracket(e.target.value)}
-                  className="sm:col-span-2 w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
                 >
                   <option value="">Estimated Annual Income/Package Bracket</option>
                   <option>Below £30,000</option>

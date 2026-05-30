@@ -54,7 +54,9 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
   pdf.setTextColor(30, 30, 30);
   pdf.setFont('helvetica', 'normal');
 
-  const entries = Object.entries(row.questionnaire_answers ?? {});
+  const entries = Object.entries(row.questionnaire_answers ?? {}).filter(
+    ([question]) => question !== 'Current Company/Employer' && question !== 'current_company'
+  );
   if (entries.length === 0) {
     pdf.text('No questionnaire answers provided.', 14, y);
   } else {
