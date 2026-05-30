@@ -85,8 +85,8 @@ export function WaitlistModal() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[12000] grid place-items-center bg-black/65 px-4 backdrop-blur-md">
-      <div className="glass-card relative w-full max-w-xl rounded-[1.8rem] border border-white/40 bg-white/80 p-6 shadow-2xl dark:border-white/10 dark:bg-black/60">
+    <div className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/65 px-4 py-4 backdrop-blur-md">
+      <div className="glass-card relative w-full max-w-xl max-h-[90vh] overflow-y-auto overscroll-y-contain rounded-[1.8rem] border border-white/40 bg-white/80 p-6 pb-8 shadow-2xl [-webkit-overflow-scrolling:touch] dark:border-white/10 dark:bg-black/60">
         <button
           type="button"
           onClick={close}
