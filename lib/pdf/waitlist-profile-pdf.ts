@@ -65,7 +65,10 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
   pdf.setFont('helvetica', 'normal');
 
   const entries = Object.entries(row.questionnaire_answers ?? {}).filter(
-    ([question]) => question !== 'Current Company/Employer' && question !== 'current_company'
+    ([question]) =>
+      question !== 'Current Company/Employer' &&
+      question !== 'current_company' &&
+      question !== 'Desired Loan Limit Amount (GBP)'
   );
   if (entries.length === 0) {
     pdf.text('No questionnaire answers provided.', 14, y);

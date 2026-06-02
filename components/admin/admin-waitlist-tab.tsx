@@ -161,19 +161,17 @@ export function AdminWaitlistTab() {
                         {firstValue(detail.questionnaire_answers, ['Primary Reason for Loan'])}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-brand-200 bg-brand-500/10 p-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Desired Limit</p>
-                      <p className="mt-1 text-sm font-semibold">
-                        {firstValue(detail.questionnaire_answers, ['Desired Loan Limit Amount (GBP)'])}
-                      </p>
-                    </div>
                   </>
                 )}
               </div>
               <div className="mt-6 space-y-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-brand-500">Questionnaire</p>
                 {Object.entries(detail.questionnaire_answers)
-                  .filter(([q]) => q !== 'Current Company/Employer')
+                  .filter(
+                    ([q]) =>
+                      q !== 'Current Company/Employer' &&
+                      q !== 'Desired Loan Limit Amount (GBP)'
+                  )
                   .map(([q, a]) => (
                     <p key={q} className="text-sm">
                       <span className="font-semibold">{q}:</span>{' '}

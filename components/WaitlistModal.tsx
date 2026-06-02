@@ -37,7 +37,6 @@ export function WaitlistModal() {
   const [targetAmount, setTargetAmount] = useState('');
   const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [loanReason, setLoanReason] = useState('');
-  const [desiredLoanLimit, setDesiredLoanLimit] = useState('');
   const [answers, setAnswers] = useState<Record<string, boolean>>({
     uk_resident: false,
     understands_risk: false,
@@ -77,8 +76,8 @@ export function WaitlistModal() {
       setError('Investor source of income and income bracket are required.');
       return;
     }
-    if (role === 'borrower' && (!borrowerIncomeSource.trim() || !loanReason.trim() || !desiredLoanLimit.trim())) {
-      setError('Borrower source of income, loan reason, and desired limit are required.');
+    if (role === 'borrower' && (!borrowerIncomeSource.trim() || !loanReason.trim())) {
+      setError('Borrower source of income and loan reason are required.');
       return;
     }
 
@@ -95,7 +94,6 @@ export function WaitlistModal() {
       } else {
         questionnaireAnswers['Source of Income'] = borrowerIncomeSource || 'Not provided';
         questionnaireAnswers['Primary Reason for Loan'] = loanReason || 'Not provided';
-        questionnaireAnswers['Desired Loan Limit Amount (GBP)'] = desiredLoanLimit || 'Not provided';
       }
 
       const res = await fetch('/api/waitlist', {
@@ -265,13 +263,6 @@ export function WaitlistModal() {
                   <option>Education</option>
                   <option>Other</option>
                 </select>
-                <input
-                  required
-                  placeholder="Desired Loan Limit Amount (GBP)"
-                  value={desiredLoanLimit}
-                  onChange={(e) => setDesiredLoanLimit(e.target.value)}
-                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
-                />
                 <input
                   required
                   type="number"
