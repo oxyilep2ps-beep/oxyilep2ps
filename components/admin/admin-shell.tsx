@@ -1,4 +1,5 @@
 import { AdminBottomNav } from '@/components/admin/admin-bottom-nav';
+import { AdminWebhookTerminal } from '@/components/admin/admin-webhook-terminal';
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
@@ -6,6 +7,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto w-full min-w-0 max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 sm:px-6">
         {children}
       </div>
+      <AdminWebhookTerminal />
       <AdminBottomNav />
     </div>
   );

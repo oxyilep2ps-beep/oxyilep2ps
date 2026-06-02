@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertAdmin } from '@/lib/auth/assert-admin';
 import { formatContractLabel } from '@/lib/handshake/calculations';
+import { logAdminAction } from '@/app/actions/admin-audit';
 
 export type AdminHandshakeRow = {
   id: string;
@@ -12,6 +13,7 @@ export type AdminHandshakeRow = {
   borrower_id: string;
   lender_name: string;
   borrower_name: string;
+  borrower_email: string | null;
   amount: number;
   rate: number;
   duration: number;
@@ -45,11 +47,13 @@ export async function listAdminHandshakes(): Promise<AdminHandshakeRow[]> {
   const ids = [...new Set(rows.flatMap((h) => [h.lender_id as string, h.borrower_id as string]))];
 
   const nameMap: Record<string, string> = {};
+  const emailMap: Record<string, string> = {};
   const mandateMap: Record<string, { mandate_id: string | null; status: string | null }> = {};
   if (ids.length > 0) {
-    const { data: profiles } = await admin.from('profiles').select('id, full_legal_name').in('id', ids);
+    const { data: profiles } = await admin.from('profiles').select('id, full_legal_name, email').in('id', ids);
     for (const p of profiles ?? []) {
       nameMap[p.id as string] = p.full_legal_name as string;
+      emailMap[p.id as string] = (p.email as string | null) ?? '';
     }
   }
 
@@ -80,6 +84,7 @@ export async function listAdminHandshakes(): Promise<AdminHandshakeRow[]> {
       borrower_id: h.borrower_id as string,
       lender_name: nameMap[h.lender_id as string] ?? 'Unknown',
       borrower_name: nameMap[h.borrower_id as string] ?? 'Unknown',
+      borrower_email: emailMap[h.borrower_id as string] || null,
       amount: Number(h.amount),
       rate: Number(h.rate),
       duration: Number(h.duration),
@@ -99,7 +104,7 @@ export async function listAdminHandshakes(): Promise<AdminHandshakeRow[]> {
 }
 
 export async function markHandshakePaid(handshakeId: string) {
-  await assertAdmin();
+  const user = await assertAdmin();
   const admin = createAdminClient();
 
   const { error } = await admin
@@ -110,6 +115,7 @@ export async function markHandshakePaid(handshakeId: string) {
 
   if (error) throw new Error(error.message);
 
+  await logAdminAction(user.email ?? 'admin', `Marked handshake ${handshakeId} as PAID`);
   revalidatePath('/admin-dashboard/contracts');
   return { success: true };
 }

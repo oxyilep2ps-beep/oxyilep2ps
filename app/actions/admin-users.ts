@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertAdmin } from '@/lib/auth/assert-admin';
+import { logAdminAction } from '@/app/actions/admin-audit';
 import type { KycDocumentPaths } from '@/lib/types/profile';
 
 const KYC_BUCKET = 'kyc-documents';
@@ -40,6 +41,9 @@ export async function approveUserAction(userId: string) {
     .eq('id', userId);
 
   if (error) throw new Error(error.message);
+
+  const { data: approved } = await supabase.from('profiles').select('full_legal_name').eq('id', userId).maybeSingle();
+  await logAdminAction(adminUser.email ?? 'admin', `Approved user ${approved?.full_legal_name ?? userId}`);
 
   revalidatePath('/admin-dashboard');
   return { success: true };

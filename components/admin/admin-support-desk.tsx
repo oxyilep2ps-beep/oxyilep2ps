@@ -8,8 +8,19 @@ import {
   type ComplaintRow,
   type ContactMessageRow,
 } from '@/app/actions/admin-support';
+import { ComplaintSlaTimer } from '@/components/admin/complaint-sla-timer';
 
 type DeskTab = 'contact' | 'complaints';
+
+function complaintCardClass(row: ComplaintRow): string {
+  const deadline = row.sla_deadline
+    ? new Date(row.sla_deadline).getTime()
+    : new Date(row.created_at).getTime() + 24 * 3600000;
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) return 'border-red-500/60 bg-red-500/5';
+  if (remaining < 2 * 3600000) return 'border-orange-500/60 animate-pulse bg-orange-500/5';
+  return '';
+}
 
 export function AdminSupportDesk() {
   const [tab, setTab] = useState<DeskTab>('contact');
@@ -86,11 +97,12 @@ export function AdminSupportDesk() {
       ) : (
         <div className="space-y-3">
           {complaints.map((row) => (
-            <article key={row.id} className="glass-card rounded-2xl p-4">
+            <article key={row.id} className={`glass-card rounded-2xl p-4 ${complaintCardClass(row)}`}>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-bold">{row.name}</p>
                   <p className="text-sm text-neutral-500">{row.email}</p>
+                  <ComplaintSlaTimer slaDeadline={row.sla_deadline} createdAt={row.created_at} />
                   <p className="mt-1 text-xs">
                     <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-bold text-amber-800">
                       {row.priority}

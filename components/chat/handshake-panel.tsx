@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import type { HandshakeRow } from '@/lib/chat/types';
 import { createClient } from '@/lib/supabase/client';
+import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
 
 type HandshakePanelProps = {
   open: boolean;
@@ -29,6 +30,7 @@ export function HandshakePanel({
   const [duration, setDuration] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { paused: emergencyPause } = useEmergencyPause();
 
   if (!open) return null;
 
@@ -37,6 +39,10 @@ export function HandshakePanel({
 
   const propose = async (event: FormEvent) => {
     event.preventDefault();
+    if (emergencyPause) {
+      setMessage('Platform is paused by admin. Handshake proposals are temporarily disabled.');
+      return;
+    }
     const amt = Number(amount);
     const rt = Number(rate);
     const dur = Number(duration);
@@ -176,11 +182,16 @@ export function HandshakePanel({
         />
         <button
           type="submit"
-          disabled={busy}
-          className="rounded-full bg-brand-500 py-2 text-xs font-semibold text-white sm:col-span-3"
+          disabled={busy || emergencyPause}
+          className="rounded-full bg-brand-500 py-2 text-xs font-semibold text-white disabled:opacity-50 sm:col-span-3"
         >
-          Propose Handshake
+          {emergencyPause ? 'Platform Paused' : 'Initiate Handshake'}
         </button>
+        {emergencyPause && (
+          <p className="sm:col-span-3 text-center text-[10px] font-semibold text-red-600">
+            Emergency pause active — handshake proposals disabled
+          </p>
+        )}
       </form>
 
       <ul className="mt-3 space-y-2">

@@ -5,6 +5,7 @@ import { assertAdmin } from '@/lib/auth/assert-admin';
 import { slugifyBlogTitle } from '@/lib/blog/slug';
 import type { BlogRow } from '@/lib/blog/types';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logAdminAction } from '@/app/actions/admin-audit';
 
 function mapRow(row: Record<string, unknown>): BlogRow {
   return {
@@ -88,9 +89,10 @@ export async function approveBlog(
   id: string,
   updates?: { title?: string; content?: string; cover_image_url?: string | null }
 ) {
-  await assertAdmin();
+  const user = await assertAdmin();
   const admin = createAdminClient();
-  const { data: user } = await admin.auth.getUser();
+
+  const { data: blog } = await admin.from('blogs').select('title').eq('id', id).maybeSingle();
 
   const { error } = await admin
     .from('blogs')
@@ -100,12 +102,14 @@ export async function approveBlog(
       ...(updates?.cover_image_url !== undefined ? { cover_image_url: updates.cover_image_url } : {}),
       status: 'PUBLISHED',
       approved_at: new Date().toISOString(),
-      approved_by: user?.user?.id ?? null,
+      approved_by: user.id,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
 
   if (error) throw new Error(error.message);
+
+  await logAdminAction(user.email ?? 'admin', `Approved blog "${blog?.title ?? id}"`);
   revalidatePath('/blogs');
   revalidatePath('/admin-dashboard/blogs');
   revalidatePath('/blog');

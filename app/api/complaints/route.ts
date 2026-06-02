@@ -37,6 +37,8 @@ export async function POST(request: Request) {
       screenshotUrl = data.publicUrl;
     }
 
+    const slaDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
     const { error } = await admin.from('complaints').insert({
       name,
       email,
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
       issue_description: description,
       screenshot_url: screenshotUrl,
       priority: 'normal',
+      sla_deadline: slaDeadline,
     });
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

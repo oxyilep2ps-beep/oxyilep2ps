@@ -8,10 +8,14 @@ import {
   ClipboardList,
   FileSignature,
   Headphones,
+  LayoutDashboard,
+  Mail,
   MessageCircle,
   Newspaper,
   Palette,
+  ScrollText,
   Settings,
+  ShieldAlert,
   User,
   Users,
 } from 'lucide-react';
@@ -23,7 +27,8 @@ const items: {
   icon: typeof Users;
   exact?: boolean;
 }[] = [
-  { href: '/admin-dashboard/applications', label: 'Apps', icon: ClipboardList, exact: true },
+  { href: '/admin-dashboard/command', label: 'Command', icon: LayoutDashboard, exact: true },
+  { href: '/admin-dashboard/applications', label: 'Apps', icon: ClipboardList },
   { href: '/admin-dashboard/waitlist', label: 'Waitlist', icon: Users },
   { href: '/admin-dashboard/contracts', label: 'Contracts', icon: FileSignature },
   { href: '/admin-dashboard/support', label: 'Support', icon: Headphones },
@@ -33,6 +38,9 @@ const items: {
   { href: '/admin-dashboard/chat', label: 'Chat', icon: MessageCircle },
   { href: '/admin-dashboard/theme', label: 'Theme', icon: Palette },
   { href: '/admin-dashboard/profile', label: 'Profile', icon: User, exact: true },
+  { href: '/admin-dashboard/fraud', label: 'Fraud', icon: ShieldAlert },
+  { href: '/admin-dashboard/broadcast', label: 'Broadcast', icon: Mail },
+  { href: '/admin-dashboard/logs', label: 'Logs', icon: ScrollText },
   { href: '/admin-dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

@@ -323,7 +323,7 @@ function makeParticles(theme: ActiveTheme, viewport: Viewport): PrimaryParticle[
     mar: 56,
     apr: 64,
     may: 52,
-    jun: 52,
+    jun: 18,
     jul: 52,
     aug: 52,
     sep: 58,

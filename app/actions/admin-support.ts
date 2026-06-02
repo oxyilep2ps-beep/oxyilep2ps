@@ -23,6 +23,7 @@ export type ComplaintRow = {
   screenshot_url: string | null;
   priority: string;
   status: string;
+  sla_deadline: string | null;
   created_at: string;
 };
 

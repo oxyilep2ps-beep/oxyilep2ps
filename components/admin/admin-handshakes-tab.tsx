@@ -1,10 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Download, ExternalLink, FileSignature, Loader2 } from 'lucide-react';
+import { Download, ExternalLink, FileSignature, Loader2, Mail } from 'lucide-react';
 import { listAdminHandshakes, markHandshakePaid, type AdminHandshakeRow } from '@/app/actions/admin-handshakes';
 import { generateContractPDF } from '@/lib/pdf/contract-pdf';
 import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
+import {
+  getLoanHealthStatus,
+  LOAN_HEALTH_COLORS,
+  LOAN_HEALTH_LABELS,
+} from '@/lib/handshake/loan-health';
 
 function polygonAmoyTxUrl(hash: string | null): string | null {
   if (!hash || !/^0x[a-fA-F0-9]{64}$/.test(hash)) return null;
@@ -97,10 +102,11 @@ export function AdminHandshakesTab() {
         </div>
       ) : (
         <div className="glass-card overflow-x-auto rounded-2xl">
-          <table className="min-w-[1040px] w-full text-left text-sm">
+          <table className="min-w-[1140px] w-full text-left text-sm">
             <thead className="border-b border-white/50 text-xs uppercase tracking-wider text-neutral-500 dark:border-white/10">
               <tr>
                 <th className="px-4 py-3">Transaction</th>
+                <th className="px-4 py-3">Health</th>
                 <th className="px-4 py-3">Parties & Terms</th>
                 <th className="px-4 py-3">GoCardless Mandate</th>
                 <th className="px-4 py-3">Polygon TX Hash</th>
@@ -111,6 +117,7 @@ export function AdminHandshakesTab() {
             <tbody className="divide-y divide-white/40 dark:divide-white/10">
               {rows.map((row) => {
                 const txUrl = polygonAmoyTxUrl(row.polygon_tx_hash);
+                const health = getLoanHealthStatus(row);
                 const fallbackFigures = calculateHandshakeFigures(row.amount, row.rate, row.duration);
                 const emi = row.emi_amount && row.emi_amount > 0 ? row.emi_amount : fallbackFigures.emi_amount;
                 const total =
@@ -126,6 +133,21 @@ export function AdminHandshakesTab() {
                       <p className="mt-1 text-xs text-neutral-400">
                         {new Date(row.created_at).toLocaleString('en-GB')}
                       </p>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-3 w-3 rounded-full ${LOAN_HEALTH_COLORS[health]}`} />
+                        <span className="text-xs font-bold">{LOAN_HEALTH_LABELS[health]}</span>
+                      </div>
+                      {health === 'defaulted' && (
+                        <a
+                          href={`mailto:${encodeURIComponent(row.borrower_email ?? 'legal@oxyile.com')}?subject=${encodeURIComponent(`Legal Notice — Loan ${row.txn_id ?? row.id}`)}&body=${encodeURIComponent(`Dear ${row.borrower_name},\n\nThis is a formal notice regarding your defaulted Oxyile handshake agreement.\n\nTransaction: ${row.txn_id ?? row.id}\nAmount: £${row.amount}\n\nPlease contact compliance immediately.\n\nOxyile Legal Team`)}`}
+                          className="mt-2 inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white"
+                        >
+                          <Mail size={11} />
+                          Send Legal Notice
+                        </a>
+                      )}
                     </td>
                     <td className="px-4 py-4">
                       <p className="font-bold text-neutral-950 dark:text-white">{row.lender_name}</p>

@@ -17,6 +17,7 @@ import { buildHandshakeMessagePayload, parseHandshakeMessagePayload } from '@/li
 import { ChatAvatar } from '@/components/chat/chat-avatar';
 import { HandshakeCard } from '@/components/chat/handshake-card';
 import { cn } from '@/lib/utils';
+import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
 
 type ChatRoomProps = {
   peerUserId: string;
@@ -54,6 +55,7 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
   const [error, setError] = useState<string | null>(null);
   const [showPropose, setShowPropose] = useState(false);
   const [proposal, setProposal] = useState({ amount: '', rate: '', duration: '' });
+  const { paused: emergencyPause } = useEmergencyPause();
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
@@ -286,6 +288,10 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
   const sendHandshakeProposal = async (event: FormEvent) => {
     event.preventDefault();
     if (!myId || !peer || !myRole) return;
+    if (emergencyPause) {
+      setError('Platform is paused by admin. Handshake proposals are temporarily disabled.');
+      return;
+    }
 
     const amount = Number(proposal.amount);
     const rate = Number(proposal.rate);
@@ -443,8 +449,8 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
             <input required type="number" step="0.1" placeholder="% Rate" value={proposal.rate} onChange={(e) => setProposal((p) => ({ ...p, rate: e.target.value }))} className="rounded-xl border px-2 py-2 text-sm dark:bg-black/40" />
             <input required type="number" placeholder="Months" value={proposal.duration} onChange={(e) => setProposal((p) => ({ ...p, duration: e.target.value }))} className="rounded-xl border px-2 py-2 text-sm dark:bg-black/40" />
           </div>
-          <button type="submit" disabled={sending} className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white">
-            Send proposal to chat
+          <button type="submit" disabled={sending || emergencyPause} className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white disabled:opacity-50">
+            {emergencyPause ? 'Platform Paused' : 'Initiate Handshake'}
           </button>
         </form>
       )}
@@ -453,9 +459,11 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setShowPropose((v) => !v)}
-            aria-label="Propose handshake"
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500/15 text-brand-600"
+            onClick={() => !emergencyPause && setShowPropose((v) => !v)}
+            disabled={emergencyPause}
+            aria-label="Initiate handshake"
+            title={emergencyPause ? 'Platform paused by admin' : 'Initiate handshake'}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500/15 text-brand-600 disabled:opacity-40"
           >
             <Handshake size={18} />
           </button>
