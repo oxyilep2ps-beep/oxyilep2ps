@@ -34,6 +34,8 @@ export function WaitlistModal() {
   const [role, setRole] = useState<'borrower' | 'investor'>('borrower');
   const [incomeSource, setIncomeSource] = useState('');
   const [incomeBracket, setIncomeBracket] = useState('');
+  const [targetAmount, setTargetAmount] = useState('');
+  const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [loanReason, setLoanReason] = useState('');
   const [desiredLoanLimit, setDesiredLoanLimit] = useState('');
   const [answers, setAnswers] = useState<Record<string, boolean>>({
@@ -53,6 +55,33 @@ export function WaitlistModal() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (
+      !name.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !address.trim() ||
+      !postalCode.trim() ||
+      !targetAmount.trim()
+    ) {
+      setError('All fields are mandatory.');
+      return;
+    }
+
+    const allAnswersChecked = QUESTIONS.every((q) => answers[q.key]);
+    if (!allAnswersChecked) {
+      setError('Please confirm all strategic question checkboxes.');
+      return;
+    }
+
+    if (role === 'investor' && (!incomeSource.trim() || !incomeBracket.trim())) {
+      setError('Investor source of income and income bracket are required.');
+      return;
+    }
+    if (role === 'borrower' && (!borrowerIncomeSource.trim() || !loanReason.trim() || !desiredLoanLimit.trim())) {
+      setError('Borrower source of income, loan reason, and desired limit are required.');
+      return;
+    }
+
     setBusy(true);
     setError(null);
     try {
@@ -64,6 +93,7 @@ export function WaitlistModal() {
         questionnaireAnswers['Source of Income'] = incomeSource || 'Not provided';
         questionnaireAnswers['Estimated Annual Income/Package Bracket'] = incomeBracket || 'Not provided';
       } else {
+        questionnaireAnswers['Source of Income'] = borrowerIncomeSource || 'Not provided';
         questionnaireAnswers['Primary Reason for Loan'] = loanReason || 'Not provided';
         questionnaireAnswers['Desired Loan Limit Amount (GBP)'] = desiredLoanLimit || 'Not provided';
       }
@@ -78,6 +108,8 @@ export function WaitlistModal() {
           address,
           postal_code: postalCode,
           role,
+          target_amount: Number(targetAmount),
+          borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
           questionnaire_answers: questionnaireAnswers,
         }),
       });
@@ -135,12 +167,14 @@ export function WaitlistModal() {
             />
             <div className="grid gap-3 sm:grid-cols-2">
               <input
+                required
                 placeholder="Phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
               />
               <input
+                required
                 placeholder="Postal code"
                 value={postalCode}
                 onChange={(e) => setPostalCode(e.target.value)}
@@ -148,13 +182,15 @@ export function WaitlistModal() {
               />
             </div>
             <input
-              placeholder="Address"
+              required
+              placeholder="112, Dogfield Street, Cardiff CF24 4QN"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
             />
             <div className="grid gap-3 sm:grid-cols-2">
               <select
+                required
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'borrower' | 'investor')}
                 className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
@@ -167,6 +203,7 @@ export function WaitlistModal() {
             {role === 'investor' ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <select
+                  required
                   value={incomeSource}
                   onChange={(e) => setIncomeSource(e.target.value)}
                   className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
@@ -179,6 +216,7 @@ export function WaitlistModal() {
                   ))}
                 </select>
                 <select
+                  required
                   value={incomeBracket}
                   onChange={(e) => setIncomeBracket(e.target.value)}
                   className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
@@ -189,10 +227,33 @@ export function WaitlistModal() {
                   <option>£60,000 - £100,000</option>
                   <option>£100,000+</option>
                 </select>
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  placeholder="Intended Investment Amount (£)"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
+                  className="sm:col-span-2 w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                />
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 <select
+                  required
+                  value={borrowerIncomeSource}
+                  onChange={(e) => setBorrowerIncomeSource(e.target.value)}
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                >
+                  <option value="">Source of Income</option>
+                  {INCOME_SOURCE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  required
                   value={loanReason}
                   onChange={(e) => setLoanReason(e.target.value)}
                   className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
@@ -205,10 +266,20 @@ export function WaitlistModal() {
                   <option>Other</option>
                 </select>
                 <input
+                  required
                   placeholder="Desired Loan Limit Amount (GBP)"
                   value={desiredLoanLimit}
                   onChange={(e) => setDesiredLoanLimit(e.target.value)}
                   className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                />
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  placeholder="Requested Loan Amount (£)"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
+                  className="sm:col-span-2 w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
                 />
               </div>
             )}
@@ -220,6 +291,7 @@ export function WaitlistModal() {
                   <label key={q.key} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
+                      required
                       checked={answers[q.key]}
                       onChange={(e) => setAnswers((prev) => ({ ...prev, [q.key]: e.target.checked }))}
                     />

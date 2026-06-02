@@ -12,7 +12,11 @@ export function OliverBotFooter() {
         <div className="grid gap-8 md:grid-cols-3">
           <div>
             <h4 className="text-sm font-semibold">Oxyile</h4>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Head Office: Cardiff, UK<br/>Launch Cities: London & Cardiff<br/>preet.datta@oxyile.com</p>
+            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+              Head Office: 112, Dogfield Street, Cardiff CF24 4QN
+              <br />
+              oxyilemoneyquest.support@gmail.com
+            </p>
             <div className="mt-4 flex gap-2">
               <a href={SOCIAL_LINKS.twitter} target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)" className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-neutral-600 transition hover:border-brand-500 hover:text-brand-500 dark:text-neutral-300">
                 <Twitter size={16} />

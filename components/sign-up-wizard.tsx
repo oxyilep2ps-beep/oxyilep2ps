@@ -396,7 +396,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
               rows={2}
               value={basic.currentAddress}
               onChange={(e) => setBasic({ ...basic, currentAddress: e.target.value })}
-              placeholder="Line 1, City, Postcode"
+              placeholder="112, Dogfield Street, Cardiff CF24 4QN"
             />
           </label>
           <label className="block">

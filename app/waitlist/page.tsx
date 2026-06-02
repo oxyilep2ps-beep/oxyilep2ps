@@ -36,6 +36,18 @@ const QUESTIONS = [
   { key: 'marketing_consent', label: 'May we email you about launch updates?' },
 ];
 
+const INCOME_SOURCE_OPTIONS = [
+  'Salary / Employment',
+  'Business Profits / Self-Employed',
+  'Real Estate / Rental Income',
+  'Investments / Dividends',
+  'Pension / Retirement Funds',
+  'Savings',
+  'Trust Fund / Inheritance',
+  'Cryptocurrency Trading',
+  'Other',
+];
+
 export default function WaitlistPage() {
   const [submitted, setSubmitted] = useState(false);
   const [rank, setRank] = useState<number | null>(null);
@@ -47,6 +59,9 @@ export default function WaitlistPage() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [postalCode, setPostalCode] = useState('');
+  const [investorIncomeSource, setInvestorIncomeSource] = useState('');
+  const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
+  const [targetAmount, setTargetAmount] = useState('');
   const [answers, setAnswers] = useState<Record<string, boolean>>({
     uk_resident: false,
     understands_risk: false,
@@ -55,6 +70,30 @@ export default function WaitlistPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (
+      !name.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !address.trim() ||
+      !postalCode.trim() ||
+      !targetAmount.trim()
+    ) {
+      setError('All fields are mandatory.');
+      return;
+    }
+    if (role === 'investor' && !investorIncomeSource.trim()) {
+      setError('Source of income is mandatory for investors.');
+      return;
+    }
+    if (role === 'borrower' && !borrowerIncomeSource.trim()) {
+      setError('Source of income is mandatory for borrowers.');
+      return;
+    }
+    if (!QUESTIONS.every((q) => answers[q.key])) {
+      setError('Please confirm all quick question checkboxes.');
+      return;
+    }
+
     setBusy(true);
     setError(null);
     try {
@@ -68,8 +107,13 @@ export default function WaitlistPage() {
           address,
           postal_code: postalCode,
           role,
+          target_amount: Number(targetAmount),
+          borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
           questionnaire_answers: Object.fromEntries(
-            QUESTIONS.map((q) => [q.label, answers[q.key] ? 'Yes' : 'No'])
+            [
+              ...QUESTIONS.map((q) => [q.label, answers[q.key] ? 'Yes' : 'No'] as const),
+              ['Source of Income', role === 'investor' ? investorIncomeSource : borrowerIncomeSource] as const,
+            ]
           ),
         }),
       });
@@ -153,6 +197,7 @@ export default function WaitlistPage() {
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium">Phone</span>
                     <input
+                      required
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
@@ -161,6 +206,7 @@ export default function WaitlistPage() {
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium">Postal code</span>
                     <input
+                      required
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
@@ -170,6 +216,8 @@ export default function WaitlistPage() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium">Address</span>
                   <input
+                    required
+                    placeholder="112, Dogfield Street, Cardiff CF24 4QN"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
@@ -178,6 +226,7 @@ export default function WaitlistPage() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium">I want to join as</span>
                   <select
+                    required
                     value={role}
                     onChange={(e) => setRole(e.target.value as 'borrower' | 'investor')}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
@@ -186,12 +235,46 @@ export default function WaitlistPage() {
                     <option value="investor">Investor</option>
                   </select>
                 </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium">Source of Income</span>
+                  <select
+                    required
+                    value={role === 'investor' ? investorIncomeSource : borrowerIncomeSource}
+                    onChange={(e) =>
+                      role === 'investor'
+                        ? setInvestorIncomeSource(e.target.value)
+                        : setBorrowerIncomeSource(e.target.value)
+                    }
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
+                  >
+                    <option value="">Select source</option>
+                    {INCOME_SOURCE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium">
+                    {role === 'borrower' ? 'Requested Loan Amount (£)' : 'Intended Investment Amount (£)'}
+                  </span>
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    value={targetAmount}
+                    onChange={(e) => setTargetAmount(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
+                  />
+                </label>
                 <div className="space-y-2 rounded-2xl border border-white/50 bg-white/40 p-4 dark:border-white/10 dark:bg-black/30">
                   <p className="text-xs font-bold uppercase tracking-wider text-brand-500">Quick questions</p>
                   {QUESTIONS.map((q) => (
                     <label key={q.key} className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
+                        required
                         checked={answers[q.key]}
                         onChange={(e) => setAnswers((prev) => ({ ...prev, [q.key]: e.target.checked }))}
                       />

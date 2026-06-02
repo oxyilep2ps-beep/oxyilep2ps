@@ -10,7 +10,9 @@ export function Footer() {
           <div>
             <p className="text-2xl font-black tracking-[0.24em] text-neutral-950 dark:text-white">OXYILE</p>
             <p className="mt-4 max-w-xl text-sm leading-7 text-neutral-600 dark:text-neutral-300">
-              Oxyile connects verified borrowers and investors through a transparent, flexible, and fair peer-to-peer lending experience across London and Cardiff.
+              Oxyile connects verified borrowers and investors through a transparent, flexible, and fair peer-to-peer lending experience across the UK.
+              <br />
+              112, Dogfield Street, Cardiff CF24 4QN
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-neutral-500 dark:text-neutral-400">
               <a

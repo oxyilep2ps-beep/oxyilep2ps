@@ -16,7 +16,7 @@ function Section({ children }: { children: React.ReactNode }) {
 
 const faqs = [
   { q: 'How fast can I get support?', a: 'Our team aims to respond quickly through live chat, email, and phone during business hours.' },
-  { q: 'Can I visit the offices?', a: 'Yes. London and Cardiff office addresses are listed below for in-person support and meetings.' },
+  { q: 'Can I visit the office?', a: 'Yes. Our office address is listed below for in-person support and meetings.' },
   { q: 'How does the platform protect users?', a: 'We use KYC, secure transactions, and a compliance-first approach to reduce friction and risk.' },
 ];
 
@@ -63,7 +63,7 @@ export default function ContactPage() {
               { icon: <Headphones size={18} />, title: 'Live support', text: 'Chat with the team instantly during coverage windows.' },
               { icon: <PhoneCall size={18} />, title: 'Phone assistance', text: 'Reach the support desk for urgent platform help.' },
               { icon: <Mail size={18} />, title: 'Email routing', text: 'For general questions, feedback, and account help.' },
-              { icon: <MapPin size={18} />, title: 'Physical offices', text: 'London and Cardiff addresses for in-person support.' },
+              { icon: <MapPin size={18} />, title: 'Physical office', text: 'Single official address for in-person support.' },
             ].map((item) => (
               <div key={item.title} className="glass-card rounded-[1.8rem] p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300">{item.icon}</div>
@@ -154,14 +154,12 @@ export default function ContactPage() {
         </div>
       </motion.div>
 
-      <div className="mt-10 grid gap-4 md:grid-cols-2">
+      <div className="mt-10">
         <div className="glass-card rounded-[2rem] p-6">
-          <p className="text-lg font-bold text-slate-950 dark:text-white">London Office</p>
-          <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">Oxyile Ltd, 41 Finsbury Avenue, London, EC2M 2PF, United Kingdom.</p>
-        </div>
-        <div className="glass-card rounded-[2rem] p-6">
-          <p className="text-lg font-bold text-slate-950 dark:text-white">Cardiff Office</p>
-          <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">Oxyile Cymru, 16 Cathedral Road, Cardiff, CF11 9LJ, United Kingdom.</p>
+          <p className="text-lg font-bold text-slate-950 dark:text-white">Oxyile Office</p>
+          <p className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+            112, Dogfield Street, Cardiff CF24 4QN
+          </p>
         </div>
       </div>
 

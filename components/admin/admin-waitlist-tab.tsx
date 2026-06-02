@@ -123,8 +123,12 @@ export function AdminWaitlistTab() {
               </div>
               <dl className="mt-6 space-y-2 text-sm">
                 <div><dt className="text-neutral-500">Phone</dt><dd>{detail.phone ?? 'Not provided'}</dd></div>
-                <div><dt className="text-neutral-500">Address</dt><dd>{detail.address ?? 'Not provided'}</dd></div>
+                <div><dt className="text-neutral-500">Address</dt><dd>{detail.address ?? '112, Dogfield Street, Cardiff CF24 4QN'}</dd></div>
                 <div><dt className="text-neutral-500">Postal code</dt><dd>{detail.postal_code ?? 'Not provided'}</dd></div>
+                <div>
+                  <dt className="text-neutral-500">Target Amount</dt>
+                  <dd>£{Number(detail.target_amount ?? 0).toLocaleString('en-GB')}</dd>
+                </div>
               </dl>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {detail.role === 'investor' ? (
@@ -144,6 +148,13 @@ export function AdminWaitlistTab() {
                   </>
                 ) : (
                   <>
+                    <div className="rounded-xl border border-brand-200 bg-brand-500/10 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Source of Income</p>
+                      <p className="mt-1 text-sm font-semibold">
+                        {detail.borrower_source_of_income ??
+                          firstValue(detail.questionnaire_answers, ['Source of Income'])}
+                      </p>
+                    </div>
                     <div className="rounded-xl border border-brand-200 bg-brand-500/10 p-3">
                       <p className="text-[11px] font-bold uppercase tracking-wider text-brand-600">Loan Reason</p>
                       <p className="mt-1 text-sm font-semibold">
