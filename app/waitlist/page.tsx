@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { CheckCircle2, Loader2, Mail, MapPin, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { Footer } from '@/components/footer';
+import { Logo } from '@/components/logo';
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -141,6 +142,7 @@ export default function WaitlistPage() {
     <Section>
       <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
         <motion.div variants={fadeUp} initial="hidden" animate="show" className="space-y-6">
+          <Logo size="md" />
           <p className="text-sm uppercase tracking-[0.3em] text-brand-500">Early access</p>
           <h1 className="text-4xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">Join the Waitlist</h1>
           <p className="max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">

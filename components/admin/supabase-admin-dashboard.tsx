@@ -13,6 +13,7 @@ import { exportKycDossierPdf } from '@/lib/pdf/export-kyc-pdf';
 import { generateAdminApprovedUsersPDF } from '@/lib/pdf/admin-approved-users-pdf';
 import { listApplicationRejections, type RejectionRow } from '@/app/actions/admin-rejections';
 import { fcaAnswersToRows } from '@/lib/kyc/fca-answers';
+import { Logo } from '@/components/logo';
 
 type Tab = 'pending' | 'approved' | 'rejected';
 type ReviewAction = 'APPROVED' | 'REJECTED';
@@ -468,8 +469,8 @@ export function SupabaseAdminDashboard() {
       className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-6 px-0 py-6 sm:px-2 lg:flex-row lg:py-10"
     >
       <aside className="glass-card w-full shrink-0 rounded-2xl p-4 lg:w-56">
-        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-brand-500">Oxyile Admin</p>
-        <p className="mt-1 text-lg font-bold text-neutral-950 dark:text-white">Applications</p>
+        <Logo size="sm" />
+        <p className="mt-3 text-lg font-bold text-neutral-950 dark:text-white">Applications</p>
         <nav className="mt-6 flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
           <button
             type="button"

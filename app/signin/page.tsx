@@ -6,6 +6,7 @@ import { motion, type Variants } from 'framer-motion';
 import { Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Footer } from '@/components/footer';
+import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/client';
 import { getAuthRedirectPath } from '@/lib/auth/routing';
 import { staffRoleForEmail } from '@/lib/auth/role-emails';
@@ -66,6 +67,9 @@ function SignInForm() {
         className="mx-auto max-w-md"
       >
         <div className="text-center">
+          <div className="mb-6 flex justify-center">
+            <Logo size="lg" priority />
+          </div>
           <p className="text-sm uppercase tracking-[0.3em] text-brand-500">Secure access</p>
           <h1 className="mt-3 text-4xl font-black text-neutral-950 dark:text-white">Sign in</h1>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Mail } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Footer } from '@/components/footer';
+import { Logo } from '@/components/logo';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -33,6 +34,9 @@ export default function ForgotPasswordPage() {
 
   return (
     <section className="mx-auto max-w-md px-4 py-16 sm:px-6">
+      <div className="mb-6 flex justify-center">
+        <Logo size="lg" />
+      </div>
       <div className="glass-card rounded-[2rem] p-7">
         <h1 className="text-2xl font-black text-neutral-950 dark:text-white">Forgot password?</h1>
         <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">

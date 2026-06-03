@@ -1,5 +1,6 @@
 'use client';
 
+import { Logo } from '@/components/logo';
 import { Instagram, Linkedin, Mail, Twitter } from 'lucide-react';
 import { openOliverWidget } from '@/components/oliver/oliver-bot';
 import { SOCIAL_LINKS, supportMailto } from '@/lib/social-links';
@@ -11,7 +12,7 @@ export function OliverBotFooter() {
       <div className="mx-auto max-w-7xl px-4 py-12">
         <div className="grid gap-8 md:grid-cols-3">
           <div>
-            <h4 className="text-sm font-semibold">Oxyile</h4>
+            <Logo size="sm" />
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
               Head Office: 112, Dogfield Street, Cardiff CF24 4QN
               <br />

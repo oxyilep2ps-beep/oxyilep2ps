@@ -30,6 +30,7 @@ import {
   isValidUkPostcode,
   isValidUkSortCode,
 } from '@/lib/validation/kyc';
+import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { APPROPRIATENESS_QUESTIONS } from '@/lib/kyc/constants';
 
@@ -699,8 +700,11 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
   return (
     <motion.div layout className="glass-card rounded-[2.25rem] p-7 shadow-glass">
       <motion.div layout className="mb-6">
+        <div className="mb-4 flex justify-center sm:justify-start">
+          <Logo size="sm" />
+        </div>
         <p className="text-sm uppercase tracking-[0.28em] text-brand-500">UK FCA-aligned onboarding</p>
-        <h2 className="mt-2 text-2xl font-bold text-neutral-950 dark:text-white">Create your Oxyile account</h2>
+        <h2 className="mt-2 text-2xl font-bold text-neutral-950 dark:text-white">Create your account</h2>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
           <motion.div
             className="h-full bg-gradient-to-r from-brand-500 to-brand-400"

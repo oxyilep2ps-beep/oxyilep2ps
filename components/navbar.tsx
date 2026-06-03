@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { navLinks } from '@/lib/content';
+import { Logo } from '@/components/logo';
 import { MobileMenu } from '@/components/mobile-menu';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
@@ -17,13 +18,12 @@ export function Navbar() {
     <>
       <header className="sticky top-0 z-40 border-b border-white/60 bg-white/70 backdrop-blur-md dark:border-white/10 dark:bg-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[linear-gradient(135deg,#FF814A,#FF5A1F)] text-lg font-black text-white shadow-glow">O</span>
-            <div>
-              <p className="text-lg font-black tracking-[0.28em] text-neutral-950 dark:text-white">OXYILE</p>
-              <p className="text-xs font-medium uppercase tracking-[0.32em] text-neutral-500 dark:text-neutral-300">P2P lending & investment</p>
-            </div>
-          </Link>
+          <div className="flex items-center gap-3">
+            <Logo priority />
+            <p className="hidden text-xs font-medium uppercase tracking-[0.32em] text-neutral-500 dark:text-neutral-300 sm:block">
+              P2P lending & investment
+            </p>
+          </div>
 
           <nav className="hidden items-center gap-1 lg:flex">
             {navLinks.map((link) => {

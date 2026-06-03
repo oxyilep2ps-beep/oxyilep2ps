@@ -1,3 +1,4 @@
+import { Logo } from '@/components/logo';
 import { footerColumns } from '@/lib/content';
 import { SOCIAL_LINKS, supportMailto } from '@/lib/social-links';
 import { Instagram, Linkedin, Mail, Twitter } from 'lucide-react';
@@ -8,7 +9,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr]">
           <div>
-            <p className="text-2xl font-black tracking-[0.24em] text-neutral-950 dark:text-white">OXYILE</p>
+            <Logo size="lg" />
             <p className="mt-4 max-w-xl text-sm leading-7 text-neutral-600 dark:text-neutral-300">
               Oxyile connects verified borrowers and investors through a transparent, flexible, and fair peer-to-peer lending experience across the UK.
               <br />

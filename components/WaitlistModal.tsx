@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
+import { Logo } from '@/components/logo';
 
 const QUESTIONS = [
   { key: 'uk_resident', label: 'Are you a UK resident?' },
@@ -145,8 +146,9 @@ export function WaitlistModal() {
           <X size={18} />
         </button>
 
-        <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Early Access</p>
-        <h2 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Join Oxyile Waitlist</h2>
+        <Logo size="sm" />
+        <p className="mt-4 text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Early Access</p>
+        <h2 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Join the Waitlist</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
           Secure your queue position before public launch.
         </p>

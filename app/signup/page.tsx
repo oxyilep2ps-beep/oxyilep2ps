@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { SignUpWizard, type SignUpWizardFiles } from '@/components/sign-up-wizard';
 import { Footer } from '@/components/footer';
+import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/client';
 import type { KycSubmissionPayload } from '@/lib/types/kyc';
 
@@ -114,8 +115,11 @@ export default function SignUpPage() {
         animate={{ opacity: 1, y: 0 }}
         className="mb-10 text-center"
       >
+        <div className="mb-6 flex justify-center">
+          <Logo size="lg" priority />
+        </div>
         <p className="text-sm uppercase tracking-[0.3em] text-brand-500">Onboarding</p>
-        <h1 className="mt-3 text-4xl font-black text-neutral-950 dark:text-white sm:text-5xl">Join Oxyile</h1>
+        <h1 className="mt-3 text-4xl font-black text-neutral-950 dark:text-white sm:text-5xl">Create your account</h1>
         <p className="section-subtitle mx-auto mt-4">
           Complete our FCA-aligned KYC wizard. Your account stays pending until our compliance team approves it.
         </p>

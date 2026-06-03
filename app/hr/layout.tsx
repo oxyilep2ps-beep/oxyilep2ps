@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/auth/routing';
 import { isHrStaffEmail } from '@/lib/auth/role-emails';
@@ -23,7 +24,8 @@ export default async function HrLayout({ children }: { children: React.ReactNode
   return (
     <div className="mx-auto min-h-screen max-w-7xl px-4 pb-24 pt-8 sm:px-6">
       <header className="glass-card mb-8 rounded-2xl p-6">
-        <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Oxyile HR Portal</p>
+        <Logo size="sm" />
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-brand-500">HR Portal</p>
         <h1 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Careers & Applications</h1>
         <nav className="mt-6 flex flex-wrap gap-2">
           {links.map((link) => (

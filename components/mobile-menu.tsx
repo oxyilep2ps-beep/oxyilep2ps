@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
+import { Logo } from '@/components/logo';
 import { navLinks } from '@/lib/content';
 
 export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -27,8 +28,8 @@ export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => vo
           >
             <div className="mb-8 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">OXYILE</p>
-                <p className="text-sm text-neutral-500 dark:text-neutral-300">Modern P2P lending</p>
+                <Logo size="sm" />
+                <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-300">Modern P2P lending</p>
               </div>
               <button onClick={onClose} className="rounded-full border border-white/15 p-2 text-neutral-700 dark:border-white/10 dark:text-neutral-200">
                 <X size={18} />

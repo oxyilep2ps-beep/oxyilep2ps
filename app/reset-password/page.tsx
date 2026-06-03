@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LockKeyhole } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Footer } from '@/components/footer';
+import { Logo } from '@/components/logo';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -58,6 +59,9 @@ export default function ResetPasswordPage() {
 
   return (
     <section className="mx-auto max-w-md px-4 py-16 sm:px-6">
+      <div className="mb-6 flex justify-center">
+        <Logo size="lg" />
+      </div>
       <div className="glass-card rounded-[2rem] p-7">
         <h1 className="text-2xl font-black text-neutral-950 dark:text-white">Set new password</h1>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
