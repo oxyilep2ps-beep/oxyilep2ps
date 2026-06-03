@@ -112,6 +112,11 @@ function formatCurrency(value: unknown): string {
   return text ? `£${text}` : '—';
 }
 
+function formatInterestRate(value: unknown): string {
+  const rate = Number(value);
+  return Number.isFinite(rate) && rate > 0 ? `${rate.toLocaleString('en-GB')}%` : '—';
+}
+
 function slugifyFileName(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'user';
 }
@@ -697,6 +702,10 @@ function ProfileCard({
               ['Date of Birth', dossier.basic.dateOfBirth],
               ['Current Address', dossier.basic.currentAddress],
               ['3-Year Address History', dossier.basic.addressHistory3Years],
+              ...(Number(profile.target_amount ?? 0) > 0
+                ? [['Target Amount', formatCurrency(profile.target_amount)] as [string, string]]
+                : []),
+              ['Expected Interest Rate', formatInterestRate(profile.expected_interest_rate)],
               ['Submitted At', dossier.submittedAt ? new Date(dossier.submittedAt).toLocaleString('en-GB') : 'Not provided'],
             ],
           },
@@ -726,7 +735,17 @@ function ProfileCard({
       setExporting(false);
       setExportDocuments(null);
     }
-  }, [documents, dossier, exporting, profile.role, profile.status, questionnaireRows, resolveDocumentUrl]);
+  }, [
+    documents,
+    dossier,
+    exporting,
+    profile.expected_interest_rate,
+    profile.role,
+    profile.status,
+    profile.target_amount,
+    questionnaireRows,
+    resolveDocumentUrl,
+  ]);
 
   const docsForExport = exportDocuments ?? documents;
 
@@ -782,6 +801,10 @@ function ProfileCard({
               <Row label="Date of birth" value={dossier.basic.dateOfBirth} />
               <Row label="Current address" value={dossier.basic.currentAddress} />
               <Row label="3-year address history" value={dossier.basic.addressHistory3Years} />
+              {Number(profile.target_amount ?? 0) > 0 ? (
+                <Row label="Target amount" value={formatCurrency(profile.target_amount)} />
+              ) : null}
+              <Row label="Expected interest rate" value={formatInterestRate(profile.expected_interest_rate)} />
             </DetailSection>
 
             <DetailSection title="Identity & AML">
@@ -898,6 +921,13 @@ function ProfileCard({
                 <p><span className="font-semibold">DOB:</span> {dossier.basic.dateOfBirth}</p>
                 <p><span className="font-semibold">Current address:</span> {dossier.basic.currentAddress}</p>
                 <p><span className="font-semibold">3-year history:</span> {dossier.basic.addressHistory3Years}</p>
+                {Number(profile.target_amount ?? 0) > 0 ? (
+                  <p><span className="font-semibold">Target amount:</span> {formatCurrency(profile.target_amount)}</p>
+                ) : null}
+                <p>
+                  <span className="font-semibold">Expected interest rate:</span>{' '}
+                  {formatInterestRate(profile.expected_interest_rate)}
+                </p>
               </div>
             </section>
 

@@ -6,6 +6,7 @@ export type WaitlistPdfRow = {
   postal_code: string | null;
   role: string;
   target_amount?: number | null;
+  expected_interest_rate?: number | null;
   borrower_source_of_income?: string | null;
   waitlist_rank: number;
   questionnaire_answers: Record<string, string | boolean>;
@@ -33,10 +34,11 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
     ['Name', row.name],
     ['Email', row.email],
     ['Phone', row.phone ?? 'Not provided'],
-    ['Address', row.address ?? '112, Dogfield Street, Cardiff CF24 4QN'],
+    ['Address', row.address ?? 'Not provided'],
     ['Postal Code', row.postal_code ?? 'Not provided'],
     ['Role', row.role === 'investor' ? 'Investor' : 'Borrower'],
     ['Target Amount', `£${Number(row.target_amount ?? 0).toLocaleString('en-GB')}`],
+    ['Expected Interest Rate', `${Number(row.expected_interest_rate ?? 0).toLocaleString('en-GB')}%`],
     [
       'Source of Income',
       row.role === 'borrower'

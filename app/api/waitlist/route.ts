@@ -11,6 +11,7 @@ export async function POST(request: Request) {
       postal_code?: string;
       role?: 'borrower' | 'investor';
       target_amount?: number;
+      expected_interest_rate?: number;
       borrower_source_of_income?: string | null;
       questionnaire_answers?: Record<string, string | boolean>;
     };
@@ -22,10 +23,11 @@ export async function POST(request: Request) {
       !body.address?.trim() ||
       !body.postal_code?.trim() ||
       !body.role ||
-      Number(body.target_amount) <= 0
+      Number(body.target_amount) <= 0 ||
+      Number(body.expected_interest_rate) <= 0
     ) {
       return NextResponse.json(
-        { ok: false, error: 'All fields are required, including a valid target amount' },
+        { ok: false, error: 'All fields are required, including valid target amount and interest rate' },
         { status: 400 }
       );
     }
@@ -60,6 +62,7 @@ export async function POST(request: Request) {
         postal_code: body.postal_code?.trim() || null,
         role: body.role,
         target_amount: Number(body.target_amount),
+        expected_interest_rate: Number(body.expected_interest_rate),
         borrower_source_of_income: borrowerSourceOfIncome,
         questionnaire_answers: questionnaireAnswers,
       })

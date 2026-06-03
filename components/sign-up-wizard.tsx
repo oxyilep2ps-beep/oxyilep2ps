@@ -126,7 +126,12 @@ export interface SignUpWizardFiles {
 export interface SignUpWizardProps {
   onComplete: (
     payload: KycSubmissionPayload,
-    meta: { email: string; fullLegalName: string; password: string },
+    meta: {
+      email: string;
+      fullLegalName: string;
+      password: string;
+      expected_interest_rate: number;
+    },
     files: SignUpWizardFiles
   ) => void;
 }
@@ -165,6 +170,8 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
     bankSortCode: '',
     bankAccountNumber: '',
   });
+
+  const [expectedInterestRate, setExpectedInterestRate] = useState('');
 
   const [borrower, setBorrower] = useState<BorrowerDetailsStep>({
     purposeOfLoan: '',
@@ -210,6 +217,9 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
       if (!identity.proofOfAddress) errs.push('Upload proof of address (utility bill < 3 months).');
     }
     if (index === 2) {
+      if (!expectedInterestRate.trim() || Number(expectedInterestRate) <= 0) {
+        errs.push('Expected interest rate must be greater than 0%.');
+      }
       if (role === 'lender') {
         if (!lender.investorCategory) errs.push('Select investor categorisation.');
         if (lender.appropriatenessAnswers.some((a) => a === null)) errs.push('Complete all FCA appropriateness questions.');
@@ -275,7 +285,12 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
     };
     onComplete(
       payload,
-      { email: basic.email, fullLegalName: basic.fullLegalName, password },
+      {
+        email: basic.email,
+        fullLegalName: basic.fullLegalName,
+        password,
+        expected_interest_rate: Number(expectedInterestRate),
+      },
       {
         proofOfIdentity: identity.proofOfIdentity,
         livenessVideo: identity.livenessVideo,
@@ -396,7 +411,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
               rows={2}
               value={basic.currentAddress}
               onChange={(e) => setBasic({ ...basic, currentAddress: e.target.value })}
-              placeholder="112, Dogfield Street, Cardiff CF24 4QN"
+              placeholder="e.g., 123 High Street, London AB1 2CD"
             />
           </label>
           <label className="block">
@@ -497,6 +512,19 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
             Borrower
           </button>
         </motion.div>
+
+        <label className="block">
+          <FieldLabel required>Expected Interest Rate (%)</FieldLabel>
+          <TextInput
+            required
+            type="number"
+            step="0.1"
+            min="0.1"
+            value={expectedInterestRate}
+            onChange={(e) => setExpectedInterestRate(e.target.value)}
+            placeholder="e.g., 8.5"
+          />
+        </label>
 
         {role === 'lender' ? (
           <>
@@ -658,6 +686,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
     lender,
     borrower,
     role,
+    expectedInterestRate,
     password,
     confirmPassword,
     showPassword,

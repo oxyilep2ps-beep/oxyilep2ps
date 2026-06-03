@@ -62,6 +62,7 @@ export default function WaitlistPage() {
   const [investorIncomeSource, setInvestorIncomeSource] = useState('');
   const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
+  const [expectedInterestRate, setExpectedInterestRate] = useState('');
   const [answers, setAnswers] = useState<Record<string, boolean>>({
     uk_resident: false,
     understands_risk: false,
@@ -76,9 +77,16 @@ export default function WaitlistPage() {
       !phone.trim() ||
       !address.trim() ||
       !postalCode.trim() ||
-      !targetAmount.trim()
+      !targetAmount.trim() ||
+      !expectedInterestRate.trim()
     ) {
       setError('All fields are mandatory.');
+      return;
+    }
+
+    const interestRate = Number(expectedInterestRate);
+    if (interestRate <= 0) {
+      setError('Expected interest rate must be greater than 0%.');
       return;
     }
     if (role === 'investor' && !investorIncomeSource.trim()) {
@@ -108,6 +116,7 @@ export default function WaitlistPage() {
           postal_code: postalCode,
           role,
           target_amount: Number(targetAmount),
+          expected_interest_rate: interestRate,
           borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
           questionnaire_answers: Object.fromEntries(
             [
@@ -217,7 +226,7 @@ export default function WaitlistPage() {
                   <span className="mb-2 block text-sm font-medium">Address</span>
                   <input
                     required
-                    placeholder="112, Dogfield Street, Cardiff CF24 4QN"
+                    placeholder="e.g., 123 High Street, London AB1 2CD"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
@@ -265,6 +274,18 @@ export default function WaitlistPage() {
                     min="1"
                     value={targetAmount}
                     onChange={(e) => setTargetAmount(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium">Expected Interest Rate (%)</span>
+                  <input
+                    required
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={expectedInterestRate}
+                    onChange={(e) => setExpectedInterestRate(e.target.value)}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
                   />
                 </label>

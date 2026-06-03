@@ -123,11 +123,15 @@ export function AdminWaitlistTab() {
               </div>
               <dl className="mt-6 space-y-2 text-sm">
                 <div><dt className="text-neutral-500">Phone</dt><dd>{detail.phone ?? 'Not provided'}</dd></div>
-                <div><dt className="text-neutral-500">Address</dt><dd>{detail.address ?? '112, Dogfield Street, Cardiff CF24 4QN'}</dd></div>
+                <div><dt className="text-neutral-500">Address</dt><dd>{detail.address ?? 'Not provided'}</dd></div>
                 <div><dt className="text-neutral-500">Postal code</dt><dd>{detail.postal_code ?? 'Not provided'}</dd></div>
                 <div>
                   <dt className="text-neutral-500">Target Amount</dt>
                   <dd>£{Number(detail.target_amount ?? 0).toLocaleString('en-GB')}</dd>
+                </div>
+                <div>
+                  <dt className="text-neutral-500">Expected Interest Rate</dt>
+                  <dd>{Number(detail.expected_interest_rate ?? 0).toLocaleString('en-GB')}%</dd>
                 </div>
               </dl>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">

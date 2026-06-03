@@ -23,12 +23,17 @@ export async function POST(request: Request) {
   const email = formData.get('email')?.toString().trim();
   const fullLegalName = formData.get('fullLegalName')?.toString().trim();
   const kycJson = formData.get('kyc')?.toString();
+  const expectedInterestRate = Number(formData.get('expected_interest_rate')?.toString());
 
   if (!userId || !email || !fullLegalName || !kycJson) {
     return NextResponse.json(
       { error: 'userId, email, fullLegalName, and kyc are required' },
       { status: 400 }
     );
+  }
+
+  if (expectedInterestRate <= 0) {
+    return NextResponse.json({ error: 'Expected interest rate is required' }, { status: 400 });
   }
 
   let kyc: KycSubmissionPayload;
@@ -66,6 +71,7 @@ export async function POST(request: Request) {
       proof_of_identity_url: documents.proofOfIdentity ?? null,
       liveness_video_url: documents.livenessVideo ?? null,
       proof_of_address_url: documents.proofOfAddress ?? null,
+      expected_interest_rate: expectedInterestRate,
       kyc_data,
     },
     { onConflict: 'id' }

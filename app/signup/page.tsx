@@ -15,7 +15,7 @@ export default function SignUpPage() {
 
   const handleComplete = async (
     kyc: KycSubmissionPayload,
-    meta: { email: string; fullLegalName: string; password: string },
+    meta: { email: string; fullLegalName: string; password: string; expected_interest_rate: number },
     files: SignUpWizardFiles
   ) => {
     setSubmitting(true);
@@ -50,6 +50,7 @@ export default function SignUpPage() {
       formData.append('email', meta.email);
       formData.append('fullLegalName', meta.fullLegalName);
       formData.append('kyc', JSON.stringify(kyc));
+      formData.append('expected_interest_rate', String(meta.expected_interest_rate));
 
       if (files.proofOfIdentity) formData.append('proofOfIdentity', files.proofOfIdentity);
       if (files.livenessVideo) formData.append('livenessVideo', files.livenessVideo);

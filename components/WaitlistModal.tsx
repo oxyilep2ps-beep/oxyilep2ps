@@ -35,6 +35,7 @@ export function WaitlistModal() {
   const [incomeSource, setIncomeSource] = useState('');
   const [incomeBracket, setIncomeBracket] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
+  const [expectedInterestRate, setExpectedInterestRate] = useState('');
   const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [loanReason, setLoanReason] = useState('');
   const [answers, setAnswers] = useState<Record<string, boolean>>({
@@ -60,9 +61,16 @@ export function WaitlistModal() {
       !phone.trim() ||
       !address.trim() ||
       !postalCode.trim() ||
-      !targetAmount.trim()
+      !targetAmount.trim() ||
+      !expectedInterestRate.trim()
     ) {
       setError('All fields are mandatory.');
+      return;
+    }
+
+    const interestRate = Number(expectedInterestRate);
+    if (interestRate <= 0) {
+      setError('Expected interest rate must be greater than 0%.');
       return;
     }
 
@@ -107,6 +115,7 @@ export function WaitlistModal() {
           postal_code: postalCode,
           role,
           target_amount: Number(targetAmount),
+          expected_interest_rate: interestRate,
           borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
           questionnaire_answers: questionnaireAnswers,
         }),
@@ -181,9 +190,19 @@ export function WaitlistModal() {
             </div>
             <input
               required
-              placeholder="112, Dogfield Street, Cardiff CF24 4QN"
+              placeholder="e.g., 123 High Street, London AB1 2CD"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+            />
+            <input
+              required
+              type="number"
+              step="0.1"
+              min="0.1"
+              placeholder="Expected Interest Rate (%)"
+              value={expectedInterestRate}
+              onChange={(e) => setExpectedInterestRate(e.target.value)}
               className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
             />
             <div className="grid gap-3 sm:grid-cols-2">

@@ -12,6 +12,7 @@ export type WaitlistRow = {
   postal_code: string | null;
   role: string;
   target_amount: number;
+  expected_interest_rate: number;
   borrower_source_of_income: string | null;
   waitlist_rank: number;
   questionnaire_answers: Record<string, string | boolean>;
@@ -57,6 +58,7 @@ export async function listWaitlistUsers(): Promise<WaitlistRow[]> {
     postal_code: (row.postal_code as string | null) ?? null,
     role: row.role as string,
     target_amount: Number(row.target_amount ?? 0),
+    expected_interest_rate: Number(row.expected_interest_rate ?? 0),
     borrower_source_of_income: (row.borrower_source_of_income as string | null) ?? null,
     waitlist_rank: Number(row.waitlist_rank),
     questionnaire_answers: (row.questionnaire_answers as Record<string, string | boolean>) ?? {},
@@ -79,6 +81,7 @@ export async function getWaitlistUser(id: string): Promise<WaitlistRow | null> {
     postal_code: (data.postal_code as string | null) ?? null,
     role: data.role as string,
     target_amount: Number(data.target_amount ?? 0),
+    expected_interest_rate: Number(data.expected_interest_rate ?? 0),
     borrower_source_of_income: (data.borrower_source_of_income as string | null) ?? null,
     waitlist_rank: Number(data.waitlist_rank),
     questionnaire_answers: (data.questionnaire_answers as Record<string, string | boolean>) ?? {},
