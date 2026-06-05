@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, Loader2, Users } from 'lucide-react';
 import {
+  getCollateralProofSignedUrl,
   getWaitlistMetrics,
   getWaitlistUser,
   listWaitlistUsers,
   type WaitlistMetrics,
   type WaitlistRow,
 } from '@/app/actions/admin-waitlist';
+import { CollateralDetailsCard } from '@/components/admin/collateral-details-card';
 import { exportWaitlistProfilePdf } from '@/lib/pdf/waitlist-profile-pdf';
 
 function firstValue(record: Record<string, string | boolean>, keys: string[]): string {
@@ -168,6 +170,16 @@ export function AdminWaitlistTab() {
                   </>
                 )}
               </div>
+              {detail.role === 'borrower' ? (
+                <CollateralDetailsCard
+                  collateralType={detail.collateral_type}
+                  collateralValue={detail.collateral_value}
+                  collateralDescription={detail.collateral_description}
+                  collateralProofUrl={detail.collateral_proof_url}
+                  loanAmount={detail.target_amount}
+                  onResolveProofUrl={getCollateralProofSignedUrl}
+                />
+              ) : null}
               <div className="mt-6 space-y-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-brand-500">Questionnaire</p>
                 {Object.entries(detail.questionnaire_answers)

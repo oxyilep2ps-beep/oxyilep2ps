@@ -1,3 +1,5 @@
+import { formatLtvRatio } from '@/lib/collateral/ltv';
+
 export type WaitlistPdfRow = {
   name: string;
   email: string;
@@ -8,6 +10,9 @@ export type WaitlistPdfRow = {
   target_amount?: number | null;
   expected_interest_rate?: number | null;
   borrower_source_of_income?: string | null;
+  collateral_type?: string | null;
+  collateral_value?: number | null;
+  collateral_description?: string | null;
   waitlist_rank: number;
   questionnaire_answers: Record<string, string | boolean>;
   created_at: string;
@@ -56,6 +61,39 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
     const wrapped = pdf.splitTextToSize(value, 120) as string[];
     pdf.text(wrapped, 70, y);
     y += Math.max(8, wrapped.length * 5);
+  }
+
+  if (row.role === 'borrower') {
+    y += 6;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(brand.r, brand.g, brand.b);
+    pdf.text('SECURITY & COLLATERAL', 14, y);
+    y += 8;
+    pdf.setTextColor(30, 30, 30);
+    pdf.setFont('helvetica', 'normal');
+
+    const collateralLines: [string, string][] = [
+      ['Collateral Type', row.collateral_type ?? 'Not provided'],
+      ['Estimated Value', `£${Number(row.collateral_value ?? 0).toLocaleString('en-GB')}`],
+      ['Description', row.collateral_description ?? 'Not provided'],
+      [
+        'LTV Ratio',
+        formatLtvRatio(Number(row.target_amount ?? 0), Number(row.collateral_value ?? 0)),
+      ],
+    ];
+
+    for (const [label, value] of collateralLines) {
+      if (y > 265) {
+        pdf.addPage();
+        y = 20;
+      }
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(label, 14, y);
+      pdf.setFont('helvetica', 'normal');
+      const wrapped = pdf.splitTextToSize(value, 120) as string[];
+      pdf.text(wrapped, 70, y);
+      y += Math.max(8, wrapped.length * 5);
+    }
   }
 
   y += 6;

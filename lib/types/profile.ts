@@ -68,6 +68,10 @@ export interface Profile {
   status: ProfileStatus;
   target_amount?: number | null;
   expected_interest_rate?: number | null;
+  collateral_type?: string | null;
+  collateral_value?: number | null;
+  collateral_description?: string | null;
+  collateral_proof_url?: string | null;
   kyc_data: StoredKycData | null;
   created_at: string;
   updated_at: string;

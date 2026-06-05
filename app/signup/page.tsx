@@ -57,6 +57,7 @@ export default function SignUpPage() {
       if (files.livenessVideo) formData.append('livenessVideo', files.livenessVideo);
       if (files.proofOfAddress) formData.append('proofOfAddress', files.proofOfAddress);
       if (files.incomeVerification) formData.append('incomeVerification', files.incomeVerification);
+      if (files.collateralProof) formData.append('collateralProof', files.collateralProof);
 
       // Log FormData entries (filenames for files) to verify what's being sent
       // eslint-disable-next-line no-console

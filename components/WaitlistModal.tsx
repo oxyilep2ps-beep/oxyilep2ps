@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
+import { CollateralFormSection } from '@/components/collateral-form-section';
 import { Logo } from '@/components/logo';
 
 const QUESTIONS = [
@@ -39,6 +40,10 @@ export function WaitlistModal() {
   const [expectedInterestRate, setExpectedInterestRate] = useState('');
   const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [loanReason, setLoanReason] = useState('');
+  const [collateralType, setCollateralType] = useState('');
+  const [collateralValue, setCollateralValue] = useState('');
+  const [collateralDescription, setCollateralDescription] = useState('');
+  const [collateralProof, setCollateralProof] = useState<File | null>(null);
   const [answers, setAnswers] = useState<Record<string, boolean>>({
     uk_resident: false,
     understands_risk: false,
@@ -89,6 +94,17 @@ export function WaitlistModal() {
       setError('Borrower source of income and loan reason are required.');
       return;
     }
+    if (
+      role === 'borrower' &&
+      (!collateralType.trim() ||
+        !collateralValue.trim() ||
+        Number(collateralValue) <= 0 ||
+        !collateralDescription.trim() ||
+        !collateralProof)
+    ) {
+      setError('All collateral fields and proof of ownership are required for borrowers.');
+      return;
+    }
 
     setBusy(true);
     setError(null);
@@ -105,21 +121,27 @@ export function WaitlistModal() {
         questionnaireAnswers['Primary Reason for Loan'] = loanReason || 'Not provided';
       }
 
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('email', email);
+      formData.append('phone', phone);
+      formData.append('address', address);
+      formData.append('postal_code', postalCode);
+      formData.append('role', role);
+      formData.append('target_amount', targetAmount);
+      formData.append('expected_interest_rate', String(interestRate));
+      formData.append('borrower_source_of_income', role === 'borrower' ? borrowerIncomeSource : '');
+      formData.append('questionnaire_answers', JSON.stringify(questionnaireAnswers));
+      if (role === 'borrower') {
+        formData.append('collateral_type', collateralType);
+        formData.append('collateral_value', collateralValue);
+        formData.append('collateral_description', collateralDescription);
+        if (collateralProof) formData.append('collateral_proof', collateralProof);
+      }
+
       const res = await fetch('/api/waitlist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          email,
-          phone,
-          address,
-          postal_code: postalCode,
-          role,
-          target_amount: Number(targetAmount),
-          expected_interest_rate: interestRate,
-          borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
-          questionnaire_answers: questionnaireAnswers,
-        }),
+        body: formData,
       });
       const body = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !body.ok) throw new Error(body.error ?? 'Could not submit waitlist');
@@ -293,6 +315,22 @@ export function WaitlistModal() {
                   onChange={(e) => setTargetAmount(e.target.value)}
                   className="sm:col-span-2 w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
                 />
+                <div className="sm:col-span-2">
+                  <CollateralFormSection
+                    values={{
+                      collateralType,
+                      collateralValue,
+                      collateralDescription,
+                      collateralProof,
+                    }}
+                    onChange={(patch) => {
+                      if (patch.collateralType !== undefined) setCollateralType(patch.collateralType);
+                      if (patch.collateralValue !== undefined) setCollateralValue(patch.collateralValue);
+                      if (patch.collateralDescription !== undefined) setCollateralDescription(patch.collateralDescription);
+                      if (patch.collateralProof !== undefined) setCollateralProof(patch.collateralProof);
+                    }}
+                  />
+                </div>
               </div>
             )}
 

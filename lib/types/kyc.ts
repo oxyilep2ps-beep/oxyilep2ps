@@ -38,6 +38,10 @@ export interface BorrowerDetailsStep {
   creditCheckConsent: boolean;
   monthlyRentOrEmi: string;
   otherMonthlyExpenses: string;
+  collateralType: string;
+  collateralValue: string;
+  collateralDescription: string;
+  collateralProofFile: File | null;
 }
 
 /** Aggregated wizard payload persisted on submission. */
@@ -51,7 +55,8 @@ export interface KycSubmissionPayload {
     hasProofOfAddress: boolean;
   };
   lender?: Omit<LenderDetailsStep, never>;
-  borrower?: Omit<BorrowerDetailsStep, 'incomeVerificationFile'> & {
+  borrower?: Omit<BorrowerDetailsStep, 'incomeVerificationFile' | 'collateralProofFile'> & {
     hasIncomeVerification: boolean;
+    hasCollateralProof: boolean;
   };
 }

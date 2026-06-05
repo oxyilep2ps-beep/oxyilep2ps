@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Download, Loader2, ShieldCheck, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { getCollateralProofSignedUrl } from '@/app/actions/admin-waitlist';
 import { getKycSignedUrlAction } from '@/app/actions/admin-users';
+import { CollateralDetailsCard } from '@/components/admin/collateral-details-card';
 import { DocumentViewer } from '@/components/admin/document-viewer';
 import { RejectReasonDialog } from '@/components/admin/reject-reason-dialog';
 import type { KycDocumentPaths, Profile } from '@/lib/types/profile';
@@ -12,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { exportKycDossierPdf } from '@/lib/pdf/export-kyc-pdf';
 import { generateAdminApprovedUsersPDF } from '@/lib/pdf/admin-approved-users-pdf';
 import { listApplicationRejections, type RejectionRow } from '@/app/actions/admin-rejections';
+import { formatLtvRatio } from '@/lib/collateral/ltv';
 import { fcaAnswersToRows } from '@/lib/kyc/fca-answers';
 import { Logo } from '@/components/logo';
 
@@ -724,6 +727,22 @@ function ProfileCard({
                 },
               ]
             : []),
+          ...(profile.role === 'BORROWER'
+            ? [
+                {
+                  title: 'SECURITY & COLLATERAL',
+                  rows: [
+                    ['Collateral Type', profile.collateral_type ?? 'Not provided'],
+                    ['Estimated Value', formatCurrency(profile.collateral_value)],
+                    ['Description', profile.collateral_description ?? 'Not provided'],
+                    [
+                      'LTV Ratio',
+                      formatLtvRatio(Number(profile.target_amount ?? 0), Number(profile.collateral_value ?? 0)),
+                    ],
+                  ] as [string, string][],
+                },
+              ]
+            : []),
         ],
         documents: resolvedDocuments.map((doc) => ({
           label: doc.label,
@@ -740,6 +759,9 @@ function ProfileCard({
     documents,
     dossier,
     exporting,
+    profile.collateral_description,
+    profile.collateral_type,
+    profile.collateral_value,
     profile.expected_interest_rate,
     profile.role,
     profile.status,
@@ -870,6 +892,17 @@ function ProfileCard({
                 <Row label="Other expenses" value={formatCurrency(dossier.borrower.otherMonthlyExpenses)} />
               </DetailSection>
             )}
+
+            {profile.role === 'BORROWER' ? (
+              <CollateralDetailsCard
+                collateralType={profile.collateral_type ?? null}
+                collateralValue={Number(profile.collateral_value ?? 0)}
+                collateralDescription={profile.collateral_description ?? null}
+                collateralProofUrl={profile.collateral_proof_url ?? null}
+                loanAmount={Number(profile.target_amount ?? 0)}
+                onResolveProofUrl={getCollateralProofSignedUrl}
+              />
+            ) : null}
 
             {showActions && (
               <div className="flex flex-wrap gap-3 pt-2">

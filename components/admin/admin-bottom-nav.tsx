@@ -8,6 +8,7 @@ import {
   ClipboardList,
   FileSignature,
   Headphones,
+  Home,
   LayoutDashboard,
   Mail,
   MessageCircle,
@@ -27,6 +28,7 @@ const items: {
   icon: typeof Users;
   exact?: boolean;
 }[] = [
+  { href: '/admin-dashboard', label: 'Home', icon: Home, exact: true },
   { href: '/admin-dashboard/command', label: 'Command', icon: LayoutDashboard, exact: true },
   { href: '/admin-dashboard/applications', label: 'Apps', icon: ClipboardList },
   { href: '/admin-dashboard/waitlist', label: 'Waitlist', icon: Users },

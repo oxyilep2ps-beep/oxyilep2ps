@@ -4,9 +4,29 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { navLinks } from '@/lib/content';
+import { NavbarAuthActions } from '@/components/navbar-auth-actions';
 
-export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+type MobileMenuProps = {
+  open: boolean;
+  onClose: () => void;
+  authenticated: boolean;
+  authLoading: boolean;
+  dashboardHref: string;
+  onSignOut: () => void;
+  logoHref?: string;
+  navLinks: { href: string; label: string }[];
+};
+
+export function MobileMenu({
+  open,
+  onClose,
+  authenticated,
+  authLoading,
+  dashboardHref,
+  onSignOut,
+  logoHref = '/',
+  navLinks,
+}: MobileMenuProps) {
   return (
     <AnimatePresence>
       {open ? (
@@ -28,7 +48,7 @@ export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => vo
           >
             <div className="mb-8 flex items-center justify-between">
               <div>
-                <Logo size="sm" />
+                <Logo size="sm" href={logoHref} />
                 <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-300">Modern P2P lending</p>
               </div>
               <button onClick={onClose} className="rounded-full border border-white/15 p-2 text-neutral-700 dark:border-white/10 dark:text-neutral-200">
@@ -47,14 +67,14 @@ export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => vo
                 </Link>
               ))}
             </div>
-            <div className="mt-8 grid gap-3">
-              <Link href="/signin" onClick={onClose} className="rounded-full bg-brand-500 px-5 py-3 text-center font-semibold text-white shadow-glow">
-                Sign In
-              </Link>
-              <Link href="/waitlist" onClick={onClose} className="rounded-full border border-white/15 px-5 py-3 text-center font-semibold text-neutral-700 dark:border-white/10 dark:text-neutral-200">
-                Join the Waitlist
-              </Link>
-            </div>
+            <NavbarAuthActions
+              authenticated={authenticated}
+              loading={authLoading}
+              dashboardHref={dashboardHref}
+              onSignOut={onSignOut}
+              onNavigate={onClose}
+              layout="mobile"
+            />
           </motion.aside>
         </>
       ) : null}
