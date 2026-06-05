@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { COLLATERAL_TYPES } from '@/lib/collateral/constants';
-import { uploadCollateralProof } from '@/lib/collateral/upload';
 import { uploadAllKycDocuments, type WizardUploadFiles } from '@/lib/kyc/upload';
 import { buildStoredKycData, mapWizardRoleToProfileRole } from '@/lib/kyc/build-stored-kyc';
 import { buildFcaTestAnswers } from '@/lib/kyc/fca-answers';
@@ -52,38 +50,8 @@ export async function POST(request: Request) {
     incomeVerification: toFile(formData.get('incomeVerification')),
   };
 
-  const collateralProof = toFile(formData.get('collateralProof'));
-  let collateralProofPath: string | null = null;
-  let collateralType: string | null = null;
-  let collateralValue = 0;
-  let collateralDescription: string | null = null;
-
-  if (kyc.role === 'borrower') {
-    collateralType = kyc.borrower?.collateralType?.trim() ?? null;
-    collateralValue = Number(kyc.borrower?.collateralValue ?? 0);
-    collateralDescription = kyc.borrower?.collateralDescription?.trim() ?? null;
-
-    if (
-      !collateralType ||
-      !COLLATERAL_TYPES.includes(collateralType as (typeof COLLATERAL_TYPES)[number]) ||
-      collateralValue <= 0 ||
-      !collateralDescription ||
-      !collateralProof
-    ) {
-      return NextResponse.json(
-        { error: 'Borrower collateral type, value, description, and proof document are required' },
-        { status: 400 }
-      );
-    }
-  }
-
   const admin = createAdminClient();
   const documents = await uploadAllKycDocuments(admin, userId, files);
-
-  if (kyc.role === 'borrower' && collateralProof) {
-    collateralProofPath = await uploadCollateralProof(admin, collateralProof, userId);
-  }
-
   const kyc_data = buildStoredKycData(kyc, documents);
   const profileRole = mapWizardRoleToProfileRole(kyc.role);
   const fcaTestAnswers =
@@ -104,10 +72,6 @@ export async function POST(request: Request) {
       liveness_video_url: documents.livenessVideo ?? null,
       proof_of_address_url: documents.proofOfAddress ?? null,
       expected_interest_rate: expectedInterestRate,
-      collateral_type: collateralType,
-      collateral_value: collateralValue,
-      collateral_description: collateralDescription,
-      collateral_proof_url: collateralProofPath,
       kyc_data,
     },
     { onConflict: 'id' }

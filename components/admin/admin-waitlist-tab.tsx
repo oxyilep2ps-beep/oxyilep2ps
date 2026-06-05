@@ -170,7 +170,7 @@ export function AdminWaitlistTab() {
                   </>
                 )}
               </div>
-              {detail.role === 'borrower' ? (
+              {detail.role === 'borrower' && detail.collateral_type ? (
                 <CollateralDetailsCard
                   collateralType={detail.collateral_type}
                   collateralValue={detail.collateral_value}

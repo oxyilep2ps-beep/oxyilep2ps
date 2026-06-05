@@ -30,7 +30,6 @@ import {
   isValidUkPostcode,
   isValidUkSortCode,
 } from '@/lib/validation/kyc';
-import { CollateralFormSection } from '@/components/collateral-form-section';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { APPROPRIATENESS_QUESTIONS } from '@/lib/kyc/constants';
@@ -123,7 +122,6 @@ export interface SignUpWizardFiles {
   livenessVideo: File | null;
   proofOfAddress: File | null;
   incomeVerification: File | null;
-  collateralProof: File | null;
 }
 
 export interface SignUpWizardProps {
@@ -185,10 +183,6 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
     creditCheckConsent: false,
     monthlyRentOrEmi: '',
     otherMonthlyExpenses: '',
-    collateralType: '',
-    collateralValue: '',
-    collateralDescription: '',
-    collateralProofFile: null,
   });
 
   const progress = ((step + 1) / STEPS.length) * 100;
@@ -242,12 +236,6 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
         }
         if (!borrower.creditCheckConsent) errs.push('Credit check consent is required (Experian/Equifax).');
         if (!borrower.monthlyRentOrEmi.trim()) errs.push('Monthly rent/EMI is required for affordability.');
-        if (!borrower.collateralType.trim()) errs.push('Collateral type is required.');
-        if (!borrower.collateralValue.trim() || Number(borrower.collateralValue) <= 0) {
-          errs.push('Estimated collateral value must be greater than £0.');
-        }
-        if (!borrower.collateralDescription.trim()) errs.push('Asset description is required.');
-        if (!borrower.collateralProofFile) errs.push('Proof of ownership document is required.');
       }
     }
     return errs;
@@ -293,10 +281,6 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
               monthlyRentOrEmi: borrower.monthlyRentOrEmi,
               otherMonthlyExpenses: borrower.otherMonthlyExpenses,
               hasIncomeVerification: Boolean(borrower.incomeVerificationFile),
-              collateralType: borrower.collateralType,
-              collateralValue: borrower.collateralValue,
-              collateralDescription: borrower.collateralDescription,
-              hasCollateralProof: Boolean(borrower.collateralProofFile),
             },
           }),
     };
@@ -313,7 +297,6 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
         livenessVideo: identity.livenessVideo,
         proofOfAddress: identity.proofOfAddress,
         incomeVerification: borrower.incomeVerificationFile,
-        collateralProof: borrower.collateralProofFile,
       }
     );
   };
@@ -677,26 +660,6 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
               </span>
             </label>
             <p className="text-sm font-semibold text-neutral-950 dark:text-white">Affordability Assessment</p>
-            <CollateralFormSection
-              values={{
-                collateralType: borrower.collateralType,
-                collateralValue: borrower.collateralValue,
-                collateralDescription: borrower.collateralDescription,
-                collateralProof: borrower.collateralProofFile,
-              }}
-              onChange={(patch) =>
-                setBorrower({
-                  ...borrower,
-                  ...(patch.collateralType !== undefined ? { collateralType: patch.collateralType } : {}),
-                  ...(patch.collateralValue !== undefined ? { collateralValue: patch.collateralValue } : {}),
-                  ...(patch.collateralDescription !== undefined
-                    ? { collateralDescription: patch.collateralDescription }
-                    : {}),
-                  ...(patch.collateralProof !== undefined ? { collateralProofFile: patch.collateralProof } : {}),
-                })
-              }
-              inputClassName="rounded-2xl border border-neutral-200 bg-white dark:border-white/10 dark:bg-black"
-            />
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <FieldLabel required>Monthly Rent / EMI (£)</FieldLabel>

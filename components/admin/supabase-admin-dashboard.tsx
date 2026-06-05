@@ -727,7 +727,7 @@ function ProfileCard({
                 },
               ]
             : []),
-          ...(profile.role === 'BORROWER'
+          ...(profile.role === 'BORROWER' && profile.collateral_type
             ? [
                 {
                   title: 'SECURITY & COLLATERAL',
@@ -893,7 +893,7 @@ function ProfileCard({
               </DetailSection>
             )}
 
-            {profile.role === 'BORROWER' ? (
+            {profile.role === 'BORROWER' && profile.collateral_type ? (
               <CollateralDetailsCard
                 collateralType={profile.collateral_type ?? null}
                 collateralValue={Number(profile.collateral_value ?? 0)}

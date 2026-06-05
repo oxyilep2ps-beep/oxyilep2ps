@@ -63,7 +63,7 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
     y += Math.max(8, wrapped.length * 5);
   }
 
-  if (row.role === 'borrower') {
+  if (row.role === 'borrower' && row.collateral_type) {
     y += 6;
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(brand.r, brand.g, brand.b);

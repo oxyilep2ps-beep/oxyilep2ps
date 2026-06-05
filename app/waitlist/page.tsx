@@ -3,7 +3,6 @@
 import { FormEvent, useState } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { CheckCircle2, Loader2, Mail, MapPin, ShieldCheck, Sparkles, Users } from 'lucide-react';
-import { CollateralFormSection } from '@/components/collateral-form-section';
 import { Footer } from '@/components/footer';
 import { Logo } from '@/components/logo';
 
@@ -65,10 +64,6 @@ export default function WaitlistPage() {
   const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
   const [expectedInterestRate, setExpectedInterestRate] = useState('');
-  const [collateralType, setCollateralType] = useState('');
-  const [collateralValue, setCollateralValue] = useState('');
-  const [collateralDescription, setCollateralDescription] = useState('');
-  const [collateralProof, setCollateralProof] = useState<File | null>(null);
   const [answers, setAnswers] = useState<Record<string, boolean>>({
     uk_resident: false,
     understands_risk: false,
@@ -103,17 +98,6 @@ export default function WaitlistPage() {
       setError('Source of income is mandatory for borrowers.');
       return;
     }
-    if (
-      role === 'borrower' &&
-      (!collateralType.trim() ||
-        !collateralValue.trim() ||
-        Number(collateralValue) <= 0 ||
-        !collateralDescription.trim() ||
-        !collateralProof)
-    ) {
-      setError('All collateral fields and proof of ownership are required for borrowers.');
-      return;
-    }
     if (!QUESTIONS.every((q) => answers[q.key])) {
       setError('Please confirm all quick question checkboxes.');
       return;
@@ -127,27 +111,21 @@ export default function WaitlistPage() {
         ['Source of Income', role === 'investor' ? investorIncomeSource : borrowerIncomeSource] as const,
       ]);
 
-      const formData = new FormData();
-      formData.append('name', name);
-      formData.append('email', email);
-      formData.append('phone', phone);
-      formData.append('address', address);
-      formData.append('postal_code', postalCode);
-      formData.append('role', role);
-      formData.append('target_amount', targetAmount);
-      formData.append('expected_interest_rate', String(interestRate));
-      formData.append('borrower_source_of_income', role === 'borrower' ? borrowerIncomeSource : '');
-      formData.append('questionnaire_answers', JSON.stringify(questionnaireAnswers));
-      if (role === 'borrower') {
-        formData.append('collateral_type', collateralType);
-        formData.append('collateral_value', collateralValue);
-        formData.append('collateral_description', collateralDescription);
-        if (collateralProof) formData.append('collateral_proof', collateralProof);
-      }
-
       const res = await fetch('/api/waitlist', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          address,
+          postal_code: postalCode,
+          role,
+          target_amount: Number(targetAmount),
+          expected_interest_rate: interestRate,
+          borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
+          questionnaire_answers: questionnaireAnswers,
+        }),
       });
       const body = (await res.json()) as { ok?: boolean; error?: string; waitlist_rank?: number };
       if (!res.ok || !body.ok) throw new Error(body.error ?? 'Submission failed');
@@ -313,23 +291,6 @@ export default function WaitlistPage() {
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
                   />
                 </label>
-                {role === 'borrower' ? (
-                  <CollateralFormSection
-                    values={{
-                      collateralType,
-                      collateralValue,
-                      collateralDescription,
-                      collateralProof,
-                    }}
-                    onChange={(patch) => {
-                      if (patch.collateralType !== undefined) setCollateralType(patch.collateralType);
-                      if (patch.collateralValue !== undefined) setCollateralValue(patch.collateralValue);
-                      if (patch.collateralDescription !== undefined) setCollateralDescription(patch.collateralDescription);
-                      if (patch.collateralProof !== undefined) setCollateralProof(patch.collateralProof);
-                    }}
-                    inputClassName="rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-black"
-                  />
-                ) : null}
                 <div className="space-y-2 rounded-2xl border border-white/50 bg-white/40 p-4 dark:border-white/10 dark:bg-black/30">
                   <p className="text-xs font-bold uppercase tracking-wider text-brand-500">Quick questions</p>
                   {QUESTIONS.map((q) => (
