@@ -3,12 +3,14 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { Logo } from '@/components/logo';
-
-const QUESTIONS = [
-  { key: 'uk_resident', label: 'Are you a UK resident?' },
-  { key: 'understands_risk', label: 'Do you understand P2P lending carries risk?' },
-  { key: 'marketing_consent', label: 'May we email you about launch updates?' },
-] as const;
+import { StrategicQuestionsFields } from '@/components/strategic-questions-fields';
+import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
+import {
+  createEmptyStrategicAnswers,
+  strategicAnswersComplete,
+  strategicAnswersToPayload,
+  type StrategicAnswersState,
+} from '@/lib/questionnaire/strategic-questions';
 
 const INCOME_SOURCE_OPTIONS = [
   'Salary / Employment',
@@ -36,14 +38,9 @@ export function WaitlistModal() {
   const [incomeSource, setIncomeSource] = useState('');
   const [incomeBracket, setIncomeBracket] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
-  const [expectedInterestRate, setExpectedInterestRate] = useState('');
   const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [loanReason, setLoanReason] = useState('');
-  const [answers, setAnswers] = useState<Record<string, boolean>>({
-    uk_resident: false,
-    understands_risk: false,
-    marketing_consent: true,
-  });
+  const [strategicAnswers, setStrategicAnswers] = useState<StrategicAnswersState>(createEmptyStrategicAnswers);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setOpen(true), 1000);
@@ -56,28 +53,13 @@ export function WaitlistModal() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (
-      !name.trim() ||
-      !email.trim() ||
-      !phone.trim() ||
-      !address.trim() ||
-      !postalCode.trim() ||
-      !targetAmount.trim() ||
-      !expectedInterestRate.trim()
-    ) {
+    if (!name.trim() || !email.trim() || !phone.trim() || !address.trim() || !postalCode.trim() || !targetAmount.trim()) {
       setError('All fields are mandatory.');
       return;
     }
 
-    const interestRate = Number(expectedInterestRate);
-    if (interestRate <= 0) {
-      setError('Expected interest rate must be greater than 0%.');
-      return;
-    }
-
-    const allAnswersChecked = QUESTIONS.every((q) => answers[q.key]);
-    if (!allAnswersChecked) {
-      setError('Please confirm all strategic question checkboxes.');
+    if (!strategicAnswersComplete(strategicAnswers)) {
+      setError('Please answer every strategic question with Yes or No.');
       return;
     }
 
@@ -92,9 +74,9 @@ export function WaitlistModal() {
     setBusy(true);
     setError(null);
     try {
-      const questionnaireAnswers: Record<string, string> = Object.fromEntries(
-        QUESTIONS.map((q) => [q.label, answers[q.key] ? 'Yes' : 'No'])
-      );
+      const questionnaireAnswers: Record<string, string> = {
+        ...strategicAnswersToPayload(strategicAnswers),
+      };
 
       if (role === 'investor') {
         questionnaireAnswers['Source of Income'] = incomeSource || 'Not provided';
@@ -115,7 +97,7 @@ export function WaitlistModal() {
           postal_code: postalCode,
           role,
           target_amount: Number(targetAmount),
-          expected_interest_rate: interestRate,
+          expected_interest_rate: FIXED_INTEREST_RATE,
           borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
           questionnaire_answers: questionnaireAnswers,
         }),
@@ -149,7 +131,7 @@ export function WaitlistModal() {
         <p className="mt-4 text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Early Access</p>
         <h2 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Join the Waitlist</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Secure your queue position before public launch.
+          Secure your queue position before public launch. Platform interest rate is fixed at 10%.
         </p>
 
         {done ? (
@@ -194,16 +176,6 @@ export function WaitlistModal() {
               placeholder="e.g., 123 High Street, London AB1 2CD"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
-            />
-            <input
-              required
-              type="number"
-              step="0.1"
-              min="0.1"
-              placeholder="Expected Interest Rate (%)"
-              value={expectedInterestRate}
-              onChange={(e) => setExpectedInterestRate(e.target.value)}
               className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
             />
             <div className="grid gap-3 sm:grid-cols-2">
@@ -296,20 +268,10 @@ export function WaitlistModal() {
             )}
 
             <div className="rounded-xl border border-white/50 bg-white/40 p-3 dark:border-white/10 dark:bg-black/30">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-brand-500">Strategic Questions</p>
-              <div className="mt-2 space-y-2">
-                {QUESTIONS.map((q) => (
-                  <label key={q.key} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      required
-                      checked={answers[q.key]}
-                      onChange={(e) => setAnswers((prev) => ({ ...prev, [q.key]: e.target.checked }))}
-                    />
-                    {q.label}
-                  </label>
-                ))}
-              </div>
+              <StrategicQuestionsFields
+                values={strategicAnswers}
+                onChange={(key, value) => setStrategicAnswers((prev) => ({ ...prev, [key]: value }))}
+              />
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button

@@ -17,6 +17,8 @@ import { listApplicationRejections, type RejectionRow } from '@/app/actions/admi
 import { formatLtvRatio } from '@/lib/collateral/ltv';
 import { fcaAnswersToRows } from '@/lib/kyc/fca-answers';
 import { Logo } from '@/components/logo';
+import { FIXED_INTEREST_RATE_LABEL } from '@/lib/platform/constants';
+import { formatQuestionnaireAnswer } from '@/lib/questionnaire/strategic-questions';
 
 type Tab = 'pending' | 'approved' | 'rejected';
 type ReviewAction = 'APPROVED' | 'REJECTED';
@@ -65,6 +67,7 @@ type NormalizedKyc = {
     hasIncomeVerification?: boolean;
   };
   submittedAt?: string;
+  questionnaireAnswers?: Record<string, string>;
 };
 
 type QuestionnaireRow = {
@@ -116,9 +119,8 @@ function formatCurrency(value: unknown): string {
   return text ? `£${text}` : '—';
 }
 
-function formatInterestRate(value: unknown): string {
-  const rate = Number(value);
-  return Number.isFinite(rate) && rate > 0 ? `${rate.toLocaleString('en-GB')}%` : '—';
+function formatInterestRate(): string {
+  return FIXED_INTEREST_RATE_LABEL;
 }
 
 function slugifyFileName(value: string): string {
@@ -204,6 +206,14 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
         }
       : undefined,
     submittedAt: pickOptionalText(raw?.submittedAt),
+    questionnaireAnswers: isRecord(raw?.questionnaireAnswers)
+      ? Object.fromEntries(
+          Object.entries(raw.questionnaireAnswers).map(([key, value]) => [
+            key,
+            formatQuestionnaireAnswer(value),
+          ])
+        )
+      : undefined,
   };
 }
 
@@ -263,6 +273,12 @@ function buildQuestionnaireRows(kyc: NormalizedKyc, profile: Profile): Questionn
       answer: kyc.identity.documents.proofOfAddress ? 'Yes' : 'Not provided',
     },
   ];
+
+  if (kyc.questionnaireAnswers) {
+    for (const [question, answer] of Object.entries(kyc.questionnaireAnswers)) {
+      rows.push({ question, answer: formatQuestionnaireAnswer(answer) });
+    }
+  }
 
   if ((profile.role === 'INVESTOR' || kyc.accountRole === 'lender') && kyc.lender) {
     const fcaRows = fcaAnswersToRows(kyc.fcaTestAnswers);
@@ -709,7 +725,7 @@ function ProfileCard({
               ...(Number(profile.target_amount ?? 0) > 0
                 ? [['Target Amount', formatCurrency(profile.target_amount)] as [string, string]]
                 : []),
-              ['Expected Interest Rate', formatInterestRate(profile.expected_interest_rate)],
+              ['Interest Rate', formatInterestRate()],
               ['Submitted At', dossier.submittedAt ? new Date(dossier.submittedAt).toLocaleString('en-GB') : 'Not provided'],
             ],
           },
@@ -827,7 +843,7 @@ function ProfileCard({
               {Number(profile.target_amount ?? 0) > 0 ? (
                 <Row label="Target amount" value={formatCurrency(profile.target_amount)} />
               ) : null}
-              <Row label="Expected interest rate" value={formatInterestRate(profile.expected_interest_rate)} />
+              <Row label="Interest rate" value={formatInterestRate()} />
             </DetailSection>
 
             <DetailSection title="Identity & AML">
@@ -959,8 +975,7 @@ function ProfileCard({
                   <p><span className="font-semibold">Target amount:</span> {formatCurrency(profile.target_amount)}</p>
                 ) : null}
                 <p>
-                  <span className="font-semibold">Expected interest rate:</span>{' '}
-                  {formatInterestRate(profile.expected_interest_rate)}
+                  <span className="font-semibold">Interest rate:</span> {formatInterestRate()}
                 </p>
               </div>
             </section>

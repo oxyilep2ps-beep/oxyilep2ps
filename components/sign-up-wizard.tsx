@@ -31,6 +31,14 @@ import {
   isValidUkSortCode,
 } from '@/lib/validation/kyc';
 import { Logo } from '@/components/logo';
+import { StrategicQuestionsFields } from '@/components/strategic-questions-fields';
+import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
+import {
+  createEmptyStrategicAnswers,
+  strategicAnswersComplete,
+  strategicAnswersToPayload,
+  type StrategicAnswersState,
+} from '@/lib/questionnaire/strategic-questions';
 import { cn } from '@/lib/utils';
 import { APPROPRIATENESS_QUESTIONS } from '@/lib/kyc/constants';
 
@@ -172,7 +180,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
     bankAccountNumber: '',
   });
 
-  const [expectedInterestRate, setExpectedInterestRate] = useState('');
+  const [strategicAnswers, setStrategicAnswers] = useState<StrategicAnswersState>(createEmptyStrategicAnswers);
 
   const [borrower, setBorrower] = useState<BorrowerDetailsStep>({
     purposeOfLoan: '',
@@ -218,8 +226,8 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
       if (!identity.proofOfAddress) errs.push('Upload proof of address (utility bill < 3 months).');
     }
     if (index === 2) {
-      if (!expectedInterestRate.trim() || Number(expectedInterestRate) <= 0) {
-        errs.push('Expected interest rate must be greater than 0%.');
+      if (!strategicAnswersComplete(strategicAnswers)) {
+        errs.push('Please answer every strategic question with Yes or No.');
       }
       if (role === 'lender') {
         if (!lender.investorCategory) errs.push('Select investor categorisation.');
@@ -283,6 +291,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
               hasIncomeVerification: Boolean(borrower.incomeVerificationFile),
             },
           }),
+      questionnaireAnswers: strategicAnswersToPayload(strategicAnswers),
     };
     onComplete(
       payload,
@@ -290,7 +299,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
         email: basic.email,
         fullLegalName: basic.fullLegalName,
         password,
-        expected_interest_rate: Number(expectedInterestRate),
+        expected_interest_rate: FIXED_INTEREST_RATE,
       },
       {
         proofOfIdentity: identity.proofOfIdentity,
@@ -514,18 +523,16 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
           </button>
         </motion.div>
 
-        <label className="block">
-          <FieldLabel required>Expected Interest Rate (%)</FieldLabel>
-          <TextInput
-            required
-            type="number"
-            step="0.1"
-            min="0.1"
-            value={expectedInterestRate}
-            onChange={(e) => setExpectedInterestRate(e.target.value)}
-            placeholder="e.g., 8.5"
+        <div className="rounded-2xl border border-brand-200/60 p-4 dark:border-brand-500/20">
+          <StrategicQuestionsFields
+            values={strategicAnswers}
+            onChange={(key, value) => setStrategicAnswers((prev) => ({ ...prev, [key]: value }))}
           />
-        </label>
+        </div>
+
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Platform interest rate is fixed at 10% for all borrowers and investors.
+        </p>
 
         {role === 'lender' ? (
           <>
@@ -687,7 +694,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
     lender,
     borrower,
     role,
-    expectedInterestRate,
+    strategicAnswers,
     password,
     confirmPassword,
     showPassword,

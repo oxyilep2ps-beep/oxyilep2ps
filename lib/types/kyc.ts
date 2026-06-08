@@ -54,4 +54,6 @@ export interface KycSubmissionPayload {
   borrower?: Omit<BorrowerDetailsStep, 'incomeVerificationFile'> & {
     hasIncomeVerification: boolean;
   };
+  /** Strategic Yes/No questionnaire (Phase 19). */
+  questionnaireAnswers?: Record<string, 'Yes' | 'No'>;
 }

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { footerColumns } from '@/lib/content';
 import { SOCIAL_LINKS, supportMailto } from '@/lib/social-links';
@@ -64,10 +65,10 @@ export function Footer() {
                 <h3 className="text-sm font-semibold uppercase tracking-[0.28em] text-neutral-950 dark:text-white">{column.title}</h3>
                 <ul className="mt-4 space-y-3 text-sm text-neutral-600 dark:text-neutral-300">
                   {column.links.map((item) => (
-                    <li key={item}>
-                      <a href="#" className="transition hover:text-brand-500">
-                        {item}
-                      </a>
+                    <li key={item.label}>
+                      <Link href={item.href} className="transition hover:text-brand-500">
+                        {item.label}
+                      </Link>
                     </li>
                   ))}
                 </ul>

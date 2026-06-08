@@ -4,6 +4,7 @@ import { uploadAllKycDocuments, type WizardUploadFiles } from '@/lib/kyc/upload'
 import { buildStoredKycData, mapWizardRoleToProfileRole } from '@/lib/kyc/build-stored-kyc';
 import { buildFcaTestAnswers } from '@/lib/kyc/fca-answers';
 import { createSubmission } from '@/lib/data/kyc-store';
+import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
 import type { KycSubmissionPayload } from '@/lib/types/kyc';
 
 function toFile(value: FormDataEntryValue | null): File | null {
@@ -23,17 +24,11 @@ export async function POST(request: Request) {
   const email = formData.get('email')?.toString().trim();
   const fullLegalName = formData.get('fullLegalName')?.toString().trim();
   const kycJson = formData.get('kyc')?.toString();
-  const expectedInterestRate = Number(formData.get('expected_interest_rate')?.toString());
-
   if (!userId || !email || !fullLegalName || !kycJson) {
     return NextResponse.json(
       { error: 'userId, email, fullLegalName, and kyc are required' },
       { status: 400 }
     );
-  }
-
-  if (expectedInterestRate <= 0) {
-    return NextResponse.json({ error: 'Expected interest rate is required' }, { status: 400 });
   }
 
   let kyc: KycSubmissionPayload;
@@ -71,7 +66,7 @@ export async function POST(request: Request) {
       proof_of_identity_url: documents.proofOfIdentity ?? null,
       liveness_video_url: documents.livenessVideo ?? null,
       proof_of_address_url: documents.proofOfAddress ?? null,
-      expected_interest_rate: expectedInterestRate,
+      expected_interest_rate: FIXED_INTEREST_RATE,
       kyc_data,
     },
     { onConflict: 'id' }

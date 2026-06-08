@@ -40,7 +40,7 @@ export function Hero() {
             </div>
 
             <p className="section-subtitle mt-6 max-w-xl">
-              A digital smart-contract platform connecting verified investors and borrowers directly — typical returns ~9–10% for investors while borrowers access fair, fast funding without bank middlemen.
+              A digital smart-contract platform connecting verified investors and borrowers directly — typical returns 10% for investors while borrowers access fair, fast funding without bank middlemen.
             </p>
 
             <div className="mt-8 flex gap-4">

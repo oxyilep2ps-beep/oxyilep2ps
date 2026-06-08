@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
 
 export async function POST(request: Request) {
   try {
@@ -23,11 +24,10 @@ export async function POST(request: Request) {
       !body.address?.trim() ||
       !body.postal_code?.trim() ||
       !body.role ||
-      Number(body.target_amount) <= 0 ||
-      Number(body.expected_interest_rate) <= 0
+      Number(body.target_amount) <= 0
     ) {
       return NextResponse.json(
-        { ok: false, error: 'All fields are required, including valid target amount and interest rate' },
+        { ok: false, error: 'All fields are required, including a valid target amount' },
         { status: 400 }
       );
     }
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         postal_code: body.postal_code?.trim() || null,
         role: body.role,
         target_amount: Number(body.target_amount),
-        expected_interest_rate: Number(body.expected_interest_rate),
+        expected_interest_rate: FIXED_INTEREST_RATE,
         borrower_source_of_income: borrowerSourceOfIncome,
         questionnaire_answers: questionnaireAnswers,
       })

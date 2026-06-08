@@ -12,12 +12,13 @@ import {
 } from '@/app/actions/admin-waitlist';
 import { CollateralDetailsCard } from '@/components/admin/collateral-details-card';
 import { exportWaitlistProfilePdf } from '@/lib/pdf/waitlist-profile-pdf';
+import { FIXED_INTEREST_RATE_LABEL } from '@/lib/platform/constants';
+import { formatQuestionnaireAnswer } from '@/lib/questionnaire/strategic-questions';
 
 function firstValue(record: Record<string, string | boolean>, keys: string[]): string {
   for (const key of keys) {
     if (key in record) {
-      const value = record[key];
-      return typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value);
+      return formatQuestionnaireAnswer(record[key]);
     }
   }
   return 'Not provided';
@@ -132,8 +133,8 @@ export function AdminWaitlistTab() {
                   <dd>£{Number(detail.target_amount ?? 0).toLocaleString('en-GB')}</dd>
                 </div>
                 <div>
-                  <dt className="text-neutral-500">Expected Interest Rate</dt>
-                  <dd>{Number(detail.expected_interest_rate ?? 0).toLocaleString('en-GB')}%</dd>
+                  <dt className="text-neutral-500">Interest Rate</dt>
+                  <dd>{FIXED_INTEREST_RATE_LABEL}</dd>
                 </div>
               </dl>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -190,8 +191,7 @@ export function AdminWaitlistTab() {
                   )
                   .map(([q, a]) => (
                     <p key={q} className="text-sm">
-                      <span className="font-semibold">{q}:</span>{' '}
-                      {typeof a === 'boolean' ? (a ? 'Yes' : 'No') : String(a)}
+                      <span className="font-semibold">{q}:</span> {formatQuestionnaireAnswer(a)}
                     </p>
                   ))}
               </div>

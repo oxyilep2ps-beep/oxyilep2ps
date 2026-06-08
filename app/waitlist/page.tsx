@@ -5,6 +5,14 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { CheckCircle2, Loader2, Mail, MapPin, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { Footer } from '@/components/footer';
 import { Logo } from '@/components/logo';
+import { StrategicQuestionsFields } from '@/components/strategic-questions-fields';
+import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
+import {
+  createEmptyStrategicAnswers,
+  strategicAnswersComplete,
+  strategicAnswersToPayload,
+  type StrategicAnswersState,
+} from '@/lib/questionnaire/strategic-questions';
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -30,12 +38,6 @@ function ConfettiBurst() {
     </div>
   );
 }
-
-const QUESTIONS = [
-  { key: 'uk_resident', label: 'Are you a UK resident?' },
-  { key: 'understands_risk', label: 'Do you understand P2P lending carries risk?' },
-  { key: 'marketing_consent', label: 'May we email you about launch updates?' },
-];
 
 const INCOME_SOURCE_OPTIONS = [
   'Salary / Employment',
@@ -63,33 +65,20 @@ export default function WaitlistPage() {
   const [investorIncomeSource, setInvestorIncomeSource] = useState('');
   const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
-  const [expectedInterestRate, setExpectedInterestRate] = useState('');
-  const [answers, setAnswers] = useState<Record<string, boolean>>({
-    uk_resident: false,
-    understands_risk: false,
-    marketing_consent: true,
-  });
+  const [strategicAnswers, setStrategicAnswers] = useState<StrategicAnswersState>(createEmptyStrategicAnswers);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (
-      !name.trim() ||
-      !email.trim() ||
-      !phone.trim() ||
-      !address.trim() ||
-      !postalCode.trim() ||
-      !targetAmount.trim() ||
-      !expectedInterestRate.trim()
-    ) {
+    if (!name.trim() || !email.trim() || !phone.trim() || !address.trim() || !postalCode.trim() || !targetAmount.trim()) {
       setError('All fields are mandatory.');
       return;
     }
 
-    const interestRate = Number(expectedInterestRate);
-    if (interestRate <= 0) {
-      setError('Expected interest rate must be greater than 0%.');
+    if (!strategicAnswersComplete(strategicAnswers)) {
+      setError('Please answer every strategic question with Yes or No.');
       return;
     }
+
     if (role === 'investor' && !investorIncomeSource.trim()) {
       setError('Source of income is mandatory for investors.');
       return;
@@ -98,18 +87,14 @@ export default function WaitlistPage() {
       setError('Source of income is mandatory for borrowers.');
       return;
     }
-    if (!QUESTIONS.every((q) => answers[q.key])) {
-      setError('Please confirm all quick question checkboxes.');
-      return;
-    }
 
     setBusy(true);
     setError(null);
     try {
-      const questionnaireAnswers = Object.fromEntries([
-        ...QUESTIONS.map((q) => [q.label, answers[q.key] ? 'Yes' : 'No'] as const),
-        ['Source of Income', role === 'investor' ? investorIncomeSource : borrowerIncomeSource] as const,
-      ]);
+      const questionnaireAnswers: Record<string, string> = {
+        ...strategicAnswersToPayload(strategicAnswers),
+        'Source of Income': role === 'investor' ? investorIncomeSource : borrowerIncomeSource,
+      };
 
       const res = await fetch('/api/waitlist', {
         method: 'POST',
@@ -122,7 +107,7 @@ export default function WaitlistPage() {
           postal_code: postalCode,
           role,
           target_amount: Number(targetAmount),
-          expected_interest_rate: interestRate,
+          expected_interest_rate: FIXED_INTEREST_RATE,
           borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
           questionnaire_answers: questionnaireAnswers,
         }),
@@ -146,7 +131,7 @@ export default function WaitlistPage() {
           <p className="text-sm uppercase tracking-[0.3em] text-brand-500">Early access</p>
           <h1 className="text-4xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">Join the Waitlist</h1>
           <p className="max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">
-            Be first in line when Oxyile opens for verified borrowers and investors across the UK.
+            Be first in line when Oxyile opens for verified borrowers and investors across the UK. Platform interest rate is fixed at 10%.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             {[
@@ -279,31 +264,11 @@ export default function WaitlistPage() {
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
                   />
                 </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium">Expected Interest Rate (%)</span>
-                  <input
-                    required
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={expectedInterestRate}
-                    onChange={(e) => setExpectedInterestRate(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
+                <div className="rounded-2xl border border-white/50 bg-white/40 p-4 dark:border-white/10 dark:bg-black/30">
+                  <StrategicQuestionsFields
+                    values={strategicAnswers}
+                    onChange={(key, value) => setStrategicAnswers((prev) => ({ ...prev, [key]: value }))}
                   />
-                </label>
-                <div className="space-y-2 rounded-2xl border border-white/50 bg-white/40 p-4 dark:border-white/10 dark:bg-black/30">
-                  <p className="text-xs font-bold uppercase tracking-wider text-brand-500">Quick questions</p>
-                  {QUESTIONS.map((q) => (
-                    <label key={q.key} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        required
-                        checked={answers[q.key]}
-                        onChange={(e) => setAnswers((prev) => ({ ...prev, [q.key]: e.target.checked }))}
-                      />
-                      {q.label}
-                    </label>
-                  ))}
                 </div>
                 {error && <p className="text-sm text-red-600">{error}</p>}
                 <button

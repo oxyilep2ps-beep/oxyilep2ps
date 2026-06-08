@@ -1,4 +1,5 @@
 import { Hero } from '@/components/hero';
+import { HomepageTrustSection } from '@/components/homepage-trust-section';
 import { SavingsVsBank } from '@/components/savings-vs-bank';
 import { LiveVerifiedProfiles } from '@/components/live-verified-profiles';
 import { SmartCalculator } from '@/components/smart-calculator';
@@ -10,6 +11,7 @@ export default function Home() {
   return (
     <>
       <Hero />
+      <HomepageTrustSection />
       <SavingsVsBank />
       <LiveVerifiedProfiles />
       <SmartCalculator />

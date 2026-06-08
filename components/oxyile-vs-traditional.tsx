@@ -49,7 +49,7 @@ export function OxyileVsTraditional() {
               <li className="flex items-start gap-3"><span className="mt-1 inline-block h-2 w-2 rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A]" />No hidden spreads — full return to investors</li>
               <li className="flex items-start gap-3"><span className="mt-1 inline-block h-2 w-2 rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A]" />Approvals in hours with automated matching</li>
               <li className="flex items-start gap-3"><span className="mt-1 inline-block h-2 w-2 rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A]" />Peer-negotiated rates and human support</li>
-              <li className="flex items-start gap-3"><span className="mt-1 inline-block h-2 w-2 rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A]" />Investor yields ~9–10%</li>
+              <li className="flex items-start gap-3"><span className="mt-1 inline-block h-2 w-2 rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A]" />Investor yields 10%</li>
             </ul>
 
             <div className="mt-6 flex items-center gap-4">
@@ -61,7 +61,7 @@ export function OxyileVsTraditional() {
               </div>
 
               <div className="w-28 text-right">
-                <p className="text-sm font-bold">9–10%</p>
+                <p className="text-sm font-bold">10%</p>
               </div>
             </div>
 

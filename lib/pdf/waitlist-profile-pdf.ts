@@ -1,4 +1,6 @@
 import { formatLtvRatio } from '@/lib/collateral/ltv';
+import { FIXED_INTEREST_RATE_LABEL } from '@/lib/platform/constants';
+import { formatQuestionnaireAnswer } from '@/lib/questionnaire/strategic-questions';
 
 export type WaitlistPdfRow = {
   name: string;
@@ -43,7 +45,7 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
     ['Postal Code', row.postal_code ?? 'Not provided'],
     ['Role', row.role === 'investor' ? 'Investor' : 'Borrower'],
     ['Target Amount', `£${Number(row.target_amount ?? 0).toLocaleString('en-GB')}`],
-    ['Expected Interest Rate', `${Number(row.expected_interest_rate ?? 0).toLocaleString('en-GB')}%`],
+    ['Interest Rate', FIXED_INTEREST_RATE_LABEL],
     [
       'Source of Income',
       row.role === 'borrower'
@@ -114,7 +116,7 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
     pdf.text('No questionnaire answers provided.', 14, y);
   } else {
     for (const [question, answer] of entries) {
-      const answerText = typeof answer === 'boolean' ? (answer ? 'Yes' : 'No') : String(answer);
+      const answerText = formatQuestionnaireAnswer(answer);
       if (y > 265) {
         pdf.addPage();
         y = 20;

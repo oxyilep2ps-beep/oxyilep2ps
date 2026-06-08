@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { CollateralFormSection } from '@/components/collateral-form-section';
 import type { HandshakeRow } from '@/lib/chat/types';
+import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
 import { createClient } from '@/lib/supabase/client';
 import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
 
@@ -27,7 +28,6 @@ export function HandshakePanel({
   onRefresh,
 }: HandshakePanelProps) {
   const [amount, setAmount] = useState('');
-  const [rate, setRate] = useState('');
   const [duration, setDuration] = useState('');
   const [collateralType, setCollateralType] = useState('');
   const [collateralValue, setCollateralValue] = useState('');
@@ -49,9 +49,8 @@ export function HandshakePanel({
       return;
     }
     const amt = Number(amount);
-    const rt = Number(rate);
     const dur = Number(duration);
-    if (!amt || !rt || !dur) return;
+    if (!amt || !dur) return;
 
     setBusy(true);
     setMessage(null);
@@ -75,7 +74,7 @@ export function HandshakePanel({
         formData.append('borrower_id', borrowerId);
         formData.append('peer_id', peerId);
         formData.append('amount', String(amt));
-        formData.append('rate', String(rt));
+        formData.append('rate', String(FIXED_INTEREST_RATE));
         formData.append('duration', String(dur));
         formData.append('collateral_type', collateralType);
         formData.append('collateral_value', collateralValue);
@@ -89,7 +88,6 @@ export function HandshakePanel({
           setMessage(body.error ?? 'Could not initiate handshake');
         } else {
           setAmount('');
-          setRate('');
           setDuration('');
           setCollateralType('');
           setCollateralValue('');
@@ -103,7 +101,7 @@ export function HandshakePanel({
           lender_id: lenderId,
           borrower_id: borrowerId,
           amount: amt,
-          rate: rt,
+          rate: FIXED_INTEREST_RATE,
           duration: dur,
           status: 'PENDING',
         });
@@ -114,10 +112,9 @@ export function HandshakePanel({
           await supabase.from('messages').insert({
             sender_id: myId,
             receiver_id: peerId,
-            content: `🤝 Handshake proposed: £${amt} at ${rt}% for ${dur} months.`,
+            content: `🤝 Handshake proposed: £${amt} at ${FIXED_INTEREST_RATE}% for ${dur} months.`,
           });
           setAmount('');
-          setRate('');
           setDuration('');
           onRefresh();
         }
@@ -207,7 +204,7 @@ export function HandshakePanel({
       </div>
 
       <form onSubmit={propose} className="mt-3 space-y-3">
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           <input
             required
             type="number"
@@ -219,21 +216,13 @@ export function HandshakePanel({
           <input
             required
             type="number"
-            step="0.1"
-            value={rate}
-            onChange={(e) => setRate(e.target.value)}
-            placeholder="Rate (%)"
-            className="rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
-          />
-          <input
-            required
-            type="number"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
             placeholder="Months"
             className="rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
           />
         </div>
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Fixed interest rate: 10%</p>
 
         {myRole === 'BORROWER' ? (
           <CollateralFormSection

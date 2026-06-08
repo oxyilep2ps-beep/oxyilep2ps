@@ -26,6 +26,7 @@ export function buildStoredKycData(payload: KycSubmissionPayload, documents: Kyc
     },
     ...(payload.lender ? { lender: payload.lender } : {}),
     ...(payload.borrower ? { borrower: payload.borrower } : {}),
+    ...(payload.questionnaireAnswers ? { questionnaireAnswers: payload.questionnaireAnswers } : {}),
     submittedAt: new Date().toISOString(),
   };
 }

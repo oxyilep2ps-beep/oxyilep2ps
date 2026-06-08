@@ -9,8 +9,34 @@ export const navLinks = [
   { href: '/contact', label: 'Contact' },
 ];
 
-export const footerColumns = [
-  { title: 'Platform', links: ['How It Works', 'Investors', 'Borrowers', 'Join Waitlist'] },
-  { title: 'Company', links: ['About', 'Blogs', 'Careers', 'Contact'] },
-  { title: 'Support', links: ['Raise a Complaint', 'Security', 'Compliance', 'FAQs'] },
+export type FooterLink = { label: string; href: string };
+
+export const footerColumns: { title: string; links: FooterLink[] }[] = [
+  {
+    title: 'Platform',
+    links: [
+      { label: 'How It Works', href: '/about#how' },
+      { label: 'Investors', href: '/investors' },
+      { label: 'Borrowers', href: '/waitlist' },
+      { label: 'Join Waitlist', href: '/waitlist' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'About', href: '/about' },
+      { label: 'Blogs', href: '/blogs' },
+      { label: 'Careers', href: '/careers' },
+      { label: 'Contact', href: '/contact' },
+    ],
+  },
+  {
+    title: 'Support',
+    links: [
+      { label: 'Raise a Complaint', href: '/raise-complaint' },
+      { label: 'Security', href: '/security' },
+      { label: 'Compliance', href: '/terms' },
+      { label: 'FAQs', href: '/about#how' },
+    ],
+  },
 ];

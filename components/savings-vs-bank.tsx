@@ -117,7 +117,7 @@ export function SavingsVsBank() {
         </div>
 
         <div className="mt-8 flex items-center justify-center">
-          <div className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-4 py-2 text-white shadow-glow">Investors typically earn ~9–10% on Oxyile</div>
+          <div className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-4 py-2 text-white shadow-glow">Investors typically earn 10% on Oxyile</div>
         </div>
       </div>
     </section>
