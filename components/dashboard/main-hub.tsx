@@ -1,15 +1,20 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Bell, Loader2, Sparkles } from 'lucide-react';
+import { Bell, Handshake, Loader2, Sparkles, Store, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getRecentAnnouncements, type Announcement } from '@/app/actions/announcements';
 import { DiscoveryFeed } from '@/components/dashboard/discovery-feed';
+import { createClient } from '@/lib/supabase/client';
+import { isApprovedStatus } from '@/lib/auth/profile-status';
 
 export function MainHub() {
   const [loading, setLoading] = useState(true);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<'BORROWER' | 'INVESTOR' | null>(null);
+  const [approved, setApproved] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -17,6 +22,19 @@ export function MainHub() {
       const result = await getRecentAnnouncements(8);
       setAnnouncements(result.announcements);
       setError(result.error ?? null);
+
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role, status').eq('id', user.id).maybeSingle();
+        if (profile?.role === 'BORROWER' || profile?.role === 'INVESTOR') {
+          setRole(profile.role);
+        }
+        setApproved(isApprovedStatus(profile?.status as string | undefined));
+      }
+
       setLoading(false);
     }
     void load();
@@ -30,6 +48,37 @@ export function MainHub() {
           Platform updates, announcements, and recommended connections.
         </p>
       </motion.div>
+
+      {approved && role === 'BORROWER' ? (
+        <Link
+          href="/dashboard/apply"
+          className="glass-card mt-6 flex items-center gap-4 rounded-2xl border border-brand-200/60 p-5 transition hover:border-brand-400 dark:border-brand-500/30"
+        >
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-brand-500/10 text-brand-500">
+            <Handshake size={22} />
+          </span>
+          <div>
+            <p className="font-bold text-neutral-950 dark:text-white">Apply for Loan</p>
+            <p className="text-sm text-neutral-500">Submit a collateral-backed application to the marketplace.</p>
+          </div>
+        </Link>
+      ) : null}
+
+      {approved && role === 'INVESTOR' ? (
+        <Link
+          href="/dashboard/marketplace"
+          className="glass-card mt-6 flex items-center gap-4 rounded-2xl border border-brand-200/60 p-5 transition hover:border-brand-400 dark:border-brand-500/30"
+        >
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-brand-500/10 text-brand-500">
+            <Store size={22} />
+          </span>
+          <div>
+            <p className="font-bold text-neutral-950 dark:text-white">Available Opportunities</p>
+            <p className="text-sm text-neutral-500">Fund collateral-backed loans at a fixed 10% return.</p>
+          </div>
+          <TrendingUp className="ml-auto text-brand-500" size={20} />
+        </Link>
+      ) : null}
 
       <div className="mt-6">
         <div className="mb-3 flex items-center gap-2">
