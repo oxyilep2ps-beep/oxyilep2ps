@@ -1,3 +1,5 @@
+import { appendFcaDeedFooter } from '@/lib/pdf/fca-deed-footer';
+
 export type PdfExportDocument = {
   label: string;
   url: string | null;
@@ -283,5 +285,6 @@ export async function exportKycDossierPdf(params: {
     pdf.text(`Page ${page} of ${pageCount}`, pageWidth - PAGE_MARGIN_MM, pageHeight - 8, { align: 'right' });
   }
 
+  appendFcaDeedFooter(pdf, { marginMm: PAGE_MARGIN_MM, pageWidthMm: pageWidth, footerLineY: pageHeight - 8 });
   pdf.save(params.fileName);
 }

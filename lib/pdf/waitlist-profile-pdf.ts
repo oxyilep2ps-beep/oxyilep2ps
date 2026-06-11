@@ -1,4 +1,5 @@
 import { formatLtvRatio } from '@/lib/collateral/ltv';
+import { appendFcaDeedFooter } from '@/lib/pdf/fca-deed-footer';
 import { FIXED_INTEREST_RATE_LABEL } from '@/lib/platform/constants';
 import { formatQuestionnaireAnswer } from '@/lib/questionnaire/strategic-questions';
 
@@ -137,5 +138,6 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
     }
   }
 
+  appendFcaDeedFooter(pdf);
   pdf.save(`${row.name.replace(/[^a-z0-9]+/gi, '_')}_waitlist_profile.pdf`);
 }

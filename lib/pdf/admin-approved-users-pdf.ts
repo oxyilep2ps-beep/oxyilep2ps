@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { appendFcaDeedFooter } from '@/lib/pdf/fca-deed-footer';
 import type { Profile } from '@/lib/types/profile';
 
 const BRAND = { r: 255, g: 90, b: 31 };
@@ -187,5 +188,6 @@ export function generateAdminApprovedUsersPDF(users: Profile[]) {
   }
 
   addFooter(doc);
+  appendFcaDeedFooter(doc, { marginMm: PAGE.margin, pageWidthMm: PAGE.width, footerLineY: PAGE.height - 8 });
   doc.save(`Oxyile_Certified_User_Network_${new Date().toISOString().slice(0, 10)}.pdf`);
 }

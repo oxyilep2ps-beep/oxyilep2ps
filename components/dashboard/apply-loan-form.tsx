@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
-import { Loader2, PoundSterling, ShieldCheck } from 'lucide-react';
+import { Loader2, PoundSterling, ShieldCheck, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CollateralFormSection } from '@/components/collateral-form-section';
 import { applyForMarketplaceLoan, TENURE_OPTIONS } from '@/app/actions/marketplace';
@@ -15,6 +15,7 @@ export function ApplyLoanForm() {
   const [collateralValue, setCollateralValue] = useState('');
   const [collateralDescription, setCollateralDescription] = useState('');
   const [collateralProof, setCollateralProof] = useState<File | null>(null);
+  const [guarantorEmail, setGuarantorEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -37,6 +38,7 @@ export function ApplyLoanForm() {
     formData.append('collateral_value', collateralValue);
     formData.append('collateral_description', collateralDescription);
     if (collateralProof) formData.append('collateral_proof', collateralProof);
+    if (guarantorEmail.trim()) formData.append('guarantor_email', guarantorEmail.trim());
 
     const result = await applyForMarketplaceLoan(formData);
     setBusy(false);
@@ -52,6 +54,7 @@ export function ApplyLoanForm() {
     setCollateralValue('');
     setCollateralDescription('');
     setCollateralProof(null);
+    setGuarantorEmail('');
   };
 
   if (success) {
@@ -148,6 +151,28 @@ export function ApplyLoanForm() {
             </div>
           </motion.div>
         ) : null}
+      </section>
+
+      <section className="glass-card rounded-[2rem] p-6 sm:p-8">
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-brand-500/10 text-brand-500">
+            <UserPlus size={20} />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Add a Guarantor (Co-Signer)</h2>
+            <p className="text-sm text-neutral-500">Optional — we&apos;ll send a secure E-Sign and KYC link.</p>
+          </div>
+        </div>
+        <label className="mt-6 block">
+          <span className="mb-2 block text-sm font-medium">Guarantor Email Address</span>
+          <input
+            type="email"
+            value={guarantorEmail}
+            onChange={(e) => setGuarantorEmail(e.target.value)}
+            placeholder="guarantor@example.com"
+            className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black"
+          />
+        </label>
       </section>
 
       <section className="glass-card rounded-[2rem] p-6 sm:p-8">

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { MemberRole } from '@/lib/chat/types';
+import { appendFcaDeedFooter } from '@/lib/pdf/fca-deed-footer';
 
 export type ContractPdfMode = 'user' | 'admin';
 
@@ -400,5 +401,6 @@ export function generateContractPDF({ contract, perspective, mode = 'user' }: Ge
   }
 
   addFooterPageNumbers(doc, txnId);
+  appendFcaDeedFooter(doc, { marginMm: PAGE.margin, pageWidthMm: PAGE.width, footerLineY: FOOTER_Y });
   doc.save(`${fileSafe(txnId)}-oxyile-contract.pdf`);
 }

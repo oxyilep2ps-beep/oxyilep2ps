@@ -1,11 +1,27 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { polygonscanTxUrl, resolveHandshakeTxHash } from '@/lib/web3/polygonscan';
+
+type ActiveLoanRow = {
+  id: string;
+  status: string;
+  lender_id: string | null;
+  borrower_id: string;
+  amount: number;
+  duration: number;
+  emi_amount: number | null;
+  tx_hash: string | null;
+  polygon_tx_hash: string | null;
+  created_at: string;
+};
 
 type HandshakeRow = {
-  status: 'PENDING' | 'ACTIVE';
+  status: string;
   lender_id: string;
   borrower_id: string;
   amount: number;
@@ -21,6 +37,8 @@ export function PortfolioContent() {
   const searchParams = useSearchParams();
   const [series, setSeries] = useState<{ label: string; value: number }[]>([]);
   const [summary, setSummary] = useState({ activeInvestment: 0, activeLoan: 0 });
+  const [activeLoans, setActiveLoans] = useState<ActiveLoanRow[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const mandateNotice = useMemo(() => {
     const m = searchParams.get('mandate');
@@ -37,6 +55,7 @@ export function PortfolioContent() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
       const { data: handshakes } = await supabase
         .from('handshakes')
@@ -59,6 +78,17 @@ export function PortfolioContent() {
 
       setSeries(Array.from(monthly, ([label, value]) => ({ label, value })));
       setSummary({ activeInvestment, activeLoan });
+
+      const { data: liveLoans } = await supabase
+        .from('handshakes')
+        .select(
+          'id, status, lender_id, borrower_id, amount, duration, emi_amount, tx_hash, polygon_tx_hash, created_at'
+        )
+        .in('status', ['ACTIVE', 'MATCHED'])
+        .or(`lender_id.eq.${user.id},borrower_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+
+      setActiveLoans((liveLoans ?? []) as ActiveLoanRow[]);
     }
 
     void loadSeries();
@@ -88,6 +118,54 @@ export function PortfolioContent() {
           <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">Active Loan</p>
           <p className="mt-2 text-3xl font-black text-brand-600">£{summary.activeLoan.toLocaleString('en-GB')}</p>
         </div>
+      </div>
+
+      <div className="glass-card mt-6 rounded-2xl p-5">
+        <p className="text-sm font-bold text-neutral-900 dark:text-white">Active Loans</p>
+        <p className="mt-1 text-xs text-neutral-500">Matched and active agreements with on-chain verification.</p>
+        <ul className="mt-4 space-y-3">
+          {activeLoans.length === 0 ? (
+            <li className="text-sm text-neutral-500">No active or matched loans yet.</li>
+          ) : (
+            activeLoans.map((loan) => {
+              const role =
+                userId && loan.borrower_id === userId
+                  ? 'Borrower'
+                  : userId && loan.lender_id === userId
+                    ? 'Investor'
+                    : 'Party';
+              const txHash = resolveHandshakeTxHash(loan);
+              return (
+                <li
+                  key={loan.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/50 bg-white/40 p-4 dark:border-white/10 dark:bg-black/30"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-neutral-950 dark:text-white">
+                      £{Number(loan.amount).toLocaleString('en-GB')} · {loan.duration}mo
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {role} · {loan.status} · EMI £{Number(loan.emi_amount ?? 0).toLocaleString('en-GB')}/mo
+                    </p>
+                  </div>
+                  {txHash ? (
+                    <Link
+                      href={polygonscanTxUrl(txHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-xs font-bold text-white"
+                    >
+                      <ExternalLink size={14} />
+                      View Verified Contract
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-neutral-400">On-chain proof pending</span>
+                  )}
+                </li>
+              );
+            })
+          )}
+        </ul>
       </div>
 
       <div className="glass-card mt-6 rounded-2xl p-5">

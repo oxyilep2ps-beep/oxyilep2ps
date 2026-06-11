@@ -18,6 +18,10 @@ export type MarketplaceHandshakeRow = {
   gocardless_mandate_id: string | null;
   smart_contract_address: string | null;
   next_emi_date: string | null;
+  tx_hash: string | null;
+  payment_id: string | null;
+  guarantor_email: string | null;
+  guarantor_status: 'none' | 'pending' | 'verified' | 'signed';
   created_at: string;
 };
 

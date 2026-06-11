@@ -25,6 +25,10 @@ function mapAdminRow(row: Record<string, unknown>, emailMap: Record<string, stri
     gocardless_mandate_id: (row.gocardless_mandate_id as string | null) ?? null,
     smart_contract_address: (row.smart_contract_address as string | null) ?? null,
     next_emi_date: (row.next_emi_date as string | null) ?? null,
+    tx_hash: (row.tx_hash as string | null) ?? null,
+    payment_id: (row.payment_id as string | null) ?? null,
+    guarantor_email: (row.guarantor_email as string | null) ?? null,
+    guarantor_status: (row.guarantor_status as AdminLiveHandshakeRow['guarantor_status']) ?? 'none',
     created_at: row.created_at as string,
     borrower_email: emailMap[borrowerId] ?? 'Unknown',
     investor_email: investorId ? emailMap[investorId] ?? 'Unknown' : null,
@@ -38,7 +42,7 @@ export async function listLiveMarketplaceHandshakes(): Promise<AdminLiveHandshak
   const { data, error } = await admin
     .from('handshakes')
     .select(
-      'id, borrower_id, lender_id, amount, duration, rate, emi_amount, collateral_type, collateral_value, collateral_description, collateral_proof_url, status, gocardless_mandate_id, smart_contract_address, next_emi_date, created_at'
+      'id, borrower_id, lender_id, amount, duration, rate, emi_amount, collateral_type, collateral_value, collateral_description, collateral_proof_url, status, gocardless_mandate_id, smart_contract_address, next_emi_date, tx_hash, payment_id, guarantor_email, guarantor_status, created_at'
     )
     .eq('marketplace', true)
     .order('created_at', { ascending: false });
@@ -62,4 +66,17 @@ export async function listLiveMarketplaceHandshakes(): Promise<AdminLiveHandshak
 export async function resolveLiveHandshakeProofUrl(storagePath: string): Promise<string> {
   await assertAdmin();
   return getCollateralProofSignedUrl(storagePath);
+}
+
+/** Mock CRA reporting — production would call Experian/Equifax APIs. */
+export async function reportDefaultedLoanToCreditAgencies(
+  handshakeId: string
+): Promise<{ ok: boolean; message: string }> {
+  await assertAdmin();
+  // eslint-disable-next-line no-console
+  console.info('[CRA:mock] API call sent to Experian/Equifax/TransUnion', { handshakeId });
+  return {
+    ok: true,
+    message: 'API Call sent to Experian/Equifax',
+  };
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Handshake, Loader2 } from 'lucide-react';
 import {
   listLiveMarketplaceHandshakes,
+  reportDefaultedLoanToCreditAgencies,
   resolveLiveHandshakeProofUrl,
 } from '@/app/actions/admin-live-handshakes';
 import { displayHandshakeStatus, handshakeStatusTone, type AdminLiveHandshakeRow } from '@/lib/types/marketplace-handshake';
@@ -32,6 +33,8 @@ export function AdminLiveHandshakesTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openingProof, setOpeningProof] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [reportingId, setReportingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +53,12 @@ export function AdminLiveHandshakesTab() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
   const openProof = async (path: string) => {
     setOpeningProof(path);
     try {
@@ -57,6 +66,16 @@ export function AdminLiveHandshakesTab() {
       window.open(url, '_blank', 'noopener,noreferrer');
     } finally {
       setOpeningProof(null);
+    }
+  };
+
+  const reportDefault = async (handshakeId: string) => {
+    setReportingId(handshakeId);
+    try {
+      const result = await reportDefaultedLoanToCreditAgencies(handshakeId);
+      setToast(result.message);
+    } finally {
+      setReportingId(null);
     }
   };
 
@@ -71,6 +90,12 @@ export function AdminLiveHandshakesTab() {
           Marketplace loan applications, investor matches, and collateral-backed P2P contracts.
         </p>
       </div>
+
+      {toast ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200">
+          {toast}
+        </p>
+      ) : null}
 
       {loading ? (
         <div className="glass-card flex items-center justify-center rounded-2xl p-12">
@@ -102,7 +127,14 @@ export function AdminLiveHandshakesTab() {
                 <tr key={row.id} className="border-b border-neutral-100 dark:border-white/5">
                   <td className="px-4 py-3">
                     <p className="font-medium">{row.borrower_email}</p>
-                    <p className="text-xs text-neutral-500">{row.tenure_months}mo · LTV {formatLtvRatio(row.loan_amount, row.collateral_value)}</p>
+                    <p className="text-xs text-neutral-500">
+                      {row.tenure_months}mo · LTV {formatLtvRatio(row.loan_amount, row.collateral_value)}
+                    </p>
+                    {row.guarantor_email ? (
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Guarantor: {row.guarantor_email} ({row.guarantor_status})
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
                     {row.investor_email ?? '—'}
@@ -133,7 +165,16 @@ export function AdminLiveHandshakesTab() {
                     <StatusBadge status={row.status} />
                   </td>
                   <td className="px-4 py-3">
-                    {row.status === 'MATCHED' ? (
+                    {row.status === 'DEFAULTED' ? (
+                      <button
+                        type="button"
+                        disabled={reportingId === row.id}
+                        onClick={() => void reportDefault(row.id)}
+                        className="rounded-full bg-red-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-60"
+                      >
+                        {reportingId === row.id ? 'Sending…' : 'Report to Credit Agencies'}
+                      </button>
+                    ) : row.status === 'MATCHED' ? (
                       <div className="flex flex-col gap-1.5">
                         <button
                           type="button"

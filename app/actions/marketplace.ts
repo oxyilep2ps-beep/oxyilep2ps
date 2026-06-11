@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { COLLATERAL_TYPES } from '@/lib/collateral/constants';
 import { uploadCollateralProof } from '@/lib/collateral/upload';
 import { calculateFlatEmi } from '@/lib/handshake/calculations';
+import { sendGuarantorInvite } from '@/lib/guarantor/invite';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
 import type { MarketplaceHandshakeRow } from '@/lib/types/marketplace-handshake';
 
@@ -28,6 +29,10 @@ function mapRow(row: Record<string, unknown>): MarketplaceHandshakeRow {
     gocardless_mandate_id: (row.gocardless_mandate_id as string | null) ?? null,
     smart_contract_address: (row.smart_contract_address as string | null) ?? null,
     next_emi_date: (row.next_emi_date as string | null) ?? null,
+    tx_hash: (row.tx_hash as string | null) ?? null,
+    payment_id: (row.payment_id as string | null) ?? null,
+    guarantor_email: (row.guarantor_email as string | null) ?? null,
+    guarantor_status: (row.guarantor_status as MarketplaceHandshakeRow['guarantor_status']) ?? 'none',
     created_at: row.created_at as string,
   };
 }
@@ -51,8 +56,12 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
   const collateralValue = Number(formData.get('collateral_value'));
   const collateralDescription = formData.get('collateral_description')?.toString().trim() ?? '';
   const proofFile = formData.get('collateral_proof');
+  const guarantorEmail = formData.get('guarantor_email')?.toString().trim().toLowerCase() ?? '';
 
   if (!loanAmount || loanAmount <= 0) return { ok: false, error: 'Enter a valid loan amount.' };
+  if (guarantorEmail && !guarantorEmail.includes('@')) {
+    return { ok: false, error: 'Enter a valid guarantor email or leave the field empty.' };
+  }
   if (!TENURE_OPTIONS.includes(tenureMonths as (typeof TENURE_OPTIONS)[number])) {
     return { ok: false, error: 'Select a valid tenure (6, 12, 24, or 36 months).' };
   }
@@ -86,11 +95,17 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
         collateral_proof_url: proofPath,
         status: 'PENDING',
         marketplace: true,
+        guarantor_email: guarantorEmail || null,
+        guarantor_status: guarantorEmail ? 'pending' : 'none',
       })
       .select('id')
       .single();
 
     if (error) return { ok: false, error: error.message };
+
+    if (guarantorEmail) {
+      await sendGuarantorInvite(guarantorEmail, data.id as string);
+    }
 
     revalidatePath('/dashboard/apply');
     revalidatePath('/dashboard/marketplace');
@@ -117,7 +132,7 @@ export async function listMarketplaceOpportunities(): Promise<{ rows: Marketplac
   const { data, error } = await supabase
     .from('handshakes')
     .select(
-      'id, borrower_id, lender_id, amount, duration, rate, emi_amount, collateral_type, collateral_value, collateral_description, collateral_proof_url, status, gocardless_mandate_id, smart_contract_address, next_emi_date, created_at'
+      'id, borrower_id, lender_id, amount, duration, rate, emi_amount, collateral_type, collateral_value, collateral_description, collateral_proof_url, status, gocardless_mandate_id, smart_contract_address, next_emi_date, tx_hash, payment_id, guarantor_email, guarantor_status, created_at'
     )
     .eq('marketplace', true)
     .eq('status', 'PENDING')
