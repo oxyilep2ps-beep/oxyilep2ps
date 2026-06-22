@@ -43,7 +43,7 @@ const items: {
   { href: '/admin-dashboard/theme', label: 'Theme', icon: Palette },
   { href: '/admin-dashboard/profile', label: 'Profile', icon: User, exact: true },
   { href: '/admin-dashboard/fraud', label: 'Fraud', icon: ShieldAlert },
-  { href: '/admin-dashboard/broadcast', label: 'Broadcast', icon: Mail },
+  { href: '/admin-dashboard/broadcast', label: 'Newsletter', icon: Mail },
   { href: '/admin-dashboard/logs', label: 'Logs', icon: ScrollText },
   { href: '/admin-dashboard/settings', label: 'Settings', icon: Settings },
 ];
