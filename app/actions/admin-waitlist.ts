@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -21,6 +22,14 @@ export type WaitlistRow = {
   waitlist_rank: number;
   questionnaire_answers: Record<string, string | boolean>;
   created_at: string;
+};
+
+export type UpdateWaitlistMemberInput = {
+  name: string;
+  email: string;
+  phone: string | null;
+  userType: 'investor' | 'borrower' | 'both';
+  status: 'pending' | 'approved' | 'rejected';
 };
 
 export type WaitlistMetrics = {
@@ -53,7 +62,28 @@ export async function listWaitlistUsers(): Promise<WaitlistRow[]> {
     .order('waitlist_rank', { ascending: true });
 
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({
+  return (data ?? []).map((row) => mapWaitlistRow(row as Record<string, unknown>));
+}
+
+export async function getWaitlistUser(id: string): Promise<WaitlistRow | null> {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const { data, error } = await admin.from('waitlist').select('*').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return mapWaitlistRow(data as Record<string, unknown>);
+}
+
+export async function getCollateralProofSignedUrl(storagePath: string): Promise<string> {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from('collateral_documents').createSignedUrl(storagePath, 3600);
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+function mapWaitlistRow(row: Record<string, unknown>): WaitlistRow {
+  return {
     id: row.id as string,
     name: row.name as string,
     email: row.email as string,
@@ -71,40 +101,61 @@ export async function listWaitlistUsers(): Promise<WaitlistRow[]> {
     waitlist_rank: Number(row.waitlist_rank),
     questionnaire_answers: (row.questionnaire_answers as Record<string, string | boolean>) ?? {},
     created_at: row.created_at as string,
-  }));
-}
-
-export async function getWaitlistUser(id: string): Promise<WaitlistRow | null> {
-  await assertAdmin();
-  const admin = createAdminClient();
-  const { data, error } = await admin.from('waitlist').select('*').eq('id', id).maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) return null;
-  return {
-    id: data.id as string,
-    name: data.name as string,
-    email: data.email as string,
-    phone: (data.phone as string | null) ?? null,
-    address: (data.address as string | null) ?? null,
-    postal_code: (data.postal_code as string | null) ?? null,
-    role: data.role as string,
-    target_amount: Number(data.target_amount ?? 0),
-    expected_interest_rate: Number(data.expected_interest_rate ?? 0),
-    borrower_source_of_income: (data.borrower_source_of_income as string | null) ?? null,
-    collateral_type: (data.collateral_type as string | null) ?? null,
-    collateral_value: Number(data.collateral_value ?? 0),
-    collateral_description: (data.collateral_description as string | null) ?? null,
-    collateral_proof_url: (data.collateral_proof_url as string | null) ?? null,
-    waitlist_rank: Number(data.waitlist_rank),
-    questionnaire_answers: (data.questionnaire_answers as Record<string, string | boolean>) ?? {},
-    created_at: data.created_at as string,
   };
 }
 
-export async function getCollateralProofSignedUrl(storagePath: string): Promise<string> {
+export async function updateWaitlistMember(
+  id: string,
+  updatedData: UpdateWaitlistMemberInput
+): Promise<WaitlistRow> {
   await assertAdmin();
   const admin = createAdminClient();
-  const { data, error } = await admin.storage.from('collateral_documents').createSignedUrl(storagePath, 3600);
+
+  const name = updatedData.name.trim();
+  const email = updatedData.email.trim().toLowerCase();
+  const phone = updatedData.phone?.trim() || null;
+
+  if (!name || !email.includes('@')) {
+    throw new Error('Name and a valid email are required');
+  }
+
+  const { data: existing, error: fetchError } = await admin
+    .from('waitlist')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!existing) throw new Error('Waitlist member not found');
+
+  const questionnaireAnswers = {
+    ...((existing.questionnaire_answers as Record<string, string | boolean>) ?? {}),
+    _waitlist_status: updatedData.status,
+    _user_type: updatedData.userType,
+  };
+
+  const role =
+    updatedData.userType === 'both'
+      ? 'borrower'
+      : updatedData.userType === 'investor'
+        ? 'investor'
+        : 'borrower';
+
+  const { data, error } = await admin
+    .from('waitlist')
+    .update({
+      name,
+      email,
+      phone,
+      role,
+      questionnaire_answers: questionnaireAnswers,
+    })
+    .eq('id', id)
+    .select('*')
+    .single();
+
   if (error) throw new Error(error.message);
-  return data.signedUrl;
+
+  revalidatePath('/admin-dashboard/waitlist');
+  return mapWaitlistRow(data as Record<string, unknown>);
 }
