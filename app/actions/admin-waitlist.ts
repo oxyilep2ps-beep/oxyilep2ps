@@ -2,6 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
+import { COLLATERAL_TYPES } from '@/lib/collateral/constants';
+import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
+import { WAITLIST_INTERNAL_QA_KEYS } from '@/lib/waitlist/admin-edit-fields';
+import type { UpdateWaitlistMemberInput } from '@/lib/waitlist/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export type WaitlistRow = {
@@ -24,13 +28,7 @@ export type WaitlistRow = {
   created_at: string;
 };
 
-export type UpdateWaitlistMemberInput = {
-  name: string;
-  email: string;
-  phone: string | null;
-  userType: 'investor' | 'borrower' | 'both';
-  status: 'pending' | 'approved' | 'rejected';
-};
+export type { UpdateWaitlistMemberInput } from '@/lib/waitlist/types';
 
 export type WaitlistMetrics = {
   total: number;
@@ -114,9 +112,27 @@ export async function updateWaitlistMember(
   const name = updatedData.name.trim();
   const email = updatedData.email.trim().toLowerCase();
   const phone = updatedData.phone?.trim() || null;
+  const address = updatedData.address?.trim() || null;
+  const postalCode = updatedData.postal_code?.trim() || null;
+  const role = updatedData.role;
+  const targetAmount = Number(updatedData.target_amount);
+  const collateralValue = Number(updatedData.collateral_value);
+  const borrowerSource =
+    role === 'borrower' ? updatedData.borrower_source_of_income?.trim() || null : null;
+  const collateralType = updatedData.collateral_type?.trim() || null;
+  const collateralDescription = updatedData.collateral_description?.trim() || null;
+  const collateralProofUrl = updatedData.collateral_proof_url?.trim() || null;
 
   if (!name || !email.includes('@')) {
     throw new Error('Name and a valid email are required');
+  }
+  if (targetAmount < 0) throw new Error('Target amount must be zero or greater');
+  if (collateralValue < 0) throw new Error('Collateral value must be zero or greater');
+  if (
+    collateralType &&
+    !COLLATERAL_TYPES.includes(collateralType as (typeof COLLATERAL_TYPES)[number])
+  ) {
+    throw new Error('Invalid collateral type');
   }
 
   const { data: existing, error: fetchError } = await admin
@@ -128,18 +144,20 @@ export async function updateWaitlistMember(
   if (fetchError) throw new Error(fetchError.message);
   if (!existing) throw new Error('Waitlist member not found');
 
-  const questionnaireAnswers = {
-    ...((existing.questionnaire_answers as Record<string, string | boolean>) ?? {}),
+  const existingAnswers = (existing.questionnaire_answers as Record<string, string | boolean>) ?? {};
+  const cleanedAnswers = Object.fromEntries(
+    Object.entries(updatedData.questionnaire_answers).filter(
+      ([key]) => !WAITLIST_INTERNAL_QA_KEYS.has(key)
+    )
+  );
+
+  const questionnaireAnswers: Record<string, string | boolean> = {
+    ...existingAnswers,
+    ...cleanedAnswers,
     _waitlist_status: updatedData.status,
-    _user_type: updatedData.userType,
   };
 
-  const role =
-    updatedData.userType === 'both'
-      ? 'borrower'
-      : updatedData.userType === 'investor'
-        ? 'investor'
-        : 'borrower';
+  delete questionnaireAnswers._user_type;
 
   const { data, error } = await admin
     .from('waitlist')
@@ -147,7 +165,16 @@ export async function updateWaitlistMember(
       name,
       email,
       phone,
+      address,
+      postal_code: postalCode,
       role,
+      target_amount: targetAmount,
+      expected_interest_rate: FIXED_INTEREST_RATE,
+      borrower_source_of_income: borrowerSource,
+      collateral_type: collateralType,
+      collateral_value: collateralValue,
+      collateral_description: collateralDescription,
+      collateral_proof_url: collateralProofUrl,
       questionnaire_answers: questionnaireAnswers,
     })
     .eq('id', id)
