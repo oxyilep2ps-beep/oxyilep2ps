@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
+import { createPolygonRelayerWallet, getPolygonRpcUrl } from '@/lib/web3/relayer-wallet';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAdminAction } from '@/app/actions/admin-audit';
 
@@ -100,12 +101,11 @@ export async function getCommandCenterMetrics(): Promise<CommandCenterMetrics> {
 export async function getWeb3MonitorStats(): Promise<Web3MonitorStats> {
   await assertAdmin();
 
-  const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://rpc-amoy.polygon.technology/';
-  const privateKey = process.env.ADMIN_WALLET_PRIVATE_KEY;
+  const privateKey = process.env.POLYGON_PRIVATE_KEY?.trim();
 
   try {
     const { ethers } = await import('ethers');
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const provider = new ethers.JsonRpcProvider(getPolygonRpcUrl());
     const feeData = await provider.getFeeData();
     const gasPriceGwei = feeData.gasPrice
       ? Number(ethers.formatUnits(feeData.gasPrice, 'gwei')).toFixed(2)
@@ -116,7 +116,7 @@ export async function getWeb3MonitorStats(): Promise<Web3MonitorStats> {
     let lowBalance = false;
 
     if (privateKey) {
-      const wallet = new ethers.Wallet(privateKey, provider);
+      const wallet = createPolygonRelayerWallet();
       walletAddress = wallet.address;
       const balance = await provider.getBalance(wallet.address);
       const matic = Number(ethers.formatEther(balance));

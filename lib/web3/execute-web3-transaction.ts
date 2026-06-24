@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { HANDSHAKE_CONTRACT_ABI, PLACEHOLDER_HANDSHAKE_CONTRACT_AMOY } from '@/lib/web3/handshake-contract';
+import { createPolygonRelayerWallet } from '@/lib/web3/relayer-wallet';
 
 export type Web3ActionType = 'MINT_CONTRACT' | 'UPDATE_EMI_PAID';
 
@@ -15,29 +16,14 @@ function isPolygonTxHash(value: unknown): value is `0x${string}` {
   return typeof value === 'string' && /^0x[a-fA-F0-9]{64}$/.test(value);
 }
 
-function requireEnv(name: string, value?: string | null): string {
-  const trimmed = value?.trim();
-  if (!trimmed) throw new Error(`${name} is required for Polygon transactions`);
-  return trimmed;
-}
-
 async function sendOnChainAction(
   actionType: Web3ActionType,
   handshakeId: string,
   payload: Record<string, unknown>
 ): Promise<{ txHash: string; warning?: string | null }> {
-  const rpcUrl =
-    process.env.NEXT_PUBLIC_POLYGON_RPC_URL ??
-    process.env.POLYGON_RPC_URL ??
-    'https://rpc-amoy.polygon.technology';
-  const privateKey = requireEnv(
-    'ADMIN_WALLET_PRIVATE_KEY',
-    process.env.ADMIN_WALLET_PRIVATE_KEY ?? process.env.POLYGON_SIGNER_PRIVATE_KEY
-  );
   const contractAddress = process.env.POLYGON_HANDSHAKE_CONTRACT;
   const { ethers } = await import('ethers');
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const wallet = new ethers.Wallet(privateKey, provider);
+  const wallet = createPolygonRelayerWallet();
 
   if (actionType === 'MINT_CONTRACT') {
     const admin = createAdminClient();

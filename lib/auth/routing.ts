@@ -85,7 +85,8 @@ export function canAccessPath(
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return (
       pathname.startsWith('/admin-dashboard') ||
-      pathname.startsWith('/payments/mandate-complete')
+      pathname.startsWith('/payments/mandate-complete') ||
+      pathname.startsWith('/payments/sandbox')
     );
   }
 
@@ -109,7 +110,8 @@ export function canAccessPath(
         pathname.startsWith('/dashboard') ||
         pathname.startsWith('/chats') ||
         pathname.startsWith('/user/') ||
-        pathname.startsWith('/payments/mandate-complete')
+        pathname.startsWith('/payments/mandate-complete') ||
+      pathname.startsWith('/payments/sandbox')
       );
     }
   }

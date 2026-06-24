@@ -4,6 +4,10 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import {
+  clearPendingHandshakeId,
+  resolveHandshakeIdFromParams,
+} from '@/lib/payments/pending-handshake';
 
 function MandateCompleteInner() {
   const searchParams = useSearchParams();
@@ -12,7 +16,7 @@ function MandateCompleteInner() {
   const [detail, setDetail] = useState<string | null>(null);
 
   const status = searchParams.get('status');
-  const handshakeId = searchParams.get('handshakeId');
+  const handshakeId = resolveHandshakeIdFromParams(searchParams);
   const billingRequestId = searchParams.get('billingRequestId') ?? searchParams.get('billing_request_id');
   const redirectFlowId = searchParams.get('redirect_flow_id') ?? searchParams.get('billing_request_flow_id');
   const stub = searchParams.get('gocardless_stub') === '1';
@@ -24,8 +28,12 @@ function MandateCompleteInner() {
     }
 
     if (!handshakeId) {
-      setState('error');
-      setDetail('Missing handshake reference.');
+      router.replace('/payments/sandbox');
+      return;
+    }
+
+    if (stub && !billingRequestId) {
+      router.replace(`/payments/sandbox?handshakeId=${encodeURIComponent(handshakeId)}`);
       return;
     }
 
@@ -47,6 +55,7 @@ function MandateCompleteInner() {
           setDetail(body.error ?? 'Could not finalize handshake');
           return;
         }
+        clearPendingHandshakeId();
         setState('ok');
         window.setTimeout(() => {
           router.push(`/chats?handshake=complete&hid=${handshakeId}`);
@@ -74,7 +83,7 @@ function MandateCompleteInner() {
       {state === 'ok' && (
         <>
           <CheckCircle2 className="text-emerald-500" size={48} />
-          <h1 className="mt-4 text-xl font-black text-neutral-950 dark:text-white">All set</h1>
+          <h1 className="mt-4 text-xl font-black text-neutral-950 dark:text-white">Handshake Activated</h1>
           <p className="mt-2 text-sm text-neutral-600">
             Bank linked, smart contract minted, and auto-EMI scheduled. Returning to chat…
           </p>
@@ -94,7 +103,15 @@ function MandateCompleteInner() {
           <XCircle className="text-red-500" size={48} />
           <h1 className="mt-4 text-xl font-black">Something went wrong</h1>
           <p className="mt-2 text-sm text-red-600">{detail}</p>
-          <Link href="/chats" className="mt-4 text-sm font-semibold text-brand-600">
+          {handshakeId ? (
+            <Link
+              href={`/payments/sandbox?handshakeId=${encodeURIComponent(handshakeId)}`}
+              className="mt-4 text-sm font-semibold text-brand-600"
+            >
+              Open payment sandbox
+            </Link>
+          ) : null}
+          <Link href="/chats" className="mt-2 block text-sm font-semibold text-neutral-500">
             Back to chats
           </Link>
         </>

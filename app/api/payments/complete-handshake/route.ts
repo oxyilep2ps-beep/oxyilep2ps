@@ -141,6 +141,44 @@ async function resolveMandateId(params: {
   return mandateId;
 }
 
+function sandboxPolygonTxHash(handshakeId: string): string {
+  const hex = handshakeId.replace(/-/g, '').padEnd(64, '0').slice(0, 64);
+  return `0x${hex}`;
+}
+
+async function mintHandshakeForCompletion(params: {
+  lenderId: string;
+  borrowerId: string;
+  handshakeId: string;
+  stub: boolean;
+}): Promise<{ polygonTxHash: string | null; sandbox: boolean }> {
+  if (params.stub) {
+    try {
+      const mint = await executeHandshake(params.lenderId, params.borrowerId, params.handshakeId);
+      return { polygonTxHash: mint.polygonTxHash, sandbox: false };
+    } catch (err) {
+      console.warn('[complete-handshake] Sandbox fallback — Polygon mint skipped', err);
+      const admin = createAdminClient();
+      const polygonTxHash = sandboxPolygonTxHash(params.handshakeId);
+      const { error } = await admin
+        .from('handshakes')
+        .update({
+          status: 'ACTIVE',
+          payment_status: 'PENDING',
+          polygon_tx_hash: polygonTxHash,
+          activated_at: new Date().toISOString(),
+        })
+        .eq('id', params.handshakeId);
+
+      if (error) throw new Error(error.message);
+      return { polygonTxHash, sandbox: true };
+    }
+  }
+
+  const mint = await executeHandshake(params.lenderId, params.borrowerId, params.handshakeId);
+  return { polygonTxHash: mint.polygonTxHash, sandbox: false };
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -227,11 +265,12 @@ export async function POST(request: Request) {
       throw new Error(figuresUpdateError.message);
     }
 
-    const mint = await executeHandshake(
-      handshake.lender_id as string,
-      handshake.borrower_id as string,
-      body.handshakeId
-    );
+    const mint = await mintHandshakeForCompletion({
+      lenderId: handshake.lender_id as string,
+      borrowerId: handshake.borrower_id as string,
+      handshakeId: body.handshakeId,
+      stub: Boolean(body.stub),
+    });
 
     const sub = await createMonthlyEmiSubscription({
       mandateId,

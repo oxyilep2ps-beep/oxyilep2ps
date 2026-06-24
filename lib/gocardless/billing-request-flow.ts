@@ -47,16 +47,21 @@ async function gcFetch<T>(path: string, body: unknown): Promise<T> {
 export async function createBillingRequestMandateFlow(params: {
   borrowerId: string;
   lenderId: string;
+  handshakeId: string;
   redirectUri: string;
   exitUri?: string;
 }): Promise<SetupMandateFlowResult> {
   const token = process.env.GOCARDLESS_ACCESS_TOKEN;
+  const redirectWithHandshake = new URL(params.redirectUri);
+  redirectWithHandshake.searchParams.set('handshakeId', params.handshakeId);
 
   if (!token) {
+    const sandbox = new URL('/payments/sandbox', redirectWithHandshake.origin);
+    sandbox.searchParams.set('handshakeId', params.handshakeId);
     return {
       success: true,
       stub: true,
-      authorisation_url: `${params.redirectUri}?gocardless_stub=1&borrower=${params.borrowerId}&lender=${params.lenderId}`,
+      authorisation_url: sandbox.toString(),
       billing_request_id: `BRQ_STUB_${Date.now()}`,
       billing_request_flow_id: `BRF_STUB_${Date.now()}`,
     };
@@ -82,8 +87,8 @@ export async function createBillingRequestMandateFlow(params: {
       billing_request_flows: { id: string; authorisation_url: string };
     }>('/billing_request_flows', {
       billing_request_flows: {
-        redirect_uri: params.redirectUri,
-        exit_uri: params.exitUri ?? params.redirectUri,
+        redirect_uri: redirectWithHandshake.toString(),
+        exit_uri: params.exitUri ?? redirectWithHandshake.toString(),
         links: {
           billing_request: billingRequestId,
         },

@@ -6,6 +6,7 @@ import { CollateralFormSection } from '@/components/collateral-form-section';
 import type { HandshakeRow } from '@/lib/chat/types';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
 import { createClient } from '@/lib/supabase/client';
+import { stashPendingHandshakeId } from '@/lib/payments/pending-handshake';
 import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
 
 type HandshakePanelProps = {
@@ -164,14 +165,18 @@ export function HandshakePanel({
     setBusy(false);
   };
 
-  const setupGoCardlessMandate = async () => {
+  const setupGoCardlessMandate = async (handshake: HandshakeRow) => {
     setBusy(true);
     setMessage(null);
     try {
       const res = await fetch('/api/payments/setup-mandate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ borrowerId, lenderId }),
+        body: JSON.stringify({
+          borrowerId,
+          lenderId,
+          handshakeId: handshake.id,
+        }),
       });
       const body = (await res.json()) as {
         ok?: boolean;
@@ -179,17 +184,18 @@ export function HandshakePanel({
         error?: string;
         stub?: boolean;
       };
-      if (!res.ok || !body.ok || !body.authorisation_url) {
-        setMessage(body.error ?? 'Could not start GoCardless flow');
+      if (!res.ok || !body.authorisation_url) {
+        setMessage(body.error ?? 'Could not start payment checkout');
         setBusy(false);
         return;
       }
       if (body.stub) {
-        setMessage('Sandbox: redirecting to test mandate URL…');
+        setMessage('Sandbox: redirecting to test payment…');
       }
+      stashPendingHandshakeId(handshake.id);
       window.location.href = body.authorisation_url;
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Mandate setup failed');
+      setMessage(e instanceof Error ? e.message : 'Payment setup failed');
       setBusy(false);
     }
   };
@@ -281,10 +287,10 @@ export function HandshakePanel({
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => setupGoCardlessMandate()}
+                  onClick={() => setupGoCardlessMandate(h)}
                   className="mt-2 rounded-full bg-brand-500 px-3 py-1 text-[10px] font-bold text-white"
                 >
-                  Set up GoCardless mandate
+                  Proceed to payment
                 </button>
               )}
             </li>

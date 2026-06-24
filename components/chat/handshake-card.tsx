@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatContractLabel } from '@/lib/handshake/calculations';
 import type { ChatPeer, HandshakeRow, MemberRole } from '@/lib/chat/types';
 import { generateContractPDF } from '@/lib/pdf/contract-pdf';
+import { stashPendingHandshakeId } from '@/lib/payments/pending-handshake';
 import { cn } from '@/lib/utils';
 
 type HandshakeCardProps = {
@@ -16,10 +17,7 @@ type HandshakeCardProps = {
   onUpdated: () => void;
 };
 
-function polygonUrl(hash: string | null): string | null {
-  if (!hash || !/^0x[a-fA-F0-9]{64}$/.test(hash)) return null;
-  return `https://amoy.polygonscan.com/tx/${hash}`;
-}
+import { polygonscanTxUrl } from '@/lib/web3/polygonscan';
 
 function paymentStatusLine(local: HandshakeRow): string | null {
   if (local.status !== 'ACTIVE') return null;
@@ -61,7 +59,9 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
 
   const bothApproved = Boolean(local.lender_approved_at && local.borrower_approved_at);
   const label = formatContractLabel(local.status, local.payment_status);
-  const txLink = polygonUrl(local.polygon_tx_hash);
+  const txLink = local.polygon_tx_hash && /^0x[a-fA-F0-9]{64}$/.test(local.polygon_tx_hash)
+    ? polygonscanTxUrl(local.polygon_tx_hash)
+    : null;
   const railLine = paymentStatusLine(local);
   const statusText = local.status === 'PENDING' ? pendingStatusLine(local) : (railLine ?? label);
   const contractReady = Boolean(
@@ -90,9 +90,10 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
 
     if (!res.ok || !body.authorisation_url) {
       setIsProcessingPayment(false);
-      throw new Error(body.error ?? 'Could not start GoCardless');
+      throw new Error(body.error ?? 'Could not start payment checkout');
     }
 
+    stashPendingHandshakeId(local.id);
     window.location.href = body.authorisation_url;
   };
 
@@ -123,13 +124,13 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
     const lenderOk = Boolean(next.lender_approved_at);
     const borrowerOk = Boolean(next.borrower_approved_at);
 
-    if (isBorrower) {
+    if (isBorrower && lenderOk && borrowerOk) {
       try {
         await redirectToMandate();
         return;
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'Could not start GoCardless checkout';
-        console.error('[HandshakeCard] GoCardless redirect failed', e);
+        const message = e instanceof Error ? e.message : 'Could not start payment checkout';
+        console.error('[HandshakeCard] Payment redirect failed', e);
         setError(message);
         setIsProcessingPayment(false);
       }
@@ -240,6 +241,19 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
         {statusText}
       </div>
 
+      {local.status === 'PENDING' && bothApproved && isBorrower && (
+        <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+          <button
+            type="button"
+            disabled={busy || isProcessingPayment}
+            onClick={() => void linkBankLater()}
+            className="w-full rounded-full bg-gradient-to-r from-brand-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-glow"
+          >
+            {busy || isProcessingPayment ? 'Redirecting…' : 'Proceed to payment'}
+          </button>
+        </div>
+      )}
+
       {local.status === 'PENDING' && !bothApproved && (
         <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
           <button
@@ -253,7 +267,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
             ) : approvedByMe ? (
               'You approved'
             ) : isBorrower ? (
-              'Approve & link bank'
+              'Approve & proceed to payment'
             ) : (
               'Approve handshake'
             )}
@@ -269,7 +283,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
             onClick={() => void linkBankLater()}
             className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white"
           >
-            {busy || isProcessingPayment ? 'Redirecting…' : 'Link bank (GoCardless)'}
+            {busy || isProcessingPayment ? 'Redirecting…' : 'Proceed to payment'}
           </button>
         </div>
       )}
