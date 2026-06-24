@@ -6,6 +6,7 @@ import { ArrowLeft, Handshake, Loader2, Send, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { markConversationRead } from '@/app/actions/chat';
 import type { ChatMessage, ChatPeer, HandshakeRow, MemberRole, UserPresence } from '@/lib/chat/types';
+import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
 import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
 import {
   conversationFilter,
@@ -94,11 +95,10 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
           row.payment_status === 'PAID' ||
           Boolean(row.gocardless_subscription_id) ||
           Boolean(row.auto_emi_active);
-        map[row.id] = {
-          ...row,
-          auto_emi_active: Boolean(row.auto_emi_active),
-          mandate_linked: linked,
-        };
+        map[row.id] = normalizeHandshakeRow(
+          { ...row, mandate_linked: linked } as Record<string, unknown>,
+          row
+        );
       }
       setHandshakeMap(map);
       return map;
@@ -236,7 +236,30 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         const updated = payload.new as ChatMessage;
         setMessages((current) => current.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'handshakes' }, () => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'handshakes' }, (payload) => {
+        const updated = payload.new as Record<string, unknown>;
+        const id = updated.id as string | undefined;
+        if (!id) return;
+
+        const inConversation =
+          (updated.lender_id === myId && updated.borrower_id === peer.id) ||
+          (updated.lender_id === peer.id && updated.borrower_id === myId);
+
+        if (!inConversation) return;
+
+        setHandshakeMap((current) => {
+          const previous = current[id];
+          if (!previous) {
+            void loadHandshakes(myId, peer.id);
+            return current;
+          }
+          return {
+            ...current,
+            [id]: normalizeHandshakeRow(updated, previous),
+          };
+        });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'handshakes' }, () => {
         void loadHandshakes(myId, peer.id);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence', filter: `user_id=eq.${peer.id}` }, (payload) => {

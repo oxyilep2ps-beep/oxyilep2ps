@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, ExternalLink, FileSignature, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
 import { formatContractLabel } from '@/lib/handshake/calculations';
 import type { ChatPeer, HandshakeRow, MemberRole } from '@/lib/chat/types';
 import { generateContractPDF } from '@/lib/pdf/contract-pdf';
 import { stashPendingHandshakeId } from '@/lib/payments/pending-handshake';
+import { polygonscanTxUrl } from '@/lib/web3/polygonscan';
 import { cn } from '@/lib/utils';
 
 type HandshakeCardProps = {
@@ -16,8 +18,6 @@ type HandshakeCardProps = {
   peer: ChatPeer;
   onUpdated: () => void;
 };
-
-import { polygonscanTxUrl } from '@/lib/web3/polygonscan';
 
 function paymentStatusLine(local: HandshakeRow): string | null {
   if (local.status !== 'ACTIVE') return null;
@@ -49,6 +49,35 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState(handshake);
+
+  useEffect(() => {
+    setLocal(handshake);
+  }, [handshake]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`handshake-updates-${handshake.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'handshakes',
+          filter: `id=eq.${handshake.id}`,
+        },
+        (payload) => {
+          setLocal((prev) =>
+            normalizeHandshakeRow(payload.new as Record<string, unknown>, prev)
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [handshake.id]);
 
   const isBorrower = myRole === 'BORROWER' && myId === local.borrower_id;
   const isInvestor = myRole === 'INVESTOR' && myId === local.lender_id;
