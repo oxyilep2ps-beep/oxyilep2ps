@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
+import { resolvePolygonPrivateKey } from '@/env';
 import { createPolygonRelayerWallet, getPolygonRpcUrl } from '@/lib/web3/relayer-wallet';
-import { ensureServerEnvLoaded, readPolygonPrivateKey } from '@/lib/env/server-secrets';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAdminAction } from '@/app/actions/admin-audit';
 
@@ -101,9 +101,8 @@ export async function getCommandCenterMetrics(): Promise<CommandCenterMetrics> {
 
 export async function getWeb3MonitorStats(): Promise<Web3MonitorStats> {
   await assertAdmin();
-  ensureServerEnvLoaded();
 
-  const privateKey = readPolygonPrivateKey();
+  const privateKey = resolvePolygonPrivateKey();
 
   try {
     const { ethers } = await import('ethers');

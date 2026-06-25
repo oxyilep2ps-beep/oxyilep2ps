@@ -1,3 +1,5 @@
+import { toGoCardlessAmountPence } from '@/lib/gocardless/amount';
+
 /**
  * GoCardless Direct Debit service — fiat mandate & payment between UK bank accounts.
  * Docs: https://developer.gocardless.com/
@@ -31,7 +33,8 @@ export interface CreateMandateResult {
 
 export interface InitiatePaymentInput {
   mandateId: string;
-  amountPence: number;
+  /** Payment amount in GBP major units (e.g. 10.50) — converted to pence at API submission. */
+  amountGbp: number;
   currency?: 'GBP';
   description: string;
   idempotencyKey: string;
@@ -163,12 +166,20 @@ export async function initiateFiatTransfer(
   }
 
   try {
+    const amountPence = toGoCardlessAmountPence(input.amountGbp);
+    if (amountPence < 100) {
+      return {
+        success: false,
+        error: `Payment amount must be at least £1.00 for GoCardless (got £${input.amountGbp}).`,
+      };
+    }
+
     const payment = await goCardlessRequest<{ payments: { id: string; status: string } }>(
       '/payments',
       'POST',
       {
         payments: {
-          amount: input.amountPence,
+          amount: amountPence,
           currency: input.currency ?? 'GBP',
           description: input.description,
           metadata: input.metadata,

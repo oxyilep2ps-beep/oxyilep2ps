@@ -1,7 +1,6 @@
 /**
  * Server-only environment contract for Oxyile.
- * No zod/t3 env schema in this project — secrets are read at runtime via lib/env/server-secrets.ts.
- * Do NOT prefix server secrets with NEXT_PUBLIC_.
+ * Validated at runtime via root `env.ts` (Zod). Do NOT prefix server secrets with NEXT_PUBLIC_.
  */
 export const SERVER_ENV_KEYS = [
   'POLYGON_PRIVATE_KEY',

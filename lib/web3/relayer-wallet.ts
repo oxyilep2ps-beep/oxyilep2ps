@@ -1,8 +1,8 @@
-import { readPolygonPrivateKey, ensureServerEnvLoaded } from '@/lib/env/server-secrets';
+import { resolvePolygonPrivateKey } from '@/env';
 import { POLYGON_AMOY_RPC_URL } from '@/lib/web3/polygon-amoy';
 
 export const POLYGON_RELAYER_MISCONFIG_ERROR =
-  'Server Misconfiguration: Polygon Relayer Key is missing.';
+  'Server Misconfiguration: Polygon Relayer Key is missing in the server environment.';
 
 /** Polygon Amoy JSON-RPC endpoint for all server-side relayer transactions. */
 export function getPolygonRpcUrl(): string {
@@ -17,12 +17,9 @@ export function getPolygonRpcUrl(): string {
  * Returns the platform relayer private key. Server-side signing must use POLYGON_PRIVATE_KEY only.
  */
 export function requirePolygonPrivateKey(): string {
-  ensureServerEnvLoaded();
-  const key = readPolygonPrivateKey();
+  const key = resolvePolygonPrivateKey();
   if (!key) {
-    throw new Error(
-      'Server Misconfiguration: Polygon Relayer Key is missing in the server environment.'
-    );
+    throw new Error(POLYGON_RELAYER_MISCONFIG_ERROR);
   }
   return key;
 }

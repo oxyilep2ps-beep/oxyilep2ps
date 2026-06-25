@@ -5,7 +5,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
 import { createMonthlyEmiSubscription } from '@/lib/gocardless/subscriptions';
-import { getPolygonPrivateKeyOrError } from '@/lib/env/server-secrets';
+import {
+  env,
+  normalizePrivateKey,
+  POLYGON_RELAYER_MISCONFIG_MESSAGE,
+  resolvePolygonPrivateKey,
+} from '@/env';
 import { buildHandshakeOnChainData, hashHandshakeAgreement } from '@/lib/web3/handshake-hash';
 import { POLYGON_AMOY_RPC_URL } from '@/lib/web3/polygon-amoy';
 
@@ -19,10 +24,36 @@ function isValidTxHash(value: string): boolean {
 
 function getPolygonRpcUrl(): string {
   return (
-    process.env.POLYGON_RPC_URL?.trim() ||
+    env.POLYGON_RPC_URL?.trim() ||
     process.env.NEXT_PUBLIC_POLYGON_RPC_URL?.trim() ||
     POLYGON_AMOY_RPC_URL
   );
+}
+
+function requirePolygonPrivateKey(): string {
+  // 1) Validated env object (Zod-backed)
+  try {
+    const fromEnv = env.POLYGON_PRIVATE_KEY;
+    if (fromEnv?.trim()) {
+      return normalizePrivateKey(fromEnv);
+    }
+  } catch {
+    // Fall through to direct process.env read for demo reliability.
+  }
+
+  // 2) Demo fallback — direct process.env.POLYGON_PRIVATE_KEY (no wrapper)
+  const direct =
+    process.env.POLYGON_PRIVATE_KEY ??
+    process.env['POLYGON_PRIVATE_KEY'] ??
+    resolvePolygonPrivateKey();
+
+  const privateKey = direct ? normalizePrivateKey(String(direct)) : '';
+
+  if (!privateKey) {
+    throw new Error(POLYGON_RELAYER_MISCONFIG_MESSAGE);
+  }
+
+  return privateKey;
 }
 
 /**
@@ -33,12 +64,14 @@ function getPolygonRpcUrl(): string {
 export async function finalizeEscrowOnChain(
   handshakeId: string
 ): Promise<FinalizeEscrowOnChainResult> {
-  const keyResult = getPolygonPrivateKeyOrError();
-  if (typeof keyResult !== 'string') {
-    return { success: false, error: keyResult.error };
-  }
+  let privateKey: string;
 
-  const privateKey = keyResult;
+  try {
+    privateKey = requirePolygonPrivateKey();
+  } catch (e) {
+    const message = e instanceof Error ? e.message : POLYGON_RELAYER_MISCONFIG_MESSAGE;
+    return { success: false, error: message };
+  }
 
   try {
     const supabase = await createClient();
@@ -132,7 +165,7 @@ export async function finalizeEscrowOnChain(
 
     const sub = await createMonthlyEmiSubscription({
       mandateId,
-      amountPence: Math.max(1, Math.round(figures.emi_amount * 100)),
+      amountGbp: figures.emi_amount,
       name: `Oxyile EMI — ${id.slice(0, 8)}`,
       handshakeId: id,
       totalPayments: Math.max(1, Math.round(Number(handshake.duration ?? 12))),

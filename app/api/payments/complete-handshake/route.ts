@@ -247,7 +247,6 @@ export async function POST(request: Request) {
     );
     const emi = figures.emi_amount;
     const totalReturn = figures.total_return;
-    const amountPence = Math.max(1, Math.round(emi * 100));
 
     if (!Number.isFinite(emi) || emi <= 0 || !Number.isFinite(totalReturn) || totalReturn <= 0) {
       return NextResponse.json({ ok: false, error: 'Invalid EMI amount for subscription' }, { status: 400 });
@@ -274,7 +273,7 @@ export async function POST(request: Request) {
 
     const sub = await createMonthlyEmiSubscription({
       mandateId,
-      amountPence,
+      amountGbp: emi,
       name: `Oxyile EMI — ${body.handshakeId.slice(0, 8)}`,
       handshakeId: body.handshakeId,
       totalPayments: Math.max(1, Math.round(Number(handshake.duration ?? 12))),

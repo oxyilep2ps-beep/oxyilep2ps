@@ -53,7 +53,6 @@ export async function POST(request: Request) {
       Number(handshake.duration ?? 1)
     );
     const emi = figures.emi_amount;
-    const amountPence = Math.max(1, Math.round(emi * 100));
     const duration = Math.max(1, Math.round(Number(handshake.duration ?? 12)));
 
     if (!Number.isFinite(emi) || emi <= 0 || !Number.isFinite(figures.total_return) || figures.total_return <= 0) {
@@ -62,7 +61,7 @@ export async function POST(request: Request) {
 
     const sub = await createMonthlyEmiSubscription({
       mandateId,
-      amountPence,
+      amountGbp: emi,
       name: `Oxyile EMI — ${body.handshakeId.slice(0, 8)}`,
       handshakeId: body.handshakeId,
       totalPayments: duration,
