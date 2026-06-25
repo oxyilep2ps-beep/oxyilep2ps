@@ -5,15 +5,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
 import { createMonthlyEmiSubscription } from '@/lib/gocardless/subscriptions';
+import { getPolygonPrivateKeyOrError } from '@/lib/env/server-secrets';
 import { buildHandshakeOnChainData, hashHandshakeAgreement } from '@/lib/web3/handshake-hash';
 import { POLYGON_AMOY_RPC_URL } from '@/lib/web3/polygon-amoy';
 
 export type FinalizeEscrowOnChainResult =
   | { success: true; txHash: string; agreementHash: string }
   | { success: false; error: string };
-
-const MISCONFIG_ERROR =
-  'Server Misconfiguration: Polygon Relayer Key is missing in the server environment.';
 
 function isValidTxHash(value: string): boolean {
   return /^0x[a-fA-F0-9]{64}$/.test(value);
@@ -27,13 +25,6 @@ function getPolygonRpcUrl(): string {
   );
 }
 
-function normalizePrivateKey(raw: string): string {
-  const trimmed = raw.trim().replace(/^["']|["']$/g, '');
-  if (trimmed.startsWith('0x')) return trimmed;
-  if (/^[a-fA-F0-9]{64}$/.test(trimmed)) return `0x${trimmed}`;
-  return trimmed;
-}
-
 /**
  * Web2.5 escrow finalization — runs ONLY on the server.
  * 1. Anchors hashed handshake agreement on Polygon Amoy (relayer wallet)
@@ -42,12 +33,12 @@ function normalizePrivateKey(raw: string): string {
 export async function finalizeEscrowOnChain(
   handshakeId: string
 ): Promise<FinalizeEscrowOnChainResult> {
-  const privateKey = process.env.POLYGON_PRIVATE_KEY?.trim()
-    ? normalizePrivateKey(process.env.POLYGON_PRIVATE_KEY)
-    : '';
-  if (!privateKey) {
-    return { success: false, error: MISCONFIG_ERROR };
+  const keyResult = getPolygonPrivateKeyOrError();
+  if (typeof keyResult !== 'string') {
+    return { success: false, error: keyResult.error };
   }
+
+  const privateKey = keyResult;
 
   try {
     const supabase = await createClient();

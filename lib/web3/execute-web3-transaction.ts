@@ -23,7 +23,7 @@ async function sendOnChainAction(
 ): Promise<{ txHash: string; warning?: string | null }> {
   const contractAddress = process.env.POLYGON_HANDSHAKE_CONTRACT;
   const { ethers } = await import('ethers');
-  const wallet = createPolygonRelayerWallet();
+  const wallet = await createPolygonRelayerWallet();
 
   if (actionType === 'MINT_CONTRACT') {
     const admin = createAdminClient();

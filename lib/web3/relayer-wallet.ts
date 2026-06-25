@@ -1,4 +1,4 @@
-import { ethers, type Wallet } from 'ethers';
+import { readPolygonPrivateKey, ensureServerEnvLoaded } from '@/lib/env/server-secrets';
 import { POLYGON_AMOY_RPC_URL } from '@/lib/web3/polygon-amoy';
 
 export const POLYGON_RELAYER_MISCONFIG_ERROR =
@@ -17,15 +17,19 @@ export function getPolygonRpcUrl(): string {
  * Returns the platform relayer private key. Server-side signing must use POLYGON_PRIVATE_KEY only.
  */
 export function requirePolygonPrivateKey(): string {
-  const key = process.env.POLYGON_PRIVATE_KEY?.trim();
+  ensureServerEnvLoaded();
+  const key = readPolygonPrivateKey();
   if (!key) {
-    throw new Error(POLYGON_RELAYER_MISCONFIG_ERROR);
+    throw new Error(
+      'Server Misconfiguration: Polygon Relayer Key is missing in the server environment.'
+    );
   }
   return key;
 }
 
 /** Ethers wallet connected to Polygon Amoy for relayer / escrow transactions. */
-export function createPolygonRelayerWallet(): Wallet {
+export async function createPolygonRelayerWallet() {
+  const { ethers } = await import('ethers');
   const provider = new ethers.JsonRpcProvider(getPolygonRpcUrl());
   return new ethers.Wallet(requirePolygonPrivateKey(), provider);
 }

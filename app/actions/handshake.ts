@@ -42,7 +42,7 @@ export async function executeHandshake(
     throw new Error('Both parties must approve before on-chain execution');
   }
 
-  const wallet = createPolygonRelayerWallet();
+  const wallet = await createPolygonRelayerWallet();
   const contractAddress = process.env.POLYGON_HANDSHAKE_CONTRACT;
   const { ethers } = await import('ethers');
 
@@ -118,7 +118,7 @@ export async function executeLegacyAgreement(agreementId: string): Promise<Execu
     throw new Error(fetchError?.message || 'Agreement not found');
   }
 
-  const wallet = createPolygonRelayerWallet();
+  const wallet = await createPolygonRelayerWallet();
   const contractAddress = process.env.POLYGON_HANDSHAKE_CONTRACT;
   const { ethers } = await import('ethers');
 

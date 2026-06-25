@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
 import { createPolygonRelayerWallet, getPolygonRpcUrl } from '@/lib/web3/relayer-wallet';
+import { ensureServerEnvLoaded, readPolygonPrivateKey } from '@/lib/env/server-secrets';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAdminAction } from '@/app/actions/admin-audit';
 
@@ -100,8 +101,9 @@ export async function getCommandCenterMetrics(): Promise<CommandCenterMetrics> {
 
 export async function getWeb3MonitorStats(): Promise<Web3MonitorStats> {
   await assertAdmin();
+  ensureServerEnvLoaded();
 
-  const privateKey = process.env.POLYGON_PRIVATE_KEY?.trim();
+  const privateKey = readPolygonPrivateKey();
 
   try {
     const { ethers } = await import('ethers');
@@ -116,7 +118,7 @@ export async function getWeb3MonitorStats(): Promise<Web3MonitorStats> {
     let lowBalance = false;
 
     if (privateKey) {
-      const wallet = createPolygonRelayerWallet();
+      const wallet = await createPolygonRelayerWallet();
       walletAddress = wallet.address;
       const balance = await provider.getBalance(wallet.address);
       const matic = Number(ethers.formatEther(balance));
