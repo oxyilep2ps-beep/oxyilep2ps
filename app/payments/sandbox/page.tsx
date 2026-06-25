@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ExternalLink, Loader2, Lock, ShieldCheck, XCircle } from 'lucide-react';
-import { recordHandshakeOnChain } from '@/app/actions/recordHandshakeOnChain';
+import { finalizeEscrowOnChain } from '@/app/actions/escrowChain';
 import { GoCardlessSandboxForm } from '@/components/payments/gocardless-sandbox-form';
 import {
   clearPendingHandshakeId,
@@ -27,7 +27,7 @@ type HandshakePreview = {
 
 const PROCESSING_STEPS = [
   'Processing secure bank payment via GoCardless…',
-  'Hashing handshake agreement (Web2.5 relayer)…',
+  'Processing blockchain transaction…',
   'Recording immutable proof on Polygon Amoy…',
   'Activating escrow in Oxyile Protocol…',
 ] as const;
@@ -42,7 +42,14 @@ function PaymentSandboxInner() {
   const [phase, setPhase] = useState<'checkout' | 'processing' | 'success' | 'error'>('checkout');
   const [processingStep, setProcessingStep] = useState(0);
   const [payError, setPayError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     if (!handshakeId) {
@@ -94,9 +101,10 @@ function PaymentSandboxInner() {
       await new Promise((resolve) => window.setTimeout(resolve, 2200));
       setProcessingStep(1);
 
-      const result = await recordHandshakeOnChain(handshakeId);
+      const result = await finalizeEscrowOnChain(handshakeId);
 
-      if (!result.ok) {
+      if (!result.success) {
+        setToast(result.error);
         setPhase('error');
         setPayError(result.error);
         return;
@@ -106,8 +114,10 @@ function PaymentSandboxInner() {
       setTxHash(result.txHash);
       setPhase('success');
     } catch (e) {
+      const message = e instanceof Error ? e.message : 'Escrow funding failed';
+      setToast(message);
       setPhase('error');
-      setPayError(e instanceof Error ? e.message : 'Escrow funding failed');
+      setPayError(message);
     } finally {
       window.clearInterval(stepInterval);
     }
@@ -218,6 +228,11 @@ function PaymentSandboxInner() {
 
   return (
     <section className="mx-auto min-h-[80vh] max-w-xl px-4 py-10">
+      {toast ? (
+        <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-200">
+          {toast}
+        </p>
+      ) : null}
       <div className="overflow-hidden rounded-[1.75rem] border border-neutral-200/80 bg-white shadow-2xl dark:border-white/10 dark:bg-neutral-950">
         <div className="border-b border-amber-200/80 bg-gradient-to-r from-amber-50 via-orange-50 to-brand-50 px-6 py-3 dark:border-amber-900/40 dark:from-amber-950/40 dark:to-neutral-950">
           <p className="flex items-center justify-center gap-2 text-center text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-200">
