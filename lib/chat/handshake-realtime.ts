@@ -31,6 +31,7 @@ export function normalizeHandshakeRow(
     status: (row.status as HandshakeRow['status']) ?? 'PENDING',
     lender_approved_at: (row.lender_approved_at as string | null) ?? null,
     borrower_approved_at: (row.borrower_approved_at as string | null) ?? null,
+    funded_at: (row.funded_at as string | null) ?? null,
     created_at: row.created_at as string,
   };
 }

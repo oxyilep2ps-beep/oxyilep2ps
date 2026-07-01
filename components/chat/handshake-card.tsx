@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, ExternalLink, FileSignature, Loader2 } from 'lucide-react';
+import { Download, ExternalLink, FileSignature, Loader2, ShieldCheck } from 'lucide-react';
+import { initiateJITFunding } from '@/app/actions/payment';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
 import { formatContractLabel } from '@/lib/handshake/calculations';
@@ -47,6 +48,7 @@ function pendingStatusLine(local: HandshakeRow): string {
 export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: HandshakeCardProps) {
   const [busy, setBusy] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState(handshake);
 
@@ -98,6 +100,35 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
       local.polygon_tx_hash &&
       (local.mandate_linked || local.auto_emi_active || local.gocardless_subscription_id)
   );
+
+  const canInvestorFundEscrow =
+    isInvestor &&
+    local.status === 'PENDING' &&
+    Boolean(local.borrower_approved_at) &&
+    !local.funded_at &&
+    !local.polygon_tx_hash;
+
+  const fundEscrowAndAccept = async () => {
+    setIsGeneratingPaymentLink(true);
+    setError(null);
+
+    try {
+      const result = await initiateJITFunding(local.id, Number(local.amount));
+
+      if (!result.success) {
+        setError(result.error);
+        setIsGeneratingPaymentLink(false);
+        return;
+      }
+
+      stashPendingHandshakeId(local.id);
+      window.location.href = result.checkout_url;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Could not start investor checkout';
+      setError(message);
+      setIsGeneratingPaymentLink(false);
+    }
+  };
 
   const redirectToMandate = async () => {
     setIsProcessingPayment(true);
@@ -165,7 +196,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
       }
     }
 
-    if (isInvestor && lenderOk && borrowerOk) {
+    if (isInvestor && lenderOk && borrowerOk && !canInvestorFundEscrow) {
       onUpdated();
       setBusy(false);
       return;
@@ -283,7 +314,30 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
         </div>
       )}
 
-      {local.status === 'PENDING' && !bothApproved && (
+      {canInvestorFundEscrow && (
+        <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+          <button
+            type="button"
+            disabled={busy || isProcessingPayment || isGeneratingPaymentLink}
+            onClick={() => void fundEscrowAndAccept()}
+            className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 via-brand-500 to-orange-500 py-3 text-xs font-black uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:opacity-50"
+          >
+            {isGeneratingPaymentLink ? (
+              <>
+                <Loader2 className="animate-spin" size={16} />
+                Generating Secure Payment Link…
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={16} className="transition group-hover:scale-110" />
+                Fund Escrow &amp; Accept
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {local.status === 'PENDING' && !bothApproved && !canInvestorFundEscrow && (
         <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
           <button
             type="button"

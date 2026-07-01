@@ -46,5 +46,6 @@ export type HandshakeRow = {
   status: 'PENDING' | 'ACTIVE';
   lender_approved_at: string | null;
   borrower_approved_at: string | null;
+  funded_at?: string | null;
   created_at: string;
 };
