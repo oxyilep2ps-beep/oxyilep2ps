@@ -34,7 +34,8 @@ export function formatContractLabel(
   status: string,
   paymentStatus: string | null | undefined
 ): string {
-  if (status === 'PENDING') return 'Awaiting dual approval';
+  if (status === 'PENDING') return 'Awaiting investor escrow funding';
+  if (status === 'FUNDED') return 'Escrow funded — awaiting borrower bank link';
   if (status === 'MATCHED') return 'Investor matched — activation pending';
   if (status === 'ACTIVE' && paymentStatus === 'PAID') return 'Paid — EMI schedule active';
   if (status === 'ACTIVE' && paymentStatus === 'ACTIVE') return 'Bank linked — EMI subscription active';

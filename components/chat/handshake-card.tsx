@@ -1,11 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, ExternalLink, FileSignature, Loader2, ShieldCheck } from 'lucide-react';
+import {
+  Download,
+  ExternalLink,
+  FileSignature,
+  Landmark,
+  Loader2,
+  ShieldCheck,
+  Wallet,
+} from 'lucide-react';
 import { initiateJITFunding } from '@/app/actions/payment';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
-import { formatContractLabel } from '@/lib/handshake/calculations';
+import { getHandshakeUiPhase, hasValidPolygonTx } from '@/lib/handshake/ui-state';
 import type { ChatPeer, HandshakeRow, MemberRole } from '@/lib/chat/types';
 import { generateContractPDF } from '@/lib/pdf/contract-pdf';
 import { stashPendingHandshakeId } from '@/lib/payments/pending-handshake';
@@ -20,35 +28,15 @@ type HandshakeCardProps = {
   onUpdated: () => void;
 };
 
-function paymentStatusLine(local: HandshakeRow): string | null {
-  if (local.status !== 'ACTIVE') return null;
-  const bank = local.mandate_linked ?? (local.payment_status === 'ACTIVE' || local.payment_status === 'PAID');
-  const contract = Boolean(local.polygon_tx_hash);
-  const emi = local.auto_emi_active;
-  if (bank && contract && emi) {
-    return 'Bank Linked ✅ | Smart Contract Minted 🔗 | Auto-EMI Active';
-  }
-  const parts: string[] = [];
-  if (bank) parts.push('Bank Linked ✅');
-  if (contract) parts.push('Smart Contract Minted 🔗');
-  if (emi) parts.push('Auto-EMI Active');
-  return parts.length ? parts.join(' | ') : null;
-}
+const primaryBtnClass =
+  'group inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 via-brand-500 to-orange-500 py-3 text-xs font-black uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:opacity-50';
 
-function pendingStatusLine(local: HandshakeRow): string {
-  const lenderApproved = Boolean(local.lender_approved_at);
-  const borrowerApproved = Boolean(local.borrower_approved_at);
-
-  if (lenderApproved && !borrowerApproved) return 'Waiting for Borrower to Link Bank';
-  if (!lenderApproved && borrowerApproved) return 'Waiting for Investor';
-  if (lenderApproved && borrowerApproved) return 'Waiting for Bank Link';
-  return 'Waiting for Investor and Borrower';
-}
+const mutedBtnClass =
+  'inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border border-neutral-200/80 bg-neutral-100/90 py-3 text-xs font-bold text-neutral-500 dark:border-white/10 dark:bg-white/5 dark:text-neutral-400';
 
 export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: HandshakeCardProps) {
   const [busy, setBusy] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [isGeneratingPaymentLink, setIsGeneratingPaymentLink] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [local, setLocal] = useState(handshake);
 
@@ -81,143 +69,74 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
     };
   }, [handshake.id]);
 
-  const isBorrower = myRole === 'BORROWER' && myId === local.borrower_id;
-  const isInvestor = myRole === 'INVESTOR' && myId === local.lender_id;
+  const isInvestor = myId === local.lender_id && myRole === 'INVESTOR';
+  const isBorrower = myId === local.borrower_id && myRole === 'BORROWER';
+  const phase = getHandshakeUiPhase(local);
+  const txLink = hasValidPolygonTx(local) ? polygonscanTxUrl(local.polygon_tx_hash!) : null;
+  const contractReady = phase === 'ACTIVE' && Boolean(txLink);
 
-  const approvedByMe =
-    (isInvestor && Boolean(local.lender_approved_at)) ||
-    (isBorrower && Boolean(local.borrower_approved_at));
+  const acceptLoanTerms = async () => {
+    if (!isBorrower || local.borrower_approved_at) return;
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from('handshakes')
+      .update({ borrower_approved_at: new Date().toISOString() })
+      .eq('id', local.id);
 
-  const bothApproved = Boolean(local.lender_approved_at && local.borrower_approved_at);
-  const label = formatContractLabel(local.status, local.payment_status);
-  const txLink = local.polygon_tx_hash && /^0x[a-fA-F0-9]{64}$/.test(local.polygon_tx_hash)
-    ? polygonscanTxUrl(local.polygon_tx_hash)
-    : null;
-  const railLine = paymentStatusLine(local);
-  const statusText = local.status === 'PENDING' ? pendingStatusLine(local) : (railLine ?? label);
-  const contractReady = Boolean(
-    local.status === 'ACTIVE' &&
-      local.polygon_tx_hash &&
-      (local.mandate_linked || local.auto_emi_active || local.gocardless_subscription_id)
-  );
-
-  const canInvestorFundEscrow =
-    isInvestor &&
-    local.status === 'PENDING' &&
-    Boolean(local.borrower_approved_at) &&
-    !local.funded_at &&
-    !local.polygon_tx_hash;
+    if (updateError) {
+      setError(updateError.message);
+    } else {
+      onUpdated();
+    }
+    setBusy(false);
+  };
 
   const fundEscrowAndAccept = async () => {
-    setIsGeneratingPaymentLink(true);
+    setIsRedirecting(true);
     setError(null);
 
     try {
       const result = await initiateJITFunding(local.id, Number(local.amount));
-
       if (!result.success) {
         setError(result.error);
-        setIsGeneratingPaymentLink(false);
+        setIsRedirecting(false);
         return;
       }
-
       stashPendingHandshakeId(local.id);
       window.location.href = result.checkout_url;
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not start investor checkout';
-      setError(message);
-      setIsGeneratingPaymentLink(false);
+      setError(e instanceof Error ? e.message : 'Could not start investor checkout');
+      setIsRedirecting(false);
     }
   };
 
-  const redirectToMandate = async () => {
-    setIsProcessingPayment(true);
+  const linkBankAndStartEmi = async () => {
+    setIsRedirecting(true);
     setError(null);
 
-    const res = await fetch('/api/payments/setup-mandate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        borrowerId: local.borrower_id,
-        lenderId: local.lender_id,
-        handshakeId: local.id,
-      }),
-    });
-    const body = (await res.json()) as {
-      authorisation_url?: string;
-      error?: string;
-    };
-
-    if (!res.ok || !body.authorisation_url) {
-      setIsProcessingPayment(false);
-      throw new Error(body.error ?? 'Could not start payment checkout');
-    }
-
-    stashPendingHandshakeId(local.id);
-    window.location.href = body.authorisation_url;
-  };
-
-  const approve = async () => {
-    setBusy(true);
-    setError(null);
-    const supabase = createClient();
-    const patch: Record<string, string> = {};
-    const now = new Date().toISOString();
-
-    if (isInvestor && !local.lender_approved_at) patch.lender_approved_at = now;
-    if (isBorrower && !local.borrower_approved_at) patch.borrower_approved_at = now;
-
-    const { error } = await supabase.from('handshakes').update(patch).eq('id', local.id);
-    if (error) {
-      setError(error.message);
-      setBusy(false);
-      return;
-    }
-
-    const next = {
-      ...local,
-      lender_approved_at: patch.lender_approved_at ?? local.lender_approved_at,
-      borrower_approved_at: patch.borrower_approved_at ?? local.borrower_approved_at,
-    };
-    setLocal(next);
-
-    const lenderOk = Boolean(next.lender_approved_at);
-    const borrowerOk = Boolean(next.borrower_approved_at);
-
-    if (isBorrower && lenderOk && borrowerOk) {
-      try {
-        await redirectToMandate();
-        return;
-      } catch (e) {
-        const message = e instanceof Error ? e.message : 'Could not start payment checkout';
-        console.error('[HandshakeCard] Payment redirect failed', e);
-        setError(message);
-        setIsProcessingPayment(false);
-      }
-    }
-
-    if (isInvestor && lenderOk && borrowerOk && !canInvestorFundEscrow) {
-      onUpdated();
-      setBusy(false);
-      return;
-    }
-
-    onUpdated();
-    setBusy(false);
-  };
-
-  const linkBankLater = async () => {
-    setBusy(true);
-    setError(null);
     try {
-      await redirectToMandate();
+      const res = await fetch('/api/payments/setup-mandate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          borrowerId: local.borrower_id,
+          lenderId: local.lender_id,
+          handshakeId: local.id,
+        }),
+      });
+      const body = (await res.json()) as { authorisation_url?: string; error?: string };
+
+      if (!res.ok || !body.authorisation_url) {
+        throw new Error(body.error ?? 'Could not start GoCardless mandate flow');
+      }
+
+      stashPendingHandshakeId(local.id);
+      window.location.href = body.authorisation_url;
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not start GoCardless checkout';
-      console.error('[HandshakeCard] GoCardless redirect failed', e);
-      setError(message);
-      setIsProcessingPayment(false);
-    } finally {
-      setBusy(false);
+      setError(e instanceof Error ? e.message : 'Could not link bank account');
+      setIsRedirecting(false);
     }
   };
 
@@ -246,6 +165,167 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
         created_at: local.created_at,
       },
     });
+  };
+
+  const statusBannerClass = cn(
+    'px-4 py-2.5 text-center text-xs font-bold leading-snug',
+    phase === 'ACTIVE'
+      ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
+      : phase === 'FUNDED'
+        ? 'bg-brand-500/15 text-brand-800 dark:text-brand-200'
+        : 'bg-neutral-200/80 text-neutral-700 dark:bg-white/10 dark:text-neutral-300'
+  );
+
+  const renderStatusBanner = () => {
+    if (phase === 'ACTIVE') {
+      return (
+        <p className="inline-flex items-center justify-center gap-1.5">
+          <ShieldCheck size={14} className="shrink-0" />
+          Smart Contract Locked
+        </p>
+      );
+    }
+
+    if (phase === 'FUNDED') {
+      if (isInvestor) {
+        return (
+          <p className="inline-flex items-center justify-center gap-1.5">
+            <Wallet size={14} className="shrink-0 text-emerald-600" />
+            You funded this · Waiting for borrower to link bank
+          </p>
+        );
+      }
+      if (isBorrower) {
+        return (
+          <p className="inline-flex items-center justify-center gap-1.5">
+            <Landmark size={14} className="shrink-0" />
+            Escrow funded · Link your bank to receive &amp; start EMI
+          </p>
+        );
+      }
+    }
+
+    if (isInvestor) {
+      return (
+        <p className="inline-flex items-center justify-center gap-1.5">
+          <Wallet size={14} className="shrink-0" />
+          Review terms &amp; fund escrow to activate this loan
+        </p>
+      );
+    }
+
+    if (isBorrower) {
+      return (
+        <p className="inline-flex items-center justify-center gap-1.5">
+          <Landmark size={14} className="shrink-0 opacity-60" />
+          Waiting for investor to fund escrow…
+        </p>
+      );
+    }
+
+    return <p>Handshake in progress</p>;
+  };
+
+  const renderActions = () => {
+    if (!isInvestor && !isBorrower) return null;
+
+    if (phase === 'ACTIVE') {
+      return null;
+    }
+
+    if (phase === 'FUNDED') {
+      if (isInvestor) {
+        return (
+          <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+            <div className={mutedBtnClass}>
+              <ShieldCheck size={16} className="text-emerald-600" />
+              You funded this · Waiting for borrower
+            </div>
+          </div>
+        );
+      }
+
+      if (isBorrower) {
+        return (
+          <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+            <button
+              type="button"
+              disabled={busy || isRedirecting}
+              onClick={() => void linkBankAndStartEmi()}
+              className={primaryBtnClass}
+            >
+              {isRedirecting ? (
+                <>
+                  <Loader2 className="animate-spin" size={16} />
+                  Opening GoCardless…
+                </>
+              ) : (
+                <>
+                  <Landmark size={16} className="transition group-hover:scale-110" />
+                  Link Bank &amp; Start EMI
+                </>
+              )}
+            </button>
+          </div>
+        );
+      }
+    }
+
+    if (phase === 'PENDING') {
+      if (isBorrower && !local.borrower_approved_at) {
+        return (
+          <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+            <button
+              type="button"
+              disabled={busy || isRedirecting}
+              onClick={() => void acceptLoanTerms()}
+              className={primaryBtnClass}
+            >
+              {busy ? <Loader2 className="animate-spin" size={16} /> : <Landmark size={16} />}
+              Accept Loan Terms
+            </button>
+          </div>
+        );
+      }
+
+      if (isInvestor) {
+        return (
+          <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+            <button
+              type="button"
+              disabled={busy || isRedirecting}
+              onClick={() => void fundEscrowAndAccept()}
+              className={primaryBtnClass}
+            >
+              {isRedirecting ? (
+                <>
+                  <Loader2 className="animate-spin" size={16} />
+                  Generating Secure Payment Link…
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} className="transition group-hover:scale-110" />
+                  Fund Escrow &amp; Accept
+                </>
+              )}
+            </button>
+          </div>
+        );
+      }
+
+      if (isBorrower) {
+        return (
+          <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
+            <div className={mutedBtnClass}>
+              <Wallet size={16} className="opacity-50" />
+              Waiting for investor to fund…
+            </div>
+          </div>
+        );
+      }
+    }
+
+    return null;
   };
 
   return (
@@ -286,90 +366,9 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
         </div>
       </div>
 
-      <div
-        className={cn(
-          'px-4 py-2 text-center text-xs font-bold uppercase tracking-wide',
-          local.status === 'ACTIVE' && (railLine || local.auto_emi_active)
-            ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
-            : local.status === 'ACTIVE'
-              ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200'
-              : local.lender_approved_at || local.borrower_approved_at
-                ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200'
-                : 'bg-neutral-200/80 text-neutral-700 dark:bg-white/10 dark:text-neutral-300'
-        )}
-      >
-        {statusText}
-      </div>
+      <div className={statusBannerClass}>{renderStatusBanner()}</div>
 
-      {local.status === 'PENDING' && bothApproved && isBorrower && (
-        <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
-          <button
-            type="button"
-            disabled={busy || isProcessingPayment}
-            onClick={() => void linkBankLater()}
-            className="w-full rounded-full bg-gradient-to-r from-brand-600 to-orange-500 py-2.5 text-xs font-bold text-white shadow-glow"
-          >
-            {busy || isProcessingPayment ? 'Redirecting…' : 'Proceed to payment'}
-          </button>
-        </div>
-      )}
-
-      {canInvestorFundEscrow && (
-        <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
-          <button
-            type="button"
-            disabled={busy || isProcessingPayment || isGeneratingPaymentLink}
-            onClick={() => void fundEscrowAndAccept()}
-            className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 via-brand-500 to-orange-500 py-3 text-xs font-black uppercase tracking-wide text-white shadow-glow transition hover:scale-[1.02] hover:brightness-110 disabled:scale-100 disabled:opacity-50"
-          >
-            {isGeneratingPaymentLink ? (
-              <>
-                <Loader2 className="animate-spin" size={16} />
-                Generating Secure Payment Link…
-              </>
-            ) : (
-              <>
-                <ShieldCheck size={16} className="transition group-hover:scale-110" />
-                Fund Escrow &amp; Accept
-              </>
-            )}
-          </button>
-        </div>
-      )}
-
-      {local.status === 'PENDING' && !bothApproved && !canInvestorFundEscrow && (
-        <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
-          <button
-            type="button"
-            disabled={busy || isProcessingPayment || approvedByMe}
-            onClick={() => void approve()}
-            className="w-full rounded-full bg-brand-500 py-2.5 text-xs font-bold text-white shadow-glow hover:bg-brand-400 disabled:opacity-50"
-          >
-            {busy || isProcessingPayment ? (
-              <Loader2 className="mx-auto animate-spin" size={16} />
-            ) : approvedByMe ? (
-              'You approved'
-            ) : isBorrower ? (
-              'Approve & proceed to payment'
-            ) : (
-              'Approve handshake'
-            )}
-          </button>
-        </div>
-      )}
-
-      {local.status === 'ACTIVE' && isBorrower && bothApproved && !contractReady && (
-        <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
-          <button
-            type="button"
-            disabled={busy || isProcessingPayment}
-            onClick={() => void linkBankLater()}
-            className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white"
-          >
-            {busy || isProcessingPayment ? 'Redirecting…' : 'Proceed to payment'}
-          </button>
-        </div>
-      )}
+      {renderActions()}
 
       {contractReady && (
         <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
@@ -379,7 +378,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-neutral-950 py-2.5 text-xs font-black text-white shadow-glow hover:bg-neutral-800 dark:bg-white dark:text-neutral-950"
           >
             <Download size={15} />
-            📥 Download Contract PDF
+            Download Contract PDF
           </button>
         </div>
       )}
@@ -390,14 +389,16 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
         </p>
       )}
 
-      {txLink && (
+      {phase === 'ACTIVE' && txLink && (
         <a
           href={txLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1 border-t border-white/30 py-2 text-[10px] font-semibold text-brand-600 dark:text-brand-300"
+          className="flex items-center justify-center gap-1.5 border-t border-emerald-200/60 bg-emerald-500/5 py-2.5 text-[11px] font-bold text-emerald-700 dark:border-emerald-900/40 dark:text-emerald-300"
         >
-          View on Polygon Amoy <ExternalLink size={12} />
+          <ShieldCheck size={12} />
+          View on Polygonscan
+          <ExternalLink size={12} />
         </a>
       )}
     </article>

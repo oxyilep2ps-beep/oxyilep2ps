@@ -43,7 +43,7 @@ export type HandshakeRow = {
   gocardless_subscription_id?: string | null;
   auto_emi_active?: boolean;
   mandate_linked?: boolean;
-  status: 'PENDING' | 'ACTIVE';
+  status: 'PENDING' | 'FUNDED' | 'ACTIVE';
   lender_approved_at: string | null;
   borrower_approved_at: string | null;
   funded_at?: string | null;

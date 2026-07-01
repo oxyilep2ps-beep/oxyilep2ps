@@ -13,6 +13,10 @@ export type InitiateJITFundingResult =
   | { success: false; error: string };
 
 export type ConfirmEscrowAndRouteResult =
+  | { success: true; funded: true }
+  | { success: false; error: string };
+
+export type CompleteBorrowerBankLinkResult =
   | { success: true; txHash: string; agreementHash: string }
   | { success: false; error: string };
 
@@ -66,11 +70,7 @@ export async function initiateJITFunding(
       return { success: false, error: 'Only the investor can fund this escrow' };
     }
 
-    if (!handshake.borrower_approved_at) {
-      return { success: false, error: 'Borrower must approve the handshake before funding' };
-    }
-
-    if (handshake.status === 'ACTIVE' && handshake.funded_at) {
+    if (handshake.funded_at || handshake.status === 'FUNDED' || handshake.status === 'ACTIVE') {
       return { success: false, error: 'This handshake has already been funded' };
     }
 
@@ -116,8 +116,7 @@ export async function initiateJITFunding(
 }
 
 /**
- * Post-GoCardless callback — syncs Supabase, routes to borrower mandate (MVP stub),
- * and anchors the escrow schedule on Polygon Amoy.
+ * Step 1 complete — investor GoCardless return. Marks escrow as funded; borrower links bank next.
  */
 export async function confirmEscrowAndRoute(
   handshakeId: string,
@@ -155,24 +154,99 @@ export async function confirmEscrowAndRoute(
       return { success: false, error: 'Only the funding investor can confirm this escrow' };
     }
 
-    if (!handshake.lender_approved_at || !handshake.borrower_approved_at) {
-      return { success: false, error: 'Both parties must approve before escrow confirmation' };
+    if (handshake.funded_at || handshake.status === 'FUNDED') {
+      return { success: true, funded: true };
+    }
+
+    if (handshake.status === 'ACTIVE') {
+      return { success: false, error: 'Handshake is already active' };
+    }
+
+    const now = new Date().toISOString();
+    const figures = calculateHandshakeFigures(
+      Number(handshake.amount ?? 0),
+      Number(handshake.rate ?? 0),
+      Number(handshake.duration ?? 1)
+    );
+
+    const { error: updateError } = await admin
+      .from('handshakes')
+      .update({
+        status: 'FUNDED',
+        payment_status: 'PENDING',
+        funded_at: now,
+        lender_approved_at: handshake.lender_approved_at ?? now,
+        emi_amount: figures.emi_amount,
+        total_return: figures.total_return,
+      })
+      .eq('id', id);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    revalidatePath('/chats');
+    revalidatePath('/handshake/success');
+
+    return { success: true, funded: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Escrow confirmation failed',
+    };
+  }
+}
+
+/**
+ * Step 2 — borrower mandate complete. Anchors Polygon ledger and activates handshake.
+ */
+export async function completeBorrowerBankLink(
+  handshakeId: string,
+  billingRequestId?: string
+): Promise<CompleteBorrowerBankLinkResult> {
+  void billingRequestId;
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const id = handshakeId?.trim();
+    if (!id) {
+      return { success: false, error: 'handshakeId is required' };
+    }
+
+    const admin = createAdminClient();
+    const { data: handshake, error: hsError } = await admin
+      .from('handshakes')
+      .select('*')
+      .eq('id', id)
+      .eq('borrower_id', user.id)
+      .maybeSingle();
+
+    if (hsError || !handshake) {
+      return { success: false, error: 'Handshake not found' };
+    }
+
+    if (!handshake.funded_at && handshake.status !== 'FUNDED') {
+      return { success: false, error: 'Investor must fund escrow before linking your bank' };
     }
 
     const existingTx =
       (handshake.tx_hash as string | null) ?? (handshake.polygon_tx_hash as string | null);
-    if (handshake.status === 'ACTIVE' && handshake.funded_at && existingTx) {
-      return {
-        success: true,
-        txHash: existingTx,
-        agreementHash: existingTx,
-      };
+    if (handshake.status === 'ACTIVE' && existingTx) {
+      return { success: true, txHash: existingTx, agreementHash: existingTx };
     }
 
     const now = new Date().toISOString();
     const timestamp =
+      (handshake.funded_at as string) ||
       (handshake.borrower_approved_at as string) ||
-      (handshake.lender_approved_at as string) ||
       now;
 
     const figures = calculateHandshakeFigures(
@@ -220,7 +294,7 @@ export async function confirmEscrowAndRoute(
       .update({
         status: 'ACTIVE',
         payment_status: 'ACTIVE',
-        funded_at: now,
+        borrower_approved_at: handshake.borrower_approved_at ?? now,
         activated_at: handshake.activated_at ?? now,
         tx_hash: anchor.txHash,
         polygon_tx_hash: anchor.txHash,
@@ -249,7 +323,7 @@ export async function confirmEscrowAndRoute(
   } catch (e) {
     return {
       success: false,
-      error: e instanceof Error ? e.message : 'Escrow confirmation failed',
+      error: e instanceof Error ? e.message : 'Bank link activation failed',
     };
   }
 }
