@@ -73,9 +73,9 @@ export async function createBillingRequestMandateFlow(params: {
         mandate_request: {
           scheme: 'bacs',
           metadata: {
-            borrower_id: params.borrowerId,
-            lender_id: params.lenderId,
-            platform: 'oxyile',
+            handshake_id: String(params.handshakeId).slice(0, 50),
+            investor_id: String(params.lenderId).slice(0, 50),
+            borrower_id: String(params.borrowerId).slice(0, 50),
           },
         },
       },

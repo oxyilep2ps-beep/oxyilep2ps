@@ -71,11 +71,9 @@ export async function createInvestorJITCheckout(params: {
           description: `Oxyile JIT Escrow — ${params.handshakeId.slice(0, 8)}`,
         },
         metadata: {
-          handshake_id: params.handshakeId,
-          lender_id: params.lenderId,
-          borrower_id: params.borrowerId,
-          flow: 'jit_investor_funding',
-          platform: 'oxyile',
+          handshake_id: String(params.handshakeId).slice(0, 50),
+          investor_id: String(params.lenderId).slice(0, 50),
+          borrower_id: String(params.borrowerId).slice(0, 50),
         },
       },
     });
