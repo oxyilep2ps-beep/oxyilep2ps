@@ -18,6 +18,7 @@ import {
   ScrollText,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   User,
   Users,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ const items: {
   { href: '/admin-dashboard/applications', label: 'Apps', icon: ClipboardList },
   { href: '/admin-dashboard/waitlist', label: 'Waitlist', icon: Users },
   { href: '/admin-dashboard/handshakes', label: 'Handshakes', icon: Handshake },
+  { href: '/admin-dashboard/collateral', label: 'Collateral', icon: ShieldCheck },
   { href: '/admin-dashboard/contracts', label: 'Contracts', icon: FileSignature },
   { href: '/admin-dashboard/support', label: 'Support', icon: Headphones },
   { href: '/admin-dashboard/blogs', label: 'BlogMgr', icon: Newspaper },

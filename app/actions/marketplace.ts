@@ -93,6 +93,11 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
         collateral_value: collateralValue,
         collateral_description: collateralDescription,
         collateral_proof_url: proofPath,
+        collateral_status: 'pending',
+        asset_declared_value: collateralValue,
+        asset_approved_value: 0,
+        max_ltv_amount: 0,
+        collateral_docs_url: proofPath,
         status: 'PENDING',
         marketplace: true,
         guarantor_email: guarantorEmail || null,
@@ -136,6 +141,7 @@ export async function listMarketplaceOpportunities(): Promise<{ rows: Marketplac
     )
     .eq('marketplace', true)
     .eq('status', 'PENDING')
+    .eq('collateral_status', 'verified')
     .is('lender_id', null)
     .order('created_at', { ascending: false });
 
@@ -169,6 +175,7 @@ export async function fundMarketplaceLoan(handshakeId: string): Promise<{ ok: bo
     .eq('id', handshakeId)
     .eq('marketplace', true)
     .eq('status', 'PENDING')
+    .eq('collateral_status', 'verified')
     .is('lender_id', null)
     .select('id')
     .maybeSingle();
