@@ -14,6 +14,9 @@ export async function POST(request: Request) {
       target_amount?: number;
       expected_interest_rate?: number;
       borrower_source_of_income?: string | null;
+      open_banking_consent?: string | null;
+      co_applicant_willingness?: string | null;
+      blockchain_importance?: string | null;
       questionnaire_answers?: Record<string, string | boolean>;
     };
 
@@ -43,6 +46,9 @@ export async function POST(request: Request) {
       body.role === 'borrower'
         ? (body.borrower_source_of_income?.trim() || sourceOfIncome || null)
         : null;
+    const openBankingConsent = body.open_banking_consent?.trim() || null;
+    const coApplicantWillingness = body.co_applicant_willingness?.trim() || null;
+    const blockchainImportance = body.blockchain_importance?.trim() || null;
 
     if (body.role === 'borrower' && !borrowerSourceOfIncome) {
       return NextResponse.json({ ok: false, error: 'Borrower source of income is required' }, { status: 400 });
@@ -64,6 +70,9 @@ export async function POST(request: Request) {
         target_amount: Number(body.target_amount),
         expected_interest_rate: FIXED_INTEREST_RATE,
         borrower_source_of_income: borrowerSourceOfIncome,
+        open_banking_consent: openBankingConsent,
+        co_applicant_willingness: coApplicantWillingness,
+        blockchain_importance: blockchainImportance,
         questionnaire_answers: questionnaireAnswers,
       })
       .select('id, waitlist_rank')

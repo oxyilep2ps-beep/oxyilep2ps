@@ -115,6 +115,7 @@ export async function finalizeEscrowOnChain(
       lenderId: handshake.lender_id as string,
       amount: Number(handshake.amount ?? 0),
       timestamp,
+      guarantorUserId: (handshake.guarantor_user_id as string | null) ?? null,
     });
 
     const txData = buildHandshakeOnChainData({
@@ -123,6 +124,7 @@ export async function finalizeEscrowOnChain(
       lenderId: handshake.lender_id as string,
       amount: Number(handshake.amount ?? 0),
       timestamp,
+      guarantorUserId: (handshake.guarantor_user_id as string | null) ?? null,
     });
 
     const { ethers } = await import('ethers');

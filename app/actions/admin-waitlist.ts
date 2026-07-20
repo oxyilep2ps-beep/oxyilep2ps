@@ -23,6 +23,9 @@ export type WaitlistRow = {
   collateral_value: number;
   collateral_description: string | null;
   collateral_proof_url: string | null;
+  open_banking_consent: string | null;
+  co_applicant_willingness: string | null;
+  blockchain_importance: string | null;
   waitlist_rank: number;
   questionnaire_answers: Record<string, string | boolean>;
   created_at: string;
@@ -96,6 +99,9 @@ function mapWaitlistRow(row: Record<string, unknown>): WaitlistRow {
     collateral_value: Number(row.collateral_value ?? 0),
     collateral_description: (row.collateral_description as string | null) ?? null,
     collateral_proof_url: (row.collateral_proof_url as string | null) ?? null,
+    open_banking_consent: (row.open_banking_consent as string | null) ?? null,
+    co_applicant_willingness: (row.co_applicant_willingness as string | null) ?? null,
+    blockchain_importance: (row.blockchain_importance as string | null) ?? null,
     waitlist_rank: Number(row.waitlist_rank),
     questionnaire_answers: (row.questionnaire_answers as Record<string, string | boolean>) ?? {},
     created_at: row.created_at as string,

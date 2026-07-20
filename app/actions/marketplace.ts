@@ -12,6 +12,24 @@ import type { MarketplaceHandshakeRow } from '@/lib/types/marketplace-handshake'
 
 const TENURE_OPTIONS = [6, 12, 24, 36] as const;
 
+function normalizeGuarantorStatus(
+  status: string | null | undefined
+): MarketplaceHandshakeRow['guarantor_status'] {
+  switch ((status ?? 'none').toLowerCase()) {
+    case 'invited':
+    case 'accepted':
+    case 'rejected':
+      return status.toLowerCase() as MarketplaceHandshakeRow['guarantor_status'];
+    case 'pending':
+      return 'invited';
+    case 'verified':
+    case 'signed':
+      return 'accepted';
+    default:
+      return 'none';
+  }
+}
+
 function mapRow(row: Record<string, unknown>): MarketplaceHandshakeRow {
   return {
     id: row.id as string,
@@ -32,9 +50,15 @@ function mapRow(row: Record<string, unknown>): MarketplaceHandshakeRow {
     tx_hash: (row.tx_hash as string | null) ?? null,
     payment_id: (row.payment_id as string | null) ?? null,
     guarantor_email: (row.guarantor_email as string | null) ?? null,
-    guarantor_status: (row.guarantor_status as MarketplaceHandshakeRow['guarantor_status']) ?? 'none',
+    guarantor_status: normalizeGuarantorStatus(row.guarantor_status as string | null | undefined),
     created_at: row.created_at as string,
   };
+}
+
+async function loadBorrowerProfile(userId: string): Promise<{ full_legal_name: string | null }> {
+  const admin = createAdminClient();
+  const { data } = await admin.from('profiles').select('full_legal_name').eq('id', userId).maybeSingle();
+  return { full_legal_name: (data?.full_legal_name as string | null) ?? null };
 }
 
 export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok: boolean; error?: string; id?: string }> {
@@ -78,6 +102,7 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
     const admin = createAdminClient();
     const proofPath = await uploadCollateralProof(admin, proofFile, user.id);
     const { emi_amount, total_repayment } = calculateFlatEmi(loanAmount, tenureMonths, FIXED_INTEREST_RATE);
+    const borrowerProfile = await loadBorrowerProfile(user.id);
 
     const { data, error } = await supabase
       .from('handshakes')
@@ -101,7 +126,7 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
         status: 'PENDING',
         marketplace: true,
         guarantor_email: guarantorEmail || null,
-        guarantor_status: guarantorEmail ? 'pending' : 'none',
+        guarantor_status: guarantorEmail ? 'invited' : 'none',
       })
       .select('id')
       .single();
@@ -109,7 +134,13 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
     if (error) return { ok: false, error: error.message };
 
     if (guarantorEmail) {
-      await sendGuarantorInvite(guarantorEmail, data.id as string);
+      await sendGuarantorInvite({
+        loanId: data.id as string,
+        guarantorEmail,
+        borrowerName: borrowerProfile.full_legal_name ?? undefined,
+        amount: loanAmount,
+        emiAmount: emi_amount,
+      });
     }
 
     revalidatePath('/dashboard/apply');
@@ -119,6 +150,65 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Could not submit application.' };
   }
+}
+
+export async function inviteGuarantor(
+  loanId: string,
+  guarantorEmail: string
+): Promise<{ ok: boolean; error?: string; inviteUrl?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { ok: false, error: 'Sign in required.' };
+
+  const loan = loanId.trim();
+  const email = guarantorEmail.trim().toLowerCase();
+  if (!loan) return { ok: false, error: 'loanId is required.' };
+  if (!email || !email.includes('@')) return { ok: false, error: 'Enter a valid guarantor email.' };
+
+  const admin = createAdminClient();
+  const { data: handshake, error } = await admin
+    .from('handshakes')
+    .select('id, borrower_id, amount, emi_amount, guarantor_status')
+    .eq('id', loan)
+    .maybeSingle();
+
+  if (error || !handshake) {
+    return { ok: false, error: 'Loan not found.' };
+  }
+
+  if (handshake.borrower_id !== user.id) {
+    return { ok: false, error: 'Only the borrower can invite a guarantor.' };
+  }
+
+  const { error: updateError } = await admin
+    .from('handshakes')
+    .update({
+      guarantor_email: email,
+      guarantor_status: 'invited',
+    })
+    .eq('id', loan);
+
+  if (updateError) {
+    return { ok: false, error: updateError.message };
+  }
+
+  const borrowerProfile = await loadBorrowerProfile(user.id);
+  const invite = await sendGuarantorInvite({
+    loanId: loan,
+    guarantorEmail: email,
+    borrowerName: borrowerProfile.full_legal_name ?? undefined,
+    amount: Number(handshake.amount ?? 0),
+    emiAmount: Number(handshake.emi_amount ?? 0) || undefined,
+  });
+
+  revalidatePath('/dashboard/apply');
+  revalidatePath('/dashboard/marketplace');
+  revalidatePath('/admin-dashboard/handshakes');
+
+  return { ok: true, inviteUrl: invite.inviteUrl };
 }
 
 export async function listMarketplaceOpportunities(): Promise<{ rows: MarketplaceHandshakeRow[]; error?: string }> {

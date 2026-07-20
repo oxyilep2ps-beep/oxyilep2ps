@@ -43,6 +43,10 @@ export type HandshakeRow = {
   gocardless_subscription_id?: string | null;
   auto_emi_active?: boolean;
   mandate_linked?: boolean;
+  guarantor_email?: string | null;
+  guarantor_status?: 'none' | 'invited' | 'accepted' | 'rejected';
+  guarantor_mandate_id?: string | null;
+  guarantor_user_id?: string | null;
   status: 'PENDING' | 'FUNDED' | 'ACTIVE';
   lender_approved_at: string | null;
   borrower_approved_at: string | null;

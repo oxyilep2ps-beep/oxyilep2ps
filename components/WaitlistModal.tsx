@@ -40,6 +40,9 @@ export function WaitlistModal() {
   const [targetAmount, setTargetAmount] = useState('');
   const [borrowerIncomeSource, setBorrowerIncomeSource] = useState('');
   const [loanReason, setLoanReason] = useState('');
+  const [openBankingConsent, setOpenBankingConsent] = useState('');
+  const [coApplicantWillingness, setCoApplicantWillingness] = useState('');
+  const [blockchainImportance, setBlockchainImportance] = useState('');
   const [strategicAnswers, setStrategicAnswers] = useState<StrategicAnswersState>(createEmptyStrategicAnswers);
 
   useEffect(() => {
@@ -71,6 +74,10 @@ export function WaitlistModal() {
       setError('Borrower source of income and loan reason are required.');
       return;
     }
+    if (!openBankingConsent || !coApplicantWillingness || !blockchainImportance) {
+      setError('Please complete the pitch review and compliance questions.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -99,6 +106,9 @@ export function WaitlistModal() {
           target_amount: Number(targetAmount),
           expected_interest_rate: FIXED_INTEREST_RATE,
           borrower_source_of_income: role === 'borrower' ? borrowerIncomeSource : null,
+          open_banking_consent: openBankingConsent,
+          co_applicant_willingness: coApplicantWillingness,
+          blockchain_importance: blockchainImportance,
           questionnaire_answers: questionnaireAnswers,
         }),
       });
@@ -272,6 +282,59 @@ export function WaitlistModal() {
                 values={strategicAnswers}
                 onChange={(key, value) => setStrategicAnswers((prev) => ({ ...prev, [key]: value }))}
               />
+            </div>
+
+            <div className="space-y-3 rounded-xl border border-white/50 bg-white/40 p-3 dark:border-white/10 dark:bg-black/30">
+              <p className="text-xs font-bold uppercase tracking-wider text-brand-500">
+                Pitch Review & Compliance
+              </p>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                  Are you comfortable securely linking your bank via Open Banking for faster approval?
+                </span>
+                <select
+                  required
+                  value={openBankingConsent}
+                  onChange={(e) => setOpenBankingConsent(e.target.value)}
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                >
+                  <option value="">Select answer</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                  <option value="Maybe later">Maybe later</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                  Would you add a trusted co-applicant to secure a better interest rate?
+                </span>
+                <select
+                  required
+                  value={coApplicantWillingness}
+                  onChange={(e) => setCoApplicantWillingness(e.target.value)}
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                >
+                  <option value="">Select answer</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-700 dark:text-neutral-300">
+                  Is blockchain-backed transparency important to your investment decision?
+                </span>
+                <select
+                  required
+                  value={blockchainImportance}
+                  onChange={(e) => setBlockchainImportance(e.target.value)}
+                  className="w-full rounded-xl border border-white/60 bg-white/70 px-4 py-3 text-sm dark:border-white/10 dark:bg-black/40"
+                >
+                  <option value="">Select answer</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                  <option value="Not sure">Not sure</option>
+                </select>
+              </label>
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button

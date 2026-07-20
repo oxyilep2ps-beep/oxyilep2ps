@@ -279,6 +279,7 @@ export async function completeBorrowerBankLink(
 
     if (mandateError) {
       return { success: false, error: mandateError.message };
+      guarantorUserId: (handshake.guarantor_user_id as string | null) ?? null,
     }
 
     const sub = await createMonthlyEmiSubscription({

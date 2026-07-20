@@ -17,6 +17,7 @@ const serverEnvSchema = z.object({
   POLYGON_RPC_URL: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   GOCARDLESS_ACCESS_TOKEN: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -41,6 +42,7 @@ function parseServerEnv(): ServerEnv {
     POLYGON_RPC_URL: process.env.POLYGON_RPC_URL?.trim() || undefined,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || undefined,
     GOCARDLESS_ACCESS_TOKEN: process.env.GOCARDLESS_ACCESS_TOKEN?.trim() || undefined,
+    RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() || undefined,
   });
 }
 
@@ -66,6 +68,9 @@ export const env: ServerEnv = {
   },
   get GOCARDLESS_ACCESS_TOKEN() {
     return getServerEnv().GOCARDLESS_ACCESS_TOKEN;
+  },
+  get RESEND_API_KEY() {
+    return getServerEnv().RESEND_API_KEY;
   },
 };
 

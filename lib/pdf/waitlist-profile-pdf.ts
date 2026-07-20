@@ -16,6 +16,9 @@ export type WaitlistPdfRow = {
   collateral_type?: string | null;
   collateral_value?: number | null;
   collateral_description?: string | null;
+  open_banking_consent?: string | null;
+  co_applicant_willingness?: string | null;
+  blockchain_importance?: string | null;
   waitlist_rank: number;
   questionnaire_answers: Record<string, string | boolean>;
   created_at: string;
@@ -97,6 +100,46 @@ export async function exportWaitlistProfilePdf(row: WaitlistPdfRow): Promise<voi
       pdf.text(wrapped, 70, y);
       y += Math.max(8, wrapped.length * 5);
     }
+  }
+
+  y += 6;
+  if (y > 265) {
+    pdf.addPage();
+    y = 20;
+  }
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(brand.r, brand.g, brand.b);
+  pdf.text('User Preferences & Compliance', 14, y);
+  y += 8;
+  pdf.setTextColor(30, 30, 30);
+  pdf.setFont('helvetica', 'normal');
+
+  const complianceLines: [string, string][] = [
+    [
+      'Open Banking Consent',
+      row.open_banking_consent ?? 'Not provided',
+    ],
+    [
+      'Co-applicant Willingness',
+      row.co_applicant_willingness ?? 'Not provided',
+    ],
+    [
+      'Blockchain Transparency Importance',
+      row.blockchain_importance ?? 'Not provided',
+    ],
+  ];
+
+  for (const [label, value] of complianceLines) {
+    if (y > 265) {
+      pdf.addPage();
+      y = 20;
+    }
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(label, 14, y);
+    pdf.setFont('helvetica', 'normal');
+    const wrapped = pdf.splitTextToSize(value, 120) as string[];
+    pdf.text(wrapped, 70, y);
+    y += Math.max(8, wrapped.length * 5);
   }
 
   y += 6;

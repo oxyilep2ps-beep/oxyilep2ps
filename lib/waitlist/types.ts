@@ -12,5 +12,8 @@ export type UpdateWaitlistMemberInput = {
   collateral_value: number;
   collateral_description: string | null;
   collateral_proof_url: string | null;
+  open_banking_consent?: string | null;
+  co_applicant_willingness?: string | null;
+  blockchain_importance?: string | null;
   questionnaire_answers: Record<string, string>;
 };

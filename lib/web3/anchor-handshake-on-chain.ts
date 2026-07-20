@@ -50,6 +50,7 @@ export async function anchorHandshakeOnPolygon(params: {
   amount: number;
   durationMonths: number;
   timestamp: string;
+  guarantorUserId?: string | null;
 }): Promise<AnchorHandshakeResult> {
   let privateKey: string;
   try {
@@ -69,6 +70,7 @@ export async function anchorHandshakeOnPolygon(params: {
       amount: params.amount,
       durationMonths: params.durationMonths,
       timestamp: params.timestamp,
+      guarantorUserId: params.guarantorUserId ?? null,
     });
 
     const txData = buildHandshakeOnChainData({

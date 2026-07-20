@@ -265,6 +265,38 @@ export function AdminWaitlistTab() {
                   onResolveProofUrl={getCollateralProofSignedUrl}
                 />
               ) : null}
+
+              <div className="mt-6 rounded-2xl border border-brand-200/60 bg-brand-500/5 p-4 dark:border-brand-500/20">
+                <p className="text-xs font-bold uppercase tracking-wider text-brand-500">
+                  Pitch Review & Compliance Data
+                </p>
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm">
+                    <span className="font-semibold">
+                      Open Banking consent:
+                    </span>{' '}
+                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-semibold dark:bg-white/10">
+                      {detail.open_banking_consent ?? 'Not provided'}
+                    </span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-semibold">
+                      Co-applicant willingness:
+                    </span>{' '}
+                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-semibold dark:bg-white/10">
+                      {detail.co_applicant_willingness ?? 'Not provided'}
+                    </span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-semibold">
+                      Blockchain transparency importance:
+                    </span>{' '}
+                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-semibold dark:bg-white/10">
+                      {detail.blockchain_importance ?? 'Not provided'}
+                    </span>
+                  </p>
+                </div>
+              </div>
               <div className="mt-6 space-y-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-brand-500">Questionnaire</p>
                 {Object.entries(detail.questionnaire_answers)

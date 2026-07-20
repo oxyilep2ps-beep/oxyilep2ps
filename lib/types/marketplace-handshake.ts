@@ -21,7 +21,8 @@ export type MarketplaceHandshakeRow = {
   tx_hash: string | null;
   payment_id: string | null;
   guarantor_email: string | null;
-  guarantor_status: 'none' | 'pending' | 'verified' | 'signed';
+  guarantor_status: 'none' | 'invited' | 'accepted' | 'rejected';
+  guarantor_mandate_id?: string | null;
   collateral_status?: 'pending' | 'verified' | 'rejected';
   asset_declared_value?: number;
   asset_approved_value?: number;

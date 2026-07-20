@@ -6,6 +6,7 @@ export type HandshakeHashInput = {
   lenderId: string;
   amount: number;
   timestamp: string;
+  guarantorUserId?: string | null;
 };
 
 export type JITHandshakeLedgerInput = {
@@ -25,6 +26,7 @@ export function hashHandshakeAgreement(input: HandshakeHashInput): string {
     lenderId: input.lenderId,
     amount: input.amount,
     timestamp: input.timestamp,
+    guarantorUserId: input.guarantorUserId?.trim() || 'NONE',
   });
   return keccak256(toUtf8Bytes(canonical));
 }
