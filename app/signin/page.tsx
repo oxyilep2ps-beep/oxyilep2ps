@@ -9,7 +9,6 @@ import { Footer } from '@/components/footer';
 import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/client';
 import { getAuthRedirectPath } from '@/lib/auth/routing';
-import { staffRoleForEmail } from '@/lib/auth/role-emails';
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 18 },
@@ -40,9 +39,8 @@ function SignInForm() {
     }
 
     const user = data.user;
-    if (staffRoleForEmail(user.email)) {
-      await fetch('/api/auth/ensure-staff-role', { method: 'POST' });
-    }
+    // Apply platform_access / hardcoded staff roles before reading the profile for redirect.
+    await fetch('/api/auth/ensure-staff-role', { method: 'POST' });
 
     const { data: profile } = await supabase
       .from('profiles')

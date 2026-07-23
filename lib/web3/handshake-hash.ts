@@ -16,6 +16,7 @@ export type JITHandshakeLedgerInput = {
   amount: number;
   durationMonths: number;
   timestamp: string;
+  guarantorUserId?: string | null;
 };
 
 /** Deterministic keccak256 digest of core handshake agreement fields. */
@@ -40,6 +41,7 @@ export function hashJITHandshakeLedger(input: JITHandshakeLedgerInput): string {
     amount: input.amount,
     durationMonths: input.durationMonths,
     timestamp: input.timestamp,
+    guarantorUserId: input.guarantorUserId?.trim() || 'NONE',
   });
   return keccak256(toUtf8Bytes(canonical));
 }

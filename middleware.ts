@@ -3,12 +3,9 @@ import { updateSession } from '@/lib/supabase/middleware';
 import {
   canAccessPath,
   getAuthRedirectPath,
-  isAdminEmail,
   isAuthPage,
   isProtectedPath,
-  isSuperHrEmail,
 } from '@/lib/auth/routing';
-import { isBloggerStaffEmail, isHrStaffEmail } from '@/lib/auth/role-emails';
 import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
 
@@ -50,22 +47,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(signIn);
   }
 
-  if (user && isProtectedPath(pathname)) {
-    const allowed =
-      isAdminEmail(email) ||
-      isHrStaffEmail(email) ||
-      isBloggerStaffEmail(email) ||
-      isSuperHrEmail(email) ||
-      profile?.role === 'ADMIN' ||
-      (profile ? canAccessPath(pathname, profile, email) : false);
-
-    if (!allowed && profile) {
-      const dest = getAuthRedirectPath(profile, email);
-      if (pathname !== dest) {
-        const redirectResponse = NextResponse.redirect(new URL(dest, request.url));
-        redirectResponse.headers.set('x-pathname', dest);
-        return redirectResponse;
-      }
+  // Role-scoped protection: Admins → all staff portals; HR → /hr; Blogger → /blogger.
+  // Roles come from profiles.role (seeded / platform_access) and hardcoded ADMIN_EMAIL / staff emails.
+  if (user && isProtectedPath(pathname) && !canAccessPath(pathname, profile, email)) {
+    const dest = getAuthRedirectPath(profile, email);
+    if (pathname !== dest) {
+      const redirectResponse = NextResponse.redirect(new URL(dest, request.url));
+      redirectResponse.headers.set('x-pathname', dest);
+      return redirectResponse;
     }
   }
 

@@ -2,16 +2,17 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, ExternalLink, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 
 function GuarantorCompleteInner() {
   const searchParams = useSearchParams();
+  const params = useParams<{ loanId: string }>();
   const router = useRouter();
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [detail, setDetail] = useState<string | null>(null);
 
-  const loanId = searchParams.get('loanId') ?? '';
+  const loanId = (searchParams.get('loanId') ?? params.loanId ?? '').trim();
   const email = searchParams.get('email') ?? '';
   const token = searchParams.get('token') ?? '';
   const issuedAt = searchParams.get('issuedAt') ?? '';
@@ -49,7 +50,9 @@ function GuarantorCompleteInner() {
 
         setState('ok');
         window.setTimeout(() => {
-          router.push(`/guarantor/invite/${encodeURIComponent(loanId)}?status=accepted&email=${encodeURIComponent(email)}&issuedAt=${encodeURIComponent(issuedAt)}&token=${encodeURIComponent(token)}`);
+          router.push(
+            `/guarantor/invite/${encodeURIComponent(loanId)}?status=accepted&email=${encodeURIComponent(email)}&issuedAt=${encodeURIComponent(issuedAt)}&token=${encodeURIComponent(token)}`
+          );
           router.refresh();
         }, 2500);
       } catch (error) {
@@ -113,13 +116,13 @@ function GuarantorCompleteInner() {
               </p>
             </div>
           </div>
-          <a
+          <Link
             href="/chats"
             className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-600 to-orange-500 px-6 py-3.5 text-sm font-black uppercase tracking-wide text-white"
           >
             Return to dashboard
             <ExternalLink size={16} />
-          </a>
+          </Link>
         </div>
       </div>
     </section>

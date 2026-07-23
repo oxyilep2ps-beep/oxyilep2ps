@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAuthRedirectPath } from '@/lib/auth/routing';
-import { staffRoleForEmail } from '@/lib/auth/role-emails';
+import { getPlatformAccessRole } from '@/lib/auth/platform-access';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -21,21 +21,21 @@ export async function GET(request: Request) {
       }
 
       if (user) {
-        const staffRole = staffRoleForEmail(user.email);
-        if (staffRole) {
+        const elevatedRole = await getPlatformAccessRole(user.email);
+        if (elevatedRole) {
           const admin = createAdminClient();
           const fullLegalName =
             (typeof user.user_metadata?.full_legal_name === 'string' && user.user_metadata.full_legal_name.trim()) ||
             (typeof user.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
             user.email?.split('@')[0] ||
-            staffRole;
+            elevatedRole;
 
           await admin.from('profiles').upsert(
             {
               id: user.id,
               email: user.email,
               full_legal_name: fullLegalName,
-              role: staffRole,
+              role: elevatedRole,
               status: 'APPROVED',
               updated_at: new Date().toISOString(),
             },

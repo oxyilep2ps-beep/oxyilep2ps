@@ -4,12 +4,6 @@ import { Environments } from 'gocardless-nodejs/constants';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyGuarantorInviteToken } from '@/lib/guarantor/invite';
 
-function getGoCardlessBaseUrl(): string {
-  return process.env.GOCARDLESS_ENVIRONMENT === 'live'
-    ? 'https://api.gocardless.com'
-    : 'https://api-sandbox.gocardless.com';
-}
-
 function appBaseUrl(req: Request): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
 }
@@ -28,14 +22,12 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
     token,
     issuedAt,
     action,
-    stub,
   } = body as {
     loanId?: string;
     email?: string;
     token?: string;
     issuedAt?: string;
     action?: string;
-    stub?: boolean;
   };
 
   const id = loanId?.trim();
@@ -77,28 +69,12 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
     return NextResponse.redirect(declinedUrl);
   }
 
+  // Keep status as invited until mandate completion confirms acceptance.
   const sandboxOnly = !client || process.env.PAYMENT_SANDBOX_MODE === 'true' || process.env.PAYMENT_SANDBOX_MODE === '1';
-  const updateAccepted = await admin
-    .from('handshakes')
-    .update({ guarantor_status: 'accepted' })
-    .eq('id', id);
-
-  if (updateAccepted.error) {
-    return NextResponse.json({ ok: false, error: updateAccepted.error.message }, { status: 500 });
-  }
 
   if (sandboxOnly) {
-    const mandateId = `MD_GUARANTOR_${id.slice(0, 8)}_${Date.now()}`;
-    const { error: mandateError } = await admin
-      .from('handshakes')
-      .update({ guarantor_mandate_id: mandateId })
-      .eq('id', id);
-
-    if (mandateError) {
-      return NextResponse.json({ ok: false, error: mandateError.message }, { status: 500 });
-    }
-
     const completeUrl = new URL(`/guarantor/invite/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
+    completeUrl.searchParams.set('loanId', id);
     completeUrl.searchParams.set('email', guarantorEmail);
     completeUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
     completeUrl.searchParams.set('token', String(token ?? ''));
@@ -113,6 +89,7 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
   });
 
   const redirectUrl = new URL(`/guarantor/invite/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
+  redirectUrl.searchParams.set('loanId', id);
   redirectUrl.searchParams.set('email', guarantorEmail);
   redirectUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
   redirectUrl.searchParams.set('token', String(token ?? ''));
@@ -124,6 +101,10 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
       billing_request: billingRequest.id,
     },
   });
+
+  if (!flow.authorisation_url) {
+    return NextResponse.json({ ok: false, error: 'GoCardless did not return an authorisation URL.' }, { status: 502 });
+  }
 
   return NextResponse.redirect(flow.authorisation_url);
 }

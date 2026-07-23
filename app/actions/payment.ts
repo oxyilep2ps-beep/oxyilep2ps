@@ -262,6 +262,7 @@ export async function completeBorrowerBankLink(
       amount: Number(handshake.amount ?? 0),
       durationMonths: Math.max(1, Math.round(Number(handshake.duration ?? 12))),
       timestamp,
+      guarantorUserId: (handshake.guarantor_user_id as string | null) ?? null,
     });
 
     if (!anchor.success) {
@@ -279,7 +280,6 @@ export async function completeBorrowerBankLink(
 
     if (mandateError) {
       return { success: false, error: mandateError.message };
-      guarantorUserId: (handshake.guarantor_user_id as string | null) ?? null,
     }
 
     const sub = await createMonthlyEmiSubscription({

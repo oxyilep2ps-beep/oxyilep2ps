@@ -82,18 +82,23 @@ export function canAccessPath(
   profile: Pick<Profile, 'role' | 'status'> | null,
   email: string
 ): boolean {
+  // Admins can access the full staff surface (admin + HR + blogger portals).
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return (
       pathname.startsWith('/admin-dashboard') ||
+      pathname.startsWith('/hr') ||
+      pathname.startsWith('/blogger') ||
       pathname.startsWith('/payments/mandate-complete') ||
       pathname.startsWith('/payments/sandbox')
     );
   }
 
+  // HR is scoped to the HR portal only.
   if (isHrStaffEmail(email) || profile?.role === 'HR') {
     return pathname.startsWith('/hr');
   }
 
+  // Bloggers are scoped to the blogger CMS only (/blogger — existing route).
   if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') {
     return pathname.startsWith('/blogger');
   }
@@ -111,7 +116,7 @@ export function canAccessPath(
         pathname.startsWith('/chats') ||
         pathname.startsWith('/user/') ||
         pathname.startsWith('/payments/mandate-complete') ||
-      pathname.startsWith('/payments/sandbox')
+        pathname.startsWith('/payments/sandbox')
       );
     }
   }

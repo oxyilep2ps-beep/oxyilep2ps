@@ -15,11 +15,12 @@ const TENURE_OPTIONS = [6, 12, 24, 36] as const;
 function normalizeGuarantorStatus(
   status: string | null | undefined
 ): MarketplaceHandshakeRow['guarantor_status'] {
-  switch ((status ?? 'none').toLowerCase()) {
+  const normalized = (status ?? 'none').toLowerCase();
+  switch (normalized) {
     case 'invited':
     case 'accepted':
     case 'rejected':
-      return status.toLowerCase() as MarketplaceHandshakeRow['guarantor_status'];
+      return normalized;
     case 'pending':
       return 'invited';
     case 'verified':
