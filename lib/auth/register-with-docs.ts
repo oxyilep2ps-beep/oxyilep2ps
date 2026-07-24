@@ -64,8 +64,13 @@ function toErrorMessage(error: unknown): string {
 /**
  * Shared registration + KYC upload pipeline (used by API route AND server action).
  * Never throws — always returns a plain serializable result.
+ *
+ * Atomicity: if uploads or profile insert fail AFTER auth.signUp, we roll back
+ * the Auth user via the service-role admin client so retries are not blocked.
  */
 export async function runRegisterWithDocs(formData: FormData): Promise<RegisterWithDocsResult> {
+  let createdUserId: string | null = null;
+
   try {
     console.info('[registerWithDocs] start');
 
@@ -185,81 +190,108 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       };
     }
 
-    // All storage uploads + profile writes happen ONLY after userId is confirmed.
-    console.info('[registerWithDocs] uploading KYC for', userId);
-    const admin = createAdminClient();
+    createdUserId = userId;
+    console.info('[registerWithDocs] auth user created', userId);
 
-    let documents: Awaited<ReturnType<typeof uploadAllKycDocuments>>;
+    // Service-role client — required for auth.admin.deleteUser rollback.
+    const supabaseAdmin = createAdminClient();
+
+    // ── Inner try: uploads + profile insert. On failure → Auth rollback. ──
     try {
-      documents = await uploadAllKycDocuments(admin, userId, files);
-    } catch (uploadError) {
-      console.error('🚨 SERVER ACTION CRASHED (upload):', uploadError);
-      try {
-        await admin.auth.admin.deleteUser(userId);
-      } catch {
-        // ignore
+      console.info('[registerWithDocs] uploading KYC documents for', userId);
+      const documents = await uploadAllKycDocuments(supabaseAdmin, userId, files);
+
+      if (!documents.proofOfIdentity || !documents.livenessVideo || !documents.proofOfAddress) {
+        throw new Error('One or more KYC documents failed to upload. Please retry.');
       }
+
+      console.info('[registerWithDocs] storage uploads succeeded', {
+        userId,
+        paths: documents,
+      });
+
+      const kyc_data = buildStoredKycData(kyc, documents);
+      const profileRole = mapWizardRoleToProfileRole(kyc.role);
+      const fcaTestAnswers =
+        kyc.role === 'lender' && kyc.lender
+          ? buildFcaTestAnswers(kyc.lender.appropriatenessAnswers)
+          : {};
+
+      console.info('[registerWithDocs] profile upsert', userId);
+      const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
+        {
+          id: userId,
+          full_legal_name: fullLegalName,
+          email,
+          role: profileRole,
+          status: 'PENDING',
+          account_status: 'active',
+          postal_code: kyc.basic.postalCode?.trim().toUpperCase() ?? null,
+          fca_test_answers: fcaTestAnswers,
+          proof_of_identity_url: documents.proofOfIdentity,
+          liveness_video_url: documents.livenessVideo,
+          proof_of_address_url: documents.proofOfAddress,
+          income_verification_url: documents.incomeVerification ?? null,
+          expected_interest_rate: FIXED_INTEREST_RATE,
+          kyc_data,
+        },
+        { onConflict: 'id' }
+      );
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+
+      console.info('[registerWithDocs] profile upsert succeeded', userId);
+
+      try {
+        await createSubmission(email, fullLegalName, kyc_data);
+      } catch (storeError) {
+        console.warn('[registerWithDocs] secondary store skipped:', storeError);
+      }
+
+      console.info('[registerWithDocs] success', userId);
+      return { success: true, userId };
+    } catch (processError: unknown) {
+      console.error('🚨 PIPELINE FAILED after auth.signUp:', processError);
+
+      // ROLLBACK: delete orphaned Auth user so the email can be reused.
+      if (userId) {
+        try {
+          const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+          if (deleteError) {
+            console.error('🚨 Rollback FAILED to delete orphaned user', userId, deleteError.message);
+          } else {
+            console.info('🚨 Rollback executed: Deleted orphaned user', userId);
+          }
+        } catch (rollbackError) {
+          console.error('🚨 Rollback threw while deleting orphaned user', userId, rollbackError);
+        }
+      }
+
+      createdUserId = null;
+
       return {
         success: false,
-        error: toErrorMessage(uploadError) || 'KYC document upload failed. Please try again.',
+        error:
+          toErrorMessage(processError) ||
+          'Failed to process documents. Your account creation was rolled back. Please try again.',
       };
     }
-
-    if (!documents.proofOfIdentity || !documents.livenessVideo || !documents.proofOfAddress) {
-      try {
-        await admin.auth.admin.deleteUser(userId);
-      } catch {
-        // ignore
-      }
-      return {
-        success: false,
-        error: 'One or more KYC documents failed to upload. Please retry.',
-      };
-    }
-
-    console.info('[registerWithDocs] profile upsert', userId);
-    const kyc_data = buildStoredKycData(kyc, documents);
-    const profileRole = mapWizardRoleToProfileRole(kyc.role);
-    const fcaTestAnswers =
-      kyc.role === 'lender' && kyc.lender
-        ? buildFcaTestAnswers(kyc.lender.appropriatenessAnswers)
-        : {};
-
-    const { error: profileError } = await admin.from('profiles').upsert(
-      {
-        id: userId,
-        full_legal_name: fullLegalName,
-        email,
-        role: profileRole,
-        status: 'PENDING',
-        account_status: 'active',
-        postal_code: kyc.basic.postalCode?.trim().toUpperCase() ?? null,
-        fca_test_answers: fcaTestAnswers,
-        proof_of_identity_url: documents.proofOfIdentity,
-        liveness_video_url: documents.livenessVideo,
-        proof_of_address_url: documents.proofOfAddress,
-        income_verification_url: documents.incomeVerification ?? null,
-        expected_interest_rate: FIXED_INTEREST_RATE,
-        kyc_data,
-      },
-      { onConflict: 'id' }
-    );
-
-    if (profileError) {
-      console.error('[registerWithDocs] profile error:', profileError.message);
-      return { success: false, error: String(profileError.message) };
-    }
-
-    try {
-      await createSubmission(email, fullLegalName, kyc_data);
-    } catch (storeError) {
-      console.warn('[registerWithDocs] secondary store skipped:', storeError);
-    }
-
-    console.info('[registerWithDocs] success', userId);
-    return { success: true, userId };
   } catch (error: unknown) {
     console.error('🚨 SERVER ACTION CRASHED:', error);
+
+    // Last-resort rollback if Auth user was created before an unexpected outer failure.
+    if (createdUserId) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+        console.info('🚨 Rollback executed (outer catch): Deleted orphaned user', createdUserId);
+      } catch (rollbackError) {
+        console.error('🚨 Outer rollback failed for', createdUserId, rollbackError);
+      }
+    }
+
     const message =
       error && typeof error === 'object' && 'message' in error
         ? String((error as { message?: unknown }).message || 'Unknown internal server error')
