@@ -4,7 +4,9 @@ import { uploadAllKycDocuments, type WizardUploadFiles } from '@/lib/kyc/upload'
 import { buildStoredKycData, mapWizardRoleToProfileRole } from '@/lib/kyc/build-stored-kyc';
 import { buildFcaTestAnswers } from '@/lib/kyc/fca-answers';
 import { createSubmission } from '@/lib/data/kyc-store';
+import { sendSignupVerificationEmail } from '@/lib/email/send-verification-email';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type RegisterWithDocsResult =
   | { success: true; userId: string }
@@ -67,6 +69,70 @@ function toErrorMessage(error: unknown): string {
   } catch {
     return 'Unknown internal server error';
   }
+}
+
+/**
+ * Generate a Supabase email action link, then deliver it via Resend
+ * using the branded “Welcome to the Future of Finance” template.
+ * admin.createUser does not trigger Supabase SMTP automatically.
+ *
+ * Non-blocking: logs link failures and continues; only throws if Resend fails
+ * after a valid verificationUrl was obtained (caller may catch).
+ */
+async function sendVerificationEmailViaResend(
+  supabaseAdmin: SupabaseClient,
+  params: { email: string; password: string; fullLegalName: string; userMeta: Record<string, unknown> }
+): Promise<void> {
+  const { email, password, fullLegalName, userMeta } = params;
+
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'signup',
+    email,
+    password,
+    options: {
+      redirectTo: `${getAppOrigin()}/auth/callback`,
+      data: userMeta,
+    },
+  });
+
+  let verificationUrl = linkData?.properties?.action_link ?? null;
+
+  if (linkError) {
+    console.error('🚨 LINK GENERATION FAILED:', linkError);
+    // Continue — try magiclink fallback so the user can still verify.
+    const { data: magicData, error: magicError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: {
+        redirectTo: `${getAppOrigin()}/auth/callback`,
+      },
+    });
+    if (magicError) {
+      console.error('🚨 MAGICLINK FALLBACK FAILED:', magicError);
+      // Do not fail registration — account + docs already saved.
+      return;
+    }
+    verificationUrl = magicData?.properties?.action_link ?? null;
+  }
+
+  if (!verificationUrl) {
+    console.error('🚨 LINK GENERATION FAILED: no action_link returned');
+    return;
+  }
+
+  console.info('[registerWithDocs] verificationUrl ready for', email);
+
+  const result = await sendSignupVerificationEmail({
+    to: email,
+    fullLegalName,
+    verificationUrl,
+  });
+
+  console.info('[registerWithDocs] welcome/verification email sent via Resend', {
+    email,
+    messageId: result.messageId,
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'oxyilemoneyquest.support@gmail.com',
+  });
 }
 
 /**
@@ -256,26 +322,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
     createdUserId = userId;
     console.info('[registerWithDocs] auth user created via admin API', userId);
 
-    // Best-effort confirmation link (admin.createUser does not auto-send anon signup mail).
-    try {
-      const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'signup',
-        email,
-        password,
-        options: {
-          redirectTo: `${getAppOrigin()}/auth/callback`,
-          data: userMeta,
-        },
-      });
-      if (linkError) {
-        console.warn('[registerWithDocs] generateLink warning:', linkError.message);
-      } else {
-        console.info('[registerWithDocs] confirmation link generated for', email);
-      }
-    } catch (linkCrash) {
-      console.warn('[registerWithDocs] generateLink threw (non-fatal):', linkCrash);
-    }
-
     try {
       // Uploads + profile upsert use this admin-created userId.
       console.info('[registerWithDocs] uploading KYC documents for', userId);
@@ -422,6 +468,19 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
         await createSubmission(email, fullLegalName, kyc_data);
       } catch (storeError) {
         console.warn('[registerWithDocs] secondary store skipped:', storeError);
+      }
+
+      // After auth + profile succeed: generate verification link and email via Resend.
+      // Non-fatal for account creation — surface a soft warning in logs if mail fails.
+      try {
+        await sendVerificationEmailViaResend(supabaseAdmin, {
+          email,
+          password,
+          fullLegalName,
+          userMeta,
+        });
+      } catch (emailError) {
+        console.error('🚨 VERIFICATION EMAIL FAILED (account still created):', emailError);
       }
 
       console.info('[registerWithDocs] success', userId);
