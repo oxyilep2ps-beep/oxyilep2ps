@@ -74,6 +74,14 @@ export async function initiateJITFunding(
       return { success: false, error: 'This handshake has already been funded' };
     }
 
+    const guarantorStatus = String(handshake.guarantor_status ?? 'none').toLowerCase();
+    if (guarantorStatus !== 'accepted') {
+      return {
+        success: false,
+        error: 'Guarantor must accept terms and link their bank before escrow can be funded.',
+      };
+    }
+
     const now = new Date().toISOString();
     if (!handshake.lender_approved_at) {
       const { error: approveError } = await admin

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { SignUpWizard, type SignUpWizardFiles } from '@/components/sign-up-wizard';
@@ -162,6 +163,25 @@ export default function SignUpPage() {
           </motion.div>
         )}
         <SignUpWizard onComplete={handleComplete} />
+
+        <div className="mt-8 flex items-center gap-3">
+          <div className="h-px flex-1 bg-neutral-200 dark:bg-white/10" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">OR</span>
+          <div className="h-px flex-1 bg-neutral-200 dark:bg-white/10" />
+        </div>
+
+        <p className="mt-4 text-center text-sm text-neutral-600 dark:text-neutral-400">
+          Are you an Employee?{' '}
+          <Link href="/employee/signup" className="font-semibold text-brand-600 hover:text-brand-500 dark:text-brand-300">
+            Sign up here.
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-sm text-neutral-500">
+          Already have an account?{' '}
+          <Link href="/signin" className="font-semibold text-brand-600 hover:text-brand-500">
+            Login
+          </Link>
+        </p>
       </div>
 
       <Footer />

@@ -38,7 +38,7 @@ export function ApplyLoanForm() {
     formData.append('collateral_value', collateralValue);
     formData.append('collateral_description', collateralDescription);
     if (collateralProof) formData.append('collateral_proof', collateralProof);
-    if (guarantorEmail.trim()) formData.append('guarantor_email', guarantorEmail.trim());
+    formData.append('guarantor_email', guarantorEmail.trim());
 
     const result = await applyForMarketplaceLoan(formData);
     setBusy(false);
@@ -159,13 +159,16 @@ export function ApplyLoanForm() {
             <UserPlus size={20} />
           </span>
           <div>
-            <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Add a Guarantor (Co-Signer)</h2>
-            <p className="text-sm text-neutral-500">Optional — we&apos;ll send a secure E-Sign and KYC link.</p>
+            <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Add a Guarantor (Co-Signer) *</h2>
+            <p className="text-sm text-neutral-500">
+              Required — investors cannot fund until the guarantor accepts and links a Direct Debit mandate.
+            </p>
           </div>
         </div>
         <label className="mt-6 block">
-          <span className="mb-2 block text-sm font-medium">Guarantor Email Address</span>
+          <span className="mb-2 block text-sm font-medium">Guarantor Email Address *</span>
           <input
+            required
             type="email"
             value={guarantorEmail}
             onChange={(e) => setGuarantorEmail(e.target.value)}

@@ -28,6 +28,19 @@ export function normalizeHandshakeRow(
     gocardless_subscription_id: (row.gocardless_subscription_id as string | null) ?? null,
     auto_emi_active: Boolean(row.auto_emi_active),
     mandate_linked: mandateLinked,
+    guarantor_email:
+      (row.guarantor_email as string | null | undefined) ?? previous?.guarantor_email ?? null,
+    guarantor_status: (() => {
+      const raw = String(row.guarantor_status ?? previous?.guarantor_status ?? 'none').toLowerCase();
+      if (raw === 'pending' || raw === 'invited' || raw === 'accepted' || raw === 'rejected') {
+        return raw;
+      }
+      return 'none';
+    })(),
+    guarantor_mandate_id:
+      (row.guarantor_mandate_id as string | null | undefined) ?? previous?.guarantor_mandate_id ?? null,
+    guarantor_user_id:
+      (row.guarantor_user_id as string | null | undefined) ?? previous?.guarantor_user_id ?? null,
     status: (row.status as HandshakeRow['status']) ?? 'PENDING',
     lender_approved_at: (row.lender_approved_at as string | null) ?? null,
     borrower_approved_at: (row.borrower_approved_at as string | null) ?? null,

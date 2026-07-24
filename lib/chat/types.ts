@@ -44,7 +44,7 @@ export type HandshakeRow = {
   auto_emi_active?: boolean;
   mandate_linked?: boolean;
   guarantor_email?: string | null;
-  guarantor_status?: 'none' | 'invited' | 'accepted' | 'rejected';
+  guarantor_status?: 'none' | 'pending' | 'invited' | 'accepted' | 'rejected';
   guarantor_mandate_id?: string | null;
   guarantor_user_id?: string | null;
   status: 'PENDING' | 'FUNDED' | 'ACTIVE';

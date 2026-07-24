@@ -147,6 +147,18 @@ function SignInForm() {
               Create an account
             </Link>
           </p>
+
+          <div className="mt-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-neutral-200 dark:bg-white/10" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">OR</span>
+            <div className="h-px flex-1 bg-neutral-200 dark:bg-white/10" />
+          </div>
+
+          <p className="mt-4 text-center text-sm text-neutral-600 dark:text-neutral-400">
+            <Link href="/employee/login" className="font-semibold text-brand-600 hover:text-brand-500 dark:text-brand-300">
+              Employee Login Portal
+            </Link>
+          </p>
         </form>
       </motion.div>
       <Footer />

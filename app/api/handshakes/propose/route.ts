@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { COLLATERAL_TYPES } from '@/lib/collateral/constants';
 import { uploadCollateralProof } from '@/lib/collateral/upload';
+import { sendGuarantorInvite } from '@/lib/guarantor/invite';
 
 function toFile(value: FormDataEntryValue | null): File | null {
   return value instanceof File && value.size > 0 ? value : null;
@@ -21,12 +22,15 @@ export async function POST(request: Request) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, status')
+      .select('role, status, full_legal_name')
       .eq('id', user.id)
       .maybeSingle();
 
     if (!profile || profile.role !== 'BORROWER') {
-      return NextResponse.json({ ok: false, error: 'Only borrowers can submit collateral-backed handshakes' }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, error: 'Only borrowers can submit collateral-backed handshakes' },
+        { status: 403 }
+      );
     }
 
     const form = await request.formData();
@@ -40,6 +44,7 @@ export async function POST(request: Request) {
     const collateralDescription = form.get('collateral_description')?.toString().trim();
     const collateralProof = toFile(form.get('collateral_proof'));
     const peerId = form.get('peer_id')?.toString().trim();
+    const guarantorEmail = form.get('guarantor_email')?.toString().trim().toLowerCase() ?? '';
 
     if (!lenderId || !borrowerId || borrowerId !== user.id) {
       return NextResponse.json({ ok: false, error: 'Invalid handshake parties' }, { status: 400 });
@@ -47,6 +52,10 @@ export async function POST(request: Request) {
 
     if (!amount || !rate || !duration) {
       return NextResponse.json({ ok: false, error: 'Amount, rate, and duration are required' }, { status: 400 });
+    }
+
+    if (!guarantorEmail || !guarantorEmail.includes('@')) {
+      return NextResponse.json({ ok: false, error: 'A valid guarantor email is required' }, { status: 400 });
     }
 
     if (
@@ -89,6 +98,8 @@ export async function POST(request: Request) {
         rate,
         duration,
         status: 'PENDING',
+        guarantor_email: guarantorEmail,
+        guarantor_status: 'pending',
       })
       .select('id')
       .single();
@@ -97,11 +108,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: handshakeError.message }, { status: 500 });
     }
 
+    await sendGuarantorInvite({
+      loanId: handshake.id as string,
+      guarantorEmail,
+      borrowerName: (profile.full_legal_name as string | null) ?? undefined,
+      amount,
+    });
+
     if (peerId) {
       await supabase.from('messages').insert({
         sender_id: user.id,
         receiver_id: peerId,
-        content: `🤝 Handshake proposed: £${amount} at ${rate}% for ${duration} months (collateral secured).`,
+        content: `🤝 Handshake proposed: £${amount} at ${rate}% for ${duration} months (collateral secured · guarantor invited).`,
       });
     }
 

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
+import { inviteGuarantor } from '@/app/actions/marketplace';
 import { CollateralFormSection } from '@/components/collateral-form-section';
 import type { HandshakeRow } from '@/lib/chat/types';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
@@ -30,6 +31,7 @@ export function HandshakePanel({
 }: HandshakePanelProps) {
   const [amount, setAmount] = useState('');
   const [duration, setDuration] = useState('');
+  const [guarantorEmail, setGuarantorEmail] = useState('');
   const [collateralType, setCollateralType] = useState('');
   const [collateralValue, setCollateralValue] = useState('');
   const [collateralDescription, setCollateralDescription] = useState('');
@@ -51,7 +53,12 @@ export function HandshakePanel({
     }
     const amt = Number(amount);
     const dur = Number(duration);
+    const email = guarantorEmail.trim().toLowerCase();
     if (!amt || !dur) return;
+    if (!email || !email.includes('@')) {
+      setMessage('A valid guarantor email is required.');
+      return;
+    }
 
     setBusy(true);
     setMessage(null);
@@ -81,6 +88,7 @@ export function HandshakePanel({
         formData.append('collateral_value', collateralValue);
         formData.append('collateral_description', collateralDescription);
         formData.append('collateral_proof', collateralProof);
+        formData.append('guarantor_email', email);
 
         const res = await fetch('/api/handshakes/propose', { method: 'POST', body: formData });
         const body = (await res.json()) as { ok?: boolean; error?: string };
@@ -90,6 +98,7 @@ export function HandshakePanel({
         } else {
           setAmount('');
           setDuration('');
+          setGuarantorEmail('');
           setCollateralType('');
           setCollateralValue('');
           setCollateralDescription('');
@@ -98,18 +107,25 @@ export function HandshakePanel({
         }
       } else {
         const supabase = createClient();
-        const { error } = await supabase.from('handshakes').insert({
-          lender_id: lenderId,
-          borrower_id: borrowerId,
-          amount: amt,
-          rate: FIXED_INTEREST_RATE,
-          duration: dur,
-          status: 'PENDING',
-        });
+        const { data: created, error } = await supabase
+          .from('handshakes')
+          .insert({
+            lender_id: lenderId,
+            borrower_id: borrowerId,
+            amount: amt,
+            rate: FIXED_INTEREST_RATE,
+            duration: dur,
+            status: 'PENDING',
+            guarantor_email: email,
+            guarantor_status: 'pending',
+          })
+          .select('id')
+          .single();
 
-        if (error) {
-          setMessage(error.message);
+        if (error || !created) {
+          setMessage(error?.message ?? 'Could not initiate handshake');
         } else {
+          await inviteGuarantor(created.id as string, email);
           await supabase.from('messages').insert({
             sender_id: myId,
             receiver_id: peerId,
@@ -117,6 +133,7 @@ export function HandshakePanel({
           });
           setAmount('');
           setDuration('');
+          setGuarantorEmail('');
           onRefresh();
         }
       }
@@ -229,6 +246,15 @@ export function HandshakePanel({
           />
         </div>
         <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Fixed interest rate: 10%</p>
+
+        <input
+          required
+          type="email"
+          value={guarantorEmail}
+          onChange={(e) => setGuarantorEmail(e.target.value)}
+          placeholder="Guarantor email (required)"
+          className="w-full rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
+        />
 
         {myRole === 'BORROWER' ? (
           <CollateralFormSection

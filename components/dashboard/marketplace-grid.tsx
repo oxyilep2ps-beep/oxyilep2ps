@@ -51,9 +51,13 @@ function OpportunityCard({
         <div className="flex flex-col items-end gap-2">
           {row.guarantor_status === 'accepted' ? (
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
-              Guarantor Backed
+              ✅ Guarantor Secured
             </span>
-          ) : null}
+          ) : (
+            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-800 dark:text-amber-300">
+              ⏳ Awaiting Guarantor
+            </span>
+          )}
           {ltv !== null ? (
             <span
               className={cn(
@@ -88,14 +92,20 @@ function OpportunityCard({
         </div>
       </dl>
 
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void fund()}
-        className="mt-6 w-full rounded-full bg-brand-500 py-3 text-sm font-bold text-white shadow-glow disabled:opacity-60"
-      >
-        {busy ? <Loader2 size={16} className="mx-auto animate-spin" /> : 'Fund this Loan (Initiate Handshake)'}
-      </button>
+      {row.guarantor_status === 'accepted' ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void fund()}
+          className="mt-6 w-full rounded-full bg-brand-500 py-3 text-sm font-bold text-white shadow-glow disabled:opacity-60"
+        >
+          {busy ? <Loader2 size={16} className="mx-auto animate-spin" /> : 'Fund this Loan (Initiate Handshake)'}
+        </button>
+      ) : (
+        <div className="mt-6 rounded-full border border-neutral-200 bg-neutral-100 px-4 py-3 text-center text-xs font-bold text-neutral-500 dark:border-white/10 dark:bg-white/5 dark:text-neutral-400">
+          ⏳ Waiting for Guarantor ({row.guarantor_email ?? 'pending'}) to accept terms and link bank...
+        </div>
+      )}
       {message ? <p className="mt-2 text-center text-xs text-red-600">{message}</p> : null}
     </motion.article>
   );

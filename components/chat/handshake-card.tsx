@@ -74,6 +74,11 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
   const phase = getHandshakeUiPhase(local);
   const txLink = hasValidPolygonTx(local) ? polygonscanTxUrl(local.polygon_tx_hash!) : null;
   const contractReady = phase === 'ACTIVE' && Boolean(txLink);
+  const guarantorStatus = String(local.guarantor_status ?? 'none').toLowerCase();
+  const guarantorAccepted = guarantorStatus === 'accepted';
+  const guarantorWaiting =
+    guarantorStatus === 'pending' || guarantorStatus === 'invited' || guarantorStatus === 'none';
+  const guarantorEmailLabel = local.guarantor_email?.trim() || 'guarantor';
 
   const acceptLoanTerms = async () => {
     if (!isBorrower || local.borrower_approved_at) return;
@@ -94,6 +99,10 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
   };
 
   const fundEscrowAndAccept = async () => {
+    if (!guarantorAccepted) {
+      setError('Guarantor must accept before escrow funding is unlocked.');
+      return;
+    }
     setIsRedirecting(true);
     setError(null);
 
@@ -290,25 +299,36 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
 
       if (isInvestor) {
         return (
-          <div className="border-t border-brand-200/40 p-3 dark:border-white/10">
-            <button
-              type="button"
-              disabled={busy || isRedirecting}
-              onClick={() => void fundEscrowAndAccept()}
-              className={primaryBtnClass}
-            >
-              {isRedirecting ? (
-                <>
-                  <Loader2 className="animate-spin" size={16} />
-                  Generating Secure Payment Link…
-                </>
-              ) : (
-                <>
-                  <ShieldCheck size={16} className="transition group-hover:scale-110" />
-                  Fund Escrow &amp; Accept
-                </>
-              )}
-            </button>
+          <div className="space-y-2 border-t border-brand-200/40 p-3 dark:border-white/10">
+            {guarantorAccepted ? (
+              <>
+                <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 text-center text-[11px] font-bold text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  ✅ Guarantor Secured
+                </div>
+                <button
+                  type="button"
+                  disabled={busy || isRedirecting}
+                  onClick={() => void fundEscrowAndAccept()}
+                  className={primaryBtnClass}
+                >
+                  {isRedirecting ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />
+                      Generating Secure Payment Link…
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={16} className="transition group-hover:scale-110" />
+                      Fund Escrow &amp; Accept
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <div className={mutedBtnClass}>
+                ⏳ Waiting for Guarantor ({guarantorEmailLabel}) to accept terms and link bank...
+              </div>
+            )}
           </div>
         );
       }
@@ -364,6 +384,15 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
             £{Number(local.total_return ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2 })}
           </span>
         </div>
+        {guarantorAccepted ? (
+          <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-3 py-2 text-center text-[11px] font-bold text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
+            ✅ Guarantor Secured
+          </div>
+        ) : guarantorWaiting ? (
+          <div className="rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-center text-[11px] font-semibold text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+            ⏳ Waiting for Guarantor ({guarantorEmailLabel}) to accept terms and link bank...
+          </div>
+        ) : null}
       </div>
 
       <div className={statusBannerClass}>{renderStatusBanner()}</div>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Handshake, Loader2, Send, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { inviteGuarantor } from '@/app/actions/marketplace';
 import { markConversationRead } from '@/app/actions/chat';
 import type { ChatMessage, ChatPeer, HandshakeRow, MemberRole, UserPresence } from '@/lib/chat/types';
 import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
@@ -55,7 +56,7 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showPropose, setShowPropose] = useState(false);
-  const [proposal, setProposal] = useState({ amount: '', rate: '', duration: '' });
+  const [proposal, setProposal] = useState({ amount: '', rate: '', duration: '', guarantorEmail: '' });
   const { paused: emergencyPause } = useEmergencyPause();
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
@@ -319,7 +320,12 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
     const amount = Number(proposal.amount);
     const rate = Number(proposal.rate);
     const duration = Number(proposal.duration);
+    const guarantorEmail = proposal.guarantorEmail.trim().toLowerCase();
     if (!amount || !rate || !duration) return;
+    if (!guarantorEmail || !guarantorEmail.includes('@')) {
+      setError('A valid guarantor email is required before initiating a handshake.');
+      return;
+    }
 
     const lenderId = myRole === 'INVESTOR' ? myId : peer.id;
     const borrowerId = myRole === 'BORROWER' ? myId : peer.id;
@@ -338,6 +344,8 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         total_return: figures.total_return,
         status: 'PENDING',
         payment_status: 'PENDING',
+        guarantor_email: guarantorEmail,
+        guarantor_status: 'pending',
       })
       .select('*')
       .single();
@@ -349,14 +357,16 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
     }
 
     const row = created as HandshakeRow;
+    await inviteGuarantor(row.id, guarantorEmail);
+
     await supabase.from('messages').insert({
       sender_id: myId,
       receiver_id: peer.id,
       content: buildHandshakeMessagePayload(row.id),
     });
 
-    setHandshakeMap((m) => ({ ...m, [row.id]: row }));
-    setProposal({ amount: '', rate: '', duration: '' });
+    setHandshakeMap((m) => ({ ...m, [row.id]: normalizeHandshakeRow(created as Record<string, unknown>) }));
+    setProposal({ amount: '', rate: '', duration: '', guarantorEmail: '' });
     setShowPropose(false);
     setSending(false);
   };
@@ -472,6 +482,17 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
             <input required type="number" step="0.1" placeholder="% Rate" value={proposal.rate} onChange={(e) => setProposal((p) => ({ ...p, rate: e.target.value }))} className="rounded-xl border px-2 py-2 text-sm dark:bg-black/40" />
             <input required type="number" placeholder="Months" value={proposal.duration} onChange={(e) => setProposal((p) => ({ ...p, duration: e.target.value }))} className="rounded-xl border px-2 py-2 text-sm dark:bg-black/40" />
           </div>
+          <input
+            required
+            type="email"
+            placeholder="Guarantor email (required)"
+            value={proposal.guarantorEmail}
+            onChange={(e) => setProposal((p) => ({ ...p, guarantorEmail: e.target.value }))}
+            className="w-full rounded-xl border px-2 py-2 text-sm dark:bg-black/40"
+          />
+          <p className="text-[10px] text-neutral-500">
+            Escrow funding stays locked until the guarantor accepts and links their bank.
+          </p>
           <button type="submit" disabled={sending || emergencyPause} className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white disabled:opacity-50">
             {emergencyPause ? 'Platform Paused' : 'Initiate Handshake'}
           </button>

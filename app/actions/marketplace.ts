@@ -84,8 +84,8 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
   const guarantorEmail = formData.get('guarantor_email')?.toString().trim().toLowerCase() ?? '';
 
   if (!loanAmount || loanAmount <= 0) return { ok: false, error: 'Enter a valid loan amount.' };
-  if (guarantorEmail && !guarantorEmail.includes('@')) {
-    return { ok: false, error: 'Enter a valid guarantor email or leave the field empty.' };
+  if (!guarantorEmail || !guarantorEmail.includes('@')) {
+    return { ok: false, error: 'A valid guarantor email is required before submitting a loan.' };
   }
   if (!TENURE_OPTIONS.includes(tenureMonths as (typeof TENURE_OPTIONS)[number])) {
     return { ok: false, error: 'Select a valid tenure (6, 12, 24, or 36 months).' };
@@ -126,23 +126,21 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
         collateral_docs_url: proofPath,
         status: 'PENDING',
         marketplace: true,
-        guarantor_email: guarantorEmail || null,
-        guarantor_status: guarantorEmail ? 'pending' : 'none',
+        guarantor_email: guarantorEmail,
+        guarantor_status: 'pending',
       })
       .select('id')
       .single();
 
     if (error) return { ok: false, error: error.message };
 
-    if (guarantorEmail) {
-      await sendGuarantorInvite({
-        loanId: data.id as string,
-        guarantorEmail,
-        borrowerName: borrowerProfile.full_legal_name ?? undefined,
-        amount: loanAmount,
-        emiAmount: emi_amount,
-      });
-    }
+    await sendGuarantorInvite({
+      loanId: data.id as string,
+      guarantorEmail,
+      borrowerName: borrowerProfile.full_legal_name ?? undefined,
+      amount: loanAmount,
+      emiAmount: emi_amount,
+    });
 
     revalidatePath('/dashboard/apply');
     revalidatePath('/dashboard/marketplace');
@@ -172,7 +170,7 @@ export async function inviteGuarantor(
   const admin = createAdminClient();
   const { data: handshake, error } = await admin
     .from('handshakes')
-    .select('id, borrower_id, amount, emi_amount, guarantor_status')
+    .select('id, borrower_id, lender_id, amount, emi_amount, guarantor_status')
     .eq('id', loan)
     .maybeSingle();
 
@@ -180,8 +178,8 @@ export async function inviteGuarantor(
     return { ok: false, error: 'Loan not found.' };
   }
 
-  if (handshake.borrower_id !== user.id) {
-    return { ok: false, error: 'Only the borrower can invite a guarantor.' };
+  if (handshake.borrower_id !== user.id && handshake.lender_id !== user.id) {
+    return { ok: false, error: 'Only parties to this loan can invite a guarantor.' };
   }
 
   const { error: updateError } = await admin
@@ -269,12 +267,18 @@ export async function fundMarketplaceLoan(handshakeId: string): Promise<{ ok: bo
     .eq('status', 'PENDING')
     // TODO: Re-enable collateral verification check once feature is finalized.
     // .eq('collateral_status', 'verified')
+    .eq('guarantor_status', 'accepted')
     .is('lender_id', null)
     .select('id')
     .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: 'This opportunity is no longer available.' };
+  if (!data) {
+    return {
+      ok: false,
+      error: 'This opportunity is unavailable — guarantor must accept before funding.',
+    };
+  }
 
   revalidatePath('/dashboard/marketplace');
   revalidatePath('/admin-dashboard/handshakes');
