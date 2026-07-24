@@ -138,6 +138,13 @@ function getDocumentKind(path?: string | null): DocumentKind {
   return 'other';
 }
 
+function safeFormatDate(value: string | null | undefined): string {
+  if (!value) return 'N/A';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'N/A';
+  return parsed.toLocaleString('en-GB');
+}
+
 function normalizeKyc(profile: Profile): NormalizedKyc {
   const raw = isRecord(profile.kyc_data) ? profile.kyc_data : null;
   const basic = asRecord(raw?.basic) ?? asRecord(raw?.basicDetails) ?? asRecord(raw);
@@ -489,7 +496,7 @@ export function SupabaseAdminDashboard() {
   );
 
   const handleConfirmReject = useCallback(() => {
-    if (!rejectTarget) return;
+    if (!rejectTarget?.id) return;
     const reason = rejectReason.trim();
     if (!reason) {
       setToast({ type: 'error', text: 'Please enter a rejection reason.' });
@@ -501,23 +508,29 @@ export function SupabaseAdminDashboard() {
 
     void (async () => {
       try {
-        await rejectUserAction(rejectTarget.id, reason);
+        const result = await rejectUserAction(rejectTarget.id, reason);
+
+        if (!result?.success) {
+          const text = result?.error || 'Failed to send email. Please check API logs.';
+          setToast({ type: 'error', text });
+          setMessage(text);
+          return;
+        }
+
         setRejectTarget(null);
         setRejectReason('');
-        setToast({ type: 'success', text: 'Applicant rejected and email sent successfully.' });
-        setMessage('Applicant rejected and email sent successfully.');
+        setToast({
+          type: 'success',
+          text: result.message || 'Applicant rejected and email sent successfully.',
+        });
+        setMessage(result.message || 'Applicant rejected and email sent successfully.');
         await load('pending');
-        // Refresh rejected archive count in background
         void listApplicationRejections()
-          .then((rows) => setRejectedCount(rows.length))
+          .then((rows) => setRejectedCount(rows?.length ?? 0))
           .catch(() => undefined);
-      } catch (error) {
-        const text =
-          error instanceof Error && /email|API logs/i.test(error.message)
-            ? 'Failed to send email. Please check API logs.'
-            : error instanceof Error
-              ? error.message
-              : 'Failed to send email. Please check API logs.';
+      } catch {
+        // Server Actions should not throw after the serialization fix, but keep a safe fallback.
+        const text = 'Failed to send email. Please check API logs.';
         setToast({ type: 'error', text });
         setMessage(text);
       } finally {
@@ -649,18 +662,20 @@ export function SupabaseAdminDashboard() {
                 <Loader2 className="animate-spin" size={28} />
               </div>
             ) : tab === 'rejected' ? (
-              rejections.length === 0 ? (
+              (rejections?.length ?? 0) === 0 ? (
                 <p className="mt-12 text-center text-sm text-neutral-500">No rejected applications archived yet.</p>
               ) : (
                 <ul className="mt-6 space-y-3">
-                  {rejections.map((row) => (
-                    <li key={row.id} className="glass-card rounded-2xl p-4">
+                  {rejections?.map((row, index) => (
+                    <li key={row?.id ?? `${row?.email ?? 'rejection'}-${index}`} className="glass-card rounded-2xl p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                          <p className="font-bold text-neutral-950 dark:text-white">{row.full_legal_name ?? 'Unknown'}</p>
-                          <p className="text-sm text-neutral-500">{row.email}</p>
+                          <p className="font-bold text-neutral-950 dark:text-white">
+                            {row?.full_legal_name ?? 'Unknown'}
+                          </p>
+                          <p className="text-sm text-neutral-500">{row?.email ?? 'N/A'}</p>
                           <p className="mt-1 text-xs text-neutral-400">
-                            {row.role ?? '—'} · Rejected {new Date(row.rejected_at).toLocaleString('en-GB')}
+                            {row?.role ?? '—'} · Rejected {safeFormatDate(row?.rejected_at)}
                           </p>
                         </div>
                         <span className="rounded-full bg-red-500/15 px-3 py-1 text-xs font-bold text-red-700 dark:text-red-300">
@@ -668,26 +683,29 @@ export function SupabaseAdminDashboard() {
                         </span>
                       </div>
                       <p className="mt-3 text-sm text-neutral-700 dark:text-neutral-200">
-                        <span className="font-semibold text-brand-600">Reason:</span> {row.rejection_reason ?? '—'}
+                        <span className="font-semibold text-brand-600">Reason:</span>{' '}
+                        {row?.rejection_reason ?? '—'}
                       </p>
-                      {row.rejected_by && (
+                      {row?.rejected_by ? (
                         <p className="mt-1 text-xs text-neutral-500">Reviewed by {row.rejected_by}</p>
-                      )}
+                      ) : null}
                     </li>
                   ))}
                 </ul>
               )
-            ) : profiles.length === 0 ? (
+            ) : (profiles?.length ?? 0) === 0 ? (
               <p className="mt-12 text-center text-sm text-neutral-500">No users in this list.</p>
             ) : (
               <ul className="mt-6 space-y-3">
-                {profiles.map((profile) => (
+                {profiles?.map((profile) => (
                   <ProfileCard
-                    key={profile.id}
+                    key={profile?.id}
                     profile={profile}
-                    expanded={expandedId === profile.id}
-                    onToggle={() => setExpandedId(expandedId === profile.id ? null : profile.id)}
-                    onApprove={() => handleApprove(profile.id)}
+                    expanded={expandedId === profile?.id}
+                    onToggle={() =>
+                      setExpandedId(expandedId === profile?.id ? null : (profile?.id ?? null))
+                    }
+                    onApprove={() => profile?.id && handleApprove(profile.id)}
                     onReject={() => handleRejectRequest(profile)}
                     isReviewing={reviewing}
                     resolveDocumentUrl={resolveDocumentUrl}
@@ -810,7 +828,7 @@ function ProfileCard({
                 ? [['Target Amount', formatCurrency(profile.target_amount)] as [string, string]]
                 : []),
               ['Interest Rate', formatInterestRate()],
-              ['Submitted At', dossier.submittedAt ? new Date(dossier.submittedAt).toLocaleString('en-GB') : 'Not provided'],
+              ['Submitted At', dossier.submittedAt ? safeFormatDate(dossier.submittedAt) : 'Not provided'],
             ],
           },
           {
@@ -1042,7 +1060,7 @@ function ProfileCard({
             <h2 className="mt-2 text-3xl font-black text-black">{dossier.basic.fullLegalName}</h2>
             <p className="mt-1 text-sm text-black/70">{dossier.basic.email}</p>
             <p className="mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-black/55">
-              {profile.role} · {profile.status} · {dossier.submittedAt ? new Date(dossier.submittedAt).toLocaleString('en-GB') : '—'}
+              {profile.role} · {profile.status} · {dossier.submittedAt ? safeFormatDate(dossier.submittedAt) : '—'}
             </p>
           </div>
 

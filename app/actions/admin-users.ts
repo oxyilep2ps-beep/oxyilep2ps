@@ -11,6 +11,20 @@ import type { KycDocumentPaths } from '@/lib/types/profile';
 const KYC_BUCKET = 'kyc-documents';
 const KYC_BUCKET_ALIAS = 'documents';
 
+export type RejectUserResult =
+  | { success: true; message: string }
+  | { success: false; error: string };
+
+export type ApproveUserResult =
+  | { success: true; message: string }
+  | { success: false; error: string };
+
+function toErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return String(error.message);
+  if (typeof error === 'string' && error.trim()) return error;
+  return fallback;
+}
+
 function collectStoragePaths(
   kyc: {
     identity?: { documents?: KycDocumentPaths };
@@ -45,108 +59,128 @@ function collectStoragePaths(
   return [...new Set([...fromMeta, ...fromKyc, ...fromProfile])];
 }
 
-export async function approveUserAction(userId: string) {
-  const adminUser = await assertAdmin();
-  const supabase = await createClient();
+export async function approveUserAction(userId: string): Promise<ApproveUserResult> {
+  try {
+    const adminUser = await assertAdmin();
+    const supabase = await createClient();
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      status: 'APPROVED',
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: adminUser.email,
-    })
-    .eq('id', userId);
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        status: 'APPROVED',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: adminUser.email ?? null,
+      })
+      .eq('id', userId);
 
-  if (error) throw new Error(error.message);
+    if (error) {
+      return { success: false, error: String(error.message) };
+    }
 
-  const { data: approved } = await supabase
-    .from('profiles')
-    .select('full_legal_name, email')
-    .eq('id', userId)
-    .maybeSingle();
+    const { data: approved } = await supabase
+      .from('profiles')
+      .select('full_legal_name, email')
+      .eq('id', userId)
+      .maybeSingle();
 
-  if (approved?.email) {
-    await sendReviewEmail({
-      to: approved.email,
-      fullLegalName: approved.full_legal_name ?? 'Applicant',
-      status: 'APPROVED',
-    });
+    if (approved?.email) {
+      await sendReviewEmail({
+        to: String(approved.email),
+        fullLegalName: String(approved.full_legal_name ?? 'Applicant'),
+        status: 'APPROVED',
+      });
+    }
+
+    await logAdminAction(
+      String(adminUser.email ?? 'admin'),
+      `Approved user ${String(approved?.full_legal_name ?? userId)}`
+    );
+
+    revalidatePath('/admin-dashboard');
+    revalidatePath('/admin-dashboard/applications');
+    return { success: true, message: 'Applicant approved successfully.' };
+  } catch (error) {
+    return {
+      success: false,
+      error: toErrorMessage(error, 'Failed to approve applicant.'),
+    };
   }
-
-  await logAdminAction(adminUser.email ?? 'admin', `Approved user ${approved?.full_legal_name ?? userId}`);
-
-  revalidatePath('/admin-dashboard');
-  return { success: true };
 }
 
 /**
- * Reject applicant: archive reason, email via Resend with the custom reason,
- * then permanently remove profile + auth + KYC files.
+ * Reject applicant: archive reason, email via Resend, then remove profile/auth/KYC.
+ * CRITICAL: never throw — only return plain serializable objects for the client.
  */
 export async function rejectUserAction(
   userId: string,
   reason: string
-): Promise<{ success: true }> {
-  const adminUser = await assertAdmin();
-  const trimmedReason = reason?.trim() ?? '';
-
-  if (!userId) {
-    throw new Error('userId is required');
-  }
-  if (!trimmedReason) {
-    throw new Error('A rejection reason is required');
-  }
-
-  const admin = createAdminClient();
-
+): Promise<RejectUserResult> {
   try {
+    const adminUser = await assertAdmin();
+    const trimmedReason = String(reason ?? '').trim();
+    const safeUserId = String(userId ?? '').trim();
+
+    if (!safeUserId) {
+      return { success: false, error: 'userId is required' };
+    }
+    if (!trimmedReason) {
+      return { success: false, error: 'A rejection reason is required' };
+    }
+
+    const admin = createAdminClient();
+
     const { data: profile, error: profileError } = await admin
       .from('profiles')
       .select(
         'id, email, full_legal_name, role, kyc_data, proof_of_identity_url, liveness_video_url, proof_of_address_url, income_verification_url'
       )
-      .eq('id', userId)
+      .eq('id', safeUserId)
       .maybeSingle();
 
     if (profileError) {
-      throw new Error(profileError.message);
+      return { success: false, error: String(profileError.message) };
     }
     if (!profile) {
-      throw new Error('Applicant not found');
+      return { success: false, error: 'Applicant not found' };
     }
     if (!profile.email) {
-      throw new Error('Applicant email address is missing');
+      return { success: false, error: 'Applicant email address is missing' };
     }
 
-    // Step A — archive rejection (status trail before hard delete)
+    const applicantEmail = String(profile.email);
+    const applicantName = String(profile.full_legal_name ?? 'Applicant');
+
     const { error: archiveError } = await admin.from('application_rejections').insert({
-      user_id: profile.id,
-      email: profile.email,
-      full_legal_name: profile.full_legal_name,
-      role: profile.role ?? null,
+      user_id: String(profile.id),
+      email: applicantEmail,
+      full_legal_name: applicantName,
+      role: profile.role ? String(profile.role) : null,
       rejection_reason: trimmedReason,
-      kyc_data: profile.kyc_data,
-      rejected_by: adminUser.email,
+      kyc_data: profile.kyc_data ?? null,
+      rejected_by: adminUser.email ? String(adminUser.email) : null,
     });
 
     if (archiveError) {
-      throw new Error(archiveError.message);
+      return { success: false, error: String(archiveError.message) };
     }
 
-    // Step B + C — email must succeed before destructive cleanup
-    await sendReviewEmail({
-      to: profile.email,
-      fullLegalName: profile.full_legal_name ?? 'Applicant',
-      status: 'REJECTED',
-      reason: trimmedReason,
-    });
+    try {
+      await sendReviewEmail({
+        to: applicantEmail,
+        fullLegalName: applicantName,
+        status: 'REJECTED',
+        reason: trimmedReason,
+      });
+    } catch (emailError) {
+      console.error('[rejectUserAction] Resend failed:', emailError);
+      return { success: false, error: 'Failed to send email. Please check API logs.' };
+    }
 
     const paths = collectStoragePaths(
       profile.kyc_data as {
         identity?: { documents?: KycDocumentPaths };
         identityMeta?: Record<string, unknown>;
-      },
+      } | null,
       profile
     );
     if (paths.length) {
@@ -155,50 +189,65 @@ export async function rejectUserAction(
     }
 
     for (const bucket of [KYC_BUCKET, KYC_BUCKET_ALIAS]) {
-      const { data: folderFiles } = await admin.storage.from(bucket).list(userId);
+      const { data: folderFiles } = await admin.storage.from(bucket).list(safeUserId);
       if (folderFiles?.length) {
-        await admin.storage.from(bucket).remove(folderFiles.map((f) => `${userId}/${f.name}`));
+        await admin.storage
+          .from(bucket)
+          .remove(folderFiles.map((f) => `${safeUserId}/${String(f.name)}`));
       }
     }
 
-    const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', userId);
+    const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', safeUserId);
     if (profileDeleteError) {
-      throw new Error(profileDeleteError.message);
+      return { success: false, error: String(profileDeleteError.message) };
     }
 
-    const { error: authError } = await admin.auth.admin.deleteUser(userId);
+    const { error: authError } = await admin.auth.admin.deleteUser(safeUserId);
     if (authError) {
-      throw new Error(authError.message);
+      return { success: false, error: String(authError.message) };
     }
 
     await logAdminAction(
-      adminUser.email ?? 'admin',
-      `Rejected and notified ${profile.full_legal_name ?? profile.email}`
+      String(adminUser.email ?? 'admin'),
+      `Rejected and notified ${applicantName}`
     );
 
+    // Revalidate only after successful reject + email + cleanup
     revalidatePath('/admin-dashboard');
     revalidatePath('/admin-dashboard/applications');
-    return { success: true };
+
+    return {
+      success: true,
+      message: 'Applicant rejected and email sent successfully.',
+    };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to reject applicant';
+    console.error('[rejectUserAction]', error);
+    const message = toErrorMessage(error, 'Failed to reject applicant');
     if (/resend|email|RESEND_API_KEY/i.test(message)) {
-      throw new Error('Failed to send email. Please check API logs.');
+      return { success: false, error: 'Failed to send email. Please check API logs.' };
     }
-    throw new Error(message);
+    return { success: false, error: message };
   }
 }
 
-export async function getKycSignedUrlAction(storagePath: string) {
-  await assertAdmin();
-  const admin = createAdminClient();
-  const path = storagePath.trim();
-
-  for (const bucket of [KYC_BUCKET, KYC_BUCKET_ALIAS]) {
-    const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 3600);
-    if (!error && data?.signedUrl) {
-      return data.signedUrl;
+export async function getKycSignedUrlAction(storagePath: string): Promise<string> {
+  try {
+    await assertAdmin();
+    const admin = createAdminClient();
+    const path = String(storagePath ?? '').trim();
+    if (!path) {
+      throw new Error('storagePath is required');
     }
-  }
 
-  throw new Error('Could not create a signed URL for this KYC document');
+    for (const bucket of [KYC_BUCKET, KYC_BUCKET_ALIAS]) {
+      const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 3600);
+      if (!error && data?.signedUrl) {
+        return String(data.signedUrl);
+      }
+    }
+
+    throw new Error('Could not create a signed URL for this KYC document');
+  } catch (error) {
+    throw new Error(toErrorMessage(error, 'Could not create a signed URL for this KYC document'));
+  }
 }
