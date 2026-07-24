@@ -135,6 +135,7 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
         'livenessSelfie',
         'liveness_selfie',
         'liveness_video',
+        'liveness',
       ]),
       proofOfAddress: getUploadableFile(formData, [
         'proofOfAddress',
@@ -333,11 +334,18 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
         account_status: 'active' as const,
         postal_code: kyc.basic.postalCode?.trim().toUpperCase() || null,
         fca_test_answers: fcaTestAnswers,
-        // EPIC 4 — document URL/path columns MUST be present (never omitted)
+        // Document columns — EXACT schema names (not id_proof_url)
         proof_of_identity_url: idProofUrl,
         liveness_video_url: livenessUrl,
         proof_of_address_url: addressProofUrl,
         income_verification_url: incomeVerificationUrl,
+        // Flat Yes/No questionnaire columns (admin + kyc_data dual write)
+        is_uk_resident:
+          (kyc.questionnaireAnswers ?? {})['Are you a UK resident?'] ?? null,
+        understands_p2p_risk:
+          (kyc.questionnaireAnswers ?? {})['Do you understand P2P lending carries risk?'] ?? null,
+        marketing_consent:
+          (kyc.questionnaireAnswers ?? {})['May we email you about launch updates?'] ?? null,
         expected_interest_rate: Number.isFinite(expectedInterestRate)
           ? expectedInterestRate
           : FIXED_INTEREST_RATE,
@@ -355,7 +363,7 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       const { data: verified, error: verifyError } = await supabaseAdmin
         .from('profiles')
         .select(
-          'proof_of_identity_url, liveness_video_url, proof_of_address_url, income_verification_url, kyc_data'
+          'proof_of_identity_url, liveness_video_url, proof_of_address_url, income_verification_url, is_uk_resident, understands_p2p_risk, marketing_consent, kyc_data'
         )
         .eq('id', userId)
         .maybeSingle();

@@ -65,10 +65,28 @@ function extractQuestionnaireAnswers(
     const fromKey = yesNo(formData, q.key);
     const fromAlias =
       q.key === 'uk_resident'
-        ? yesNo(formData, 'is_uk_resident')
-        : q.key === 'marketing_consent'
-          ? yesNo(formData, 'launch_updates')
-          : '';
+        ? yesNo(formData, 'is_uk_resident') ||
+          (text(formData, 'isUkResident').toLowerCase() === 'true'
+            ? 'Yes'
+            : text(formData, 'isUkResident').toLowerCase() === 'false'
+              ? 'No'
+              : '')
+        : q.key === 'understands_risk'
+          ? yesNo(formData, 'understands_p2p_risk') ||
+            (text(formData, 'understandsRisk').toLowerCase() === 'true'
+              ? 'Yes'
+              : text(formData, 'understandsRisk').toLowerCase() === 'false'
+                ? 'No'
+                : '')
+          : q.key === 'marketing_consent'
+            ? yesNo(formData, 'launch_updates') ||
+              yesNo(formData, 'marketing_consent') ||
+              (text(formData, 'marketingConsent').toLowerCase() === 'true'
+                ? 'Yes'
+                : text(formData, 'marketingConsent').toLowerCase() === 'false'
+                  ? 'No'
+                  : '')
+            : '';
     const chosen = fromKey || fromAlias;
     if (chosen) answers[q.label] = chosen;
   }

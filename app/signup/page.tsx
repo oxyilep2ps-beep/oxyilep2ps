@@ -53,13 +53,24 @@ function appendRegisterFormData(
   formData.append('has_liveness_video', String(Boolean(kyc.identityMeta.hasLivenessVideo)));
   formData.append('has_proof_of_address', String(Boolean(kyc.identityMeta.hasProofOfAddress)));
 
-  // Strategic questionnaire — both machine keys and human aliases
+  // Strategic questionnaire — machine keys + human aliases (Yes/No strings)
   const answers = kyc.questionnaireAnswers ?? {};
   for (const q of STRATEGIC_QUESTIONS) {
     const value = answers[q.label] ?? '';
-    formData.append(q.key, value);
-    if (q.key === 'uk_resident') formData.append('is_uk_resident', value);
-    if (q.key === 'marketing_consent') formData.append('launch_updates', value);
+    formData.set(q.key, value);
+    if (q.key === 'uk_resident') {
+      formData.set('is_uk_resident', value);
+      formData.set('isUkResident', value === 'Yes' ? 'true' : value === 'No' ? 'false' : '');
+    }
+    if (q.key === 'understands_risk') {
+      formData.set('understands_p2p_risk', value);
+      formData.set('understandsRisk', value === 'Yes' ? 'true' : value === 'No' ? 'false' : '');
+    }
+    if (q.key === 'marketing_consent') {
+      formData.set('launch_updates', value);
+      formData.set('marketing_consent', value);
+      formData.set('marketingConsent', value === 'Yes' ? 'true' : value === 'No' ? 'false' : '');
+    }
   }
 
   // Role-specific fields
@@ -115,22 +126,24 @@ function appendRegisterFormData(
   const liveness = assertFile(files.livenessVideo, 'Liveness selfie');
   const addressProof = assertFile(files.proofOfAddress, 'Address Proof');
 
-  // Canonical keys used by the registration pipeline
-  formData.append('proofOfIdentity', idProof);
-  formData.append('livenessVideo', liveness);
-  formData.append('proofOfAddress', addressProof);
-  // Aliases (must match any server formData.get(...) variants)
-  formData.append('idProof', idProof);
-  formData.append('id_proof', idProof);
-  formData.append('livenessSelfie', liveness);
-  formData.append('liveness_selfie', liveness);
-  formData.append('addressProof', addressProof);
-  formData.append('address_proof', addressProof);
+  // Canonical keys used by the registration pipeline (+ aliases for every server get)
+  formData.set('proofOfIdentity', idProof);
+  formData.set('idProof', idProof);
+  formData.set('id_proof', idProof);
+
+  formData.set('livenessVideo', liveness);
+  formData.set('livenessSelfie', liveness);
+  formData.set('liveness_selfie', liveness);
+  formData.set('liveness', liveness);
+
+  formData.set('proofOfAddress', addressProof);
+  formData.set('addressProof', addressProof);
+  formData.set('address_proof', addressProof);
 
   if (files.incomeVerification) {
     const income = assertFile(files.incomeVerification, 'Income verification');
-    formData.append('incomeVerification', income);
-    formData.append('income_verification', income);
+    formData.set('incomeVerification', income);
+    formData.set('income_verification', income);
   }
 }
 

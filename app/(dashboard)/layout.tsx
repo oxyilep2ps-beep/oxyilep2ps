@@ -18,8 +18,10 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
 
   const profile = await getServerProfile(supabase, user.id);
 
+  // Missing profile must NEVER bounce confirmed users back to /signup.
+  // Send them to pending-verification (or sign-in) so email confirm works.
   if (!profile) {
-    redirect('/signup');
+    redirect('/pending-verification?confirmed=1');
   }
 
   const headerStore = await headers();

@@ -69,6 +69,10 @@ export interface Profile {
   proof_of_address_url?: string | null;
   /** Storage path for income verification (nullable; borrowers only). */
   income_verification_url?: string | null;
+  /** Flat Yes/No questionnaire fallbacks (also mirrored in kyc_data). */
+  is_uk_resident?: string | null;
+  understands_p2p_risk?: string | null;
+  marketing_consent?: string | null;
   borrower_sort_code?: string | null;
   borrower_account_number?: string | null;
   username?: string | null;

@@ -17,7 +17,7 @@ export async function requireApprovedUser() {
 
   const profile = await getServerProfile(supabase, user.id);
   if (!profile) {
-    redirect('/signup');
+    redirect('/pending-verification?confirmed=1');
   }
 
   const email = user.email ?? profile.email ?? '';

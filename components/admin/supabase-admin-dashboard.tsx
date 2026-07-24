@@ -157,6 +157,9 @@ function normalizeProfileRow(row: Profile): Profile {
     liveness_video_url: row.liveness_video_url ?? null,
     proof_of_address_url: row.proof_of_address_url ?? null,
     income_verification_url: row.income_verification_url ?? null,
+    is_uk_resident: row.is_uk_resident ?? null,
+    understands_p2p_risk: row.understands_p2p_risk ?? null,
+    marketing_consent: row.marketing_consent ?? null,
     borrower_sort_code: row.borrower_sort_code ?? null,
     borrower_account_number: row.borrower_account_number ?? null,
     username: row.username ?? null,
@@ -245,6 +248,27 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
       )
     : {};
 
+  // Flat column fallbacks (survive kyc_data wipe)
+  const flatQuestionnaire: Record<string, string> = {};
+  if (profile.is_uk_resident) {
+    flatQuestionnaire['Are you a UK resident?'] = formatQuestionnaireAnswer(profile.is_uk_resident);
+  }
+  if (profile.understands_p2p_risk) {
+    flatQuestionnaire['Do you understand P2P lending carries risk?'] = formatQuestionnaireAnswer(
+      profile.understands_p2p_risk
+    );
+  }
+  if (profile.marketing_consent) {
+    flatQuestionnaire['May we email you about launch updates?'] = formatQuestionnaireAnswer(
+      profile.marketing_consent
+    );
+  }
+
+  const questionnaireAnswers = {
+    ...flatQuestionnaire,
+    ...questionnaireFromKyc,
+  };
+
   return {
     accountRole:
       (raw?.accountRole === 'lender' || raw?.accountRole === 'borrower' ? raw.accountRole : null) ??
@@ -300,7 +324,7 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
       : undefined,
     submittedAt: pickOptionalText(raw?.submittedAt),
     questionnaireAnswers:
-      Object.keys(questionnaireFromKyc).length > 0 ? questionnaireFromKyc : undefined,
+      Object.keys(questionnaireAnswers).length > 0 ? questionnaireAnswers : undefined,
   };
 }
 
