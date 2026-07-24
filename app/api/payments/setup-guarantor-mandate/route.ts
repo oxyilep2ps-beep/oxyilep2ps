@@ -1,19 +1,24 @@
 import { NextResponse } from 'next/server';
-import gocardless from 'gocardless-nodejs';
-import { Environments } from 'gocardless-nodejs/constants';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyGuarantorInviteToken } from '@/lib/guarantor/invite';
+import { createBillingRequestMandateFlow } from '@/lib/gocardless/billing-request-flow';
 
 function appBaseUrl(req: Request): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
 }
 
-const client = process.env.GOCARDLESS_ACCESS_TOKEN
-  ? gocardless(
-      process.env.GOCARDLESS_ACCESS_TOKEN,
-      process.env.GOCARDLESS_ENVIRONMENT === 'live' ? Environments.Live : Environments.Sandbox
-    )
-  : null;
+function wantsJson(req: Request): boolean {
+  const accept = req.headers.get('accept') ?? '';
+  const contentType = req.headers.get('content-type') ?? '';
+  return contentType.includes('application/json') || accept.includes('application/json');
+}
+
+function jsonOrRedirect(req: Request, url: string, extra: Record<string, unknown> = {}) {
+  if (wantsJson(req)) {
+    return NextResponse.json({ ok: true, authorisation_url: url, redirectUrl: url, ...extra });
+  }
+  return NextResponse.redirect(url);
+}
 
 async function createGuarantorBillingRequest(req: Request, body: Record<string, unknown>): Promise<Response> {
   const {
@@ -39,7 +44,7 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
   const admin = createAdminClient();
   const { data: handshake, error } = await admin
     .from('handshakes')
-    .select('id, borrower_id, amount, emi_amount, guarantor_email, guarantor_status')
+    .select('id, borrower_id, lender_id, amount, emi_amount, guarantor_email, guarantor_status')
     .eq('id', id)
     .maybeSingle();
 
@@ -66,73 +71,92 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
     declinedUrl.searchParams.set('email', guarantorEmail);
     declinedUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
     declinedUrl.searchParams.set('token', String(token ?? ''));
-    return NextResponse.redirect(declinedUrl);
+    return jsonOrRedirect(req, declinedUrl.toString());
   }
 
-  // Keep status as invited until mandate completion confirms acceptance.
-  const sandboxOnly = !client || process.env.PAYMENT_SANDBOX_MODE === 'true' || process.env.PAYMENT_SANDBOX_MODE === '1';
+  const completeUrl = new URL(`/guarantor/review/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
+  completeUrl.searchParams.set('loanId', id);
+  completeUrl.searchParams.set('email', guarantorEmail);
+  completeUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
+  completeUrl.searchParams.set('token', String(token ?? ''));
 
-  if (sandboxOnly) {
-    const completeUrl = new URL(`/guarantor/review/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
-    completeUrl.searchParams.set('loanId', id);
-    completeUrl.searchParams.set('email', guarantorEmail);
-    completeUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
-    completeUrl.searchParams.set('token', String(token ?? ''));
+  const sandboxForced =
+    process.env.PAYMENT_SANDBOX_MODE === 'true' || process.env.PAYMENT_SANDBOX_MODE === '1';
+
+  if (sandboxForced) {
     completeUrl.searchParams.set('gocardless_stub', '1');
-    return NextResponse.redirect(completeUrl);
+    return jsonOrRedirect(req, completeUrl.toString(), { stub: true });
   }
 
-  const billingRequest = await client!.billingRequests.create({
-    mandate_request: {
-      currency: 'GBP',
-    },
-  });
+  try {
+    const flow = await createBillingRequestMandateFlow({
+      borrowerId: String(handshake.borrower_id),
+      lenderId: String(handshake.lender_id),
+      handshakeId: id,
+      redirectUri: completeUrl.toString(),
+      exitUri: completeUrl.toString(),
+    });
 
-  const redirectUrl = new URL(`/guarantor/review/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
-  redirectUrl.searchParams.set('loanId', id);
-  redirectUrl.searchParams.set('email', guarantorEmail);
-  redirectUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
-  redirectUrl.searchParams.set('token', String(token ?? ''));
-  redirectUrl.searchParams.set('billingRequestId', billingRequest.id);
+    if (!flow.success || !flow.authorisation_url) {
+      return NextResponse.json(
+        { ok: false, error: flow.error ?? 'GoCardless did not return an authorisation URL.' },
+        { status: 502 }
+      );
+    }
 
-  const flow = await client!.billingRequestFlows.create({
-    redirect_uri: redirectUrl.toString(),
-    links: {
-      billing_request: billingRequest.id,
-    },
-  });
-
-  if (!flow.authorisation_url) {
-    return NextResponse.json({ ok: false, error: 'GoCardless did not return an authorisation URL.' }, { status: 502 });
+    return jsonOrRedirect(req, flow.authorisation_url, {
+      billing_request_id: flow.billing_request_id,
+      stub: flow.stub ?? false,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'GoCardless mandate setup failed';
+    // Never leak raw XML/gateway bodies as an uncaught crash — always JSON.
+    return NextResponse.json({ ok: false, error: message }, { status: 502 });
   }
-
-  return NextResponse.redirect(flow.authorisation_url);
 }
 
 async function parseRequestBody(req: Request): Promise<Record<string, unknown>> {
   const contentType = req.headers.get('content-type') ?? '';
+
   if (contentType.includes('application/json')) {
-    return (await req.json()) as Record<string, unknown>;
-  }
-
-  const formData = await req.formData();
-  const payload = formData.get('payload');
-  let parsed: Record<string, unknown> = {};
-
-  if (typeof payload === 'string' && payload.trim()) {
     try {
-      parsed = JSON.parse(payload) as Record<string, unknown>;
+      return (await req.json()) as Record<string, unknown>;
     } catch {
-      parsed = {};
+      throw new Error('Invalid JSON body. Expected Content-Type: application/json with a JSON payload.');
     }
   }
 
-  const action = formData.get('action');
-  if (typeof action === 'string' && action.trim()) {
-    parsed.action = action.trim();
-  }
+  // Legacy HTML form posts (application/x-www-form-urlencoded or multipart/form-data)
+  try {
+    const formData = await req.formData();
+    const payload = formData.get('payload');
+    let parsed: Record<string, unknown> = {};
 
-  return parsed;
+    if (typeof payload === 'string' && payload.trim()) {
+      try {
+        parsed = JSON.parse(payload) as Record<string, unknown>;
+      } catch {
+        parsed = {};
+      }
+    }
+
+    const action = formData.get('action');
+    if (typeof action === 'string' && action.trim()) {
+      parsed.action = action.trim();
+    }
+
+    // Also accept flat form fields
+    for (const key of ['loanId', 'email', 'token', 'issuedAt'] as const) {
+      const value = formData.get(key);
+      if (typeof value === 'string' && value.trim() && parsed[key] == null) {
+        parsed[key] = value.trim();
+      }
+    }
+
+    return parsed;
+  } catch {
+    throw new Error('Could not parse request body. Send JSON with Content-Type: application/json.');
+  }
 }
 
 export async function POST(req: Request) {
@@ -141,6 +165,6 @@ export async function POST(req: Request) {
     return await createGuarantorBillingRequest(req, body);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to process guarantor invite';
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 }

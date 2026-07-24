@@ -40,7 +40,8 @@ function formatLastSeen(iso: string): string {
 
 export function ChatRoom({ peerUserId }: ChatRoomProps) {
   const supabase = useMemo(() => createClient(), []);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialScrollDoneRef = useRef(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -59,8 +60,8 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
   const [proposal, setProposal] = useState({ amount: '', rate: '', duration: '', guarantorEmail: '' });
   const { paused: emergencyPause } = useEmergencyPause();
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
   }, []);
 
   const loadHandshakes = useCallback(
@@ -196,7 +197,6 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         await fetchMessages(uid, peerUserId);
         await markConversationRead(peerUserId);
         window.dispatchEvent(new CustomEvent('oxyile:chat-read'));
-        requestAnimationFrame(() => scrollToBottom('auto'));
       } catch (err) {
         console.error('🚨 CHAT ROOM FETCH ERROR:', err);
         if (!cancelled) {
@@ -210,8 +210,9 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
     void bootstrap();
     return () => {
       cancelled = true;
+      initialScrollDoneRef.current = false;
     };
-  }, [fetchMessages, peerUserId, scrollToBottom, supabase]);
+  }, [fetchMessages, peerUserId, supabase]);
 
   // Presence + realtime only after myId is known (initial fetch completed).
   useEffect(() => {
@@ -295,9 +296,23 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
     };
   }, [loadHandshakes, myId, peer, peerUserId, supabase]);
 
+  // Scroll after the message list mounts (not while the loading spinner is showing).
   useEffect(() => {
-    if (messages.length > 0) scrollToBottom();
-  }, [messages.length, scrollToBottom]);
+    if (loading) return;
+
+    if (!initialScrollDoneRef.current) {
+      // Double rAF waits for layout after switching from spinner → message list.
+      const id = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom('auto');
+          initialScrollDoneRef.current = true;
+        });
+      });
+      return () => cancelAnimationFrame(id);
+    }
+
+    scrollToBottom('smooth');
+  }, [loading, messages, scrollToBottom]);
 
   const broadcastTyping = (typing: boolean) => {
     channelRef.current?.send({ type: 'broadcast', event: 'typing', payload: { userId: myId, typing } });
@@ -484,7 +499,7 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         {peerTyping && (
           <p className="animate-pulse text-xs font-medium text-brand-600">{peer.full_legal_name} is typing…</p>
         )}
-        <div ref={bottomRef} />
+        <div ref={messagesEndRef} />
       </div>
 
       {showPropose && (

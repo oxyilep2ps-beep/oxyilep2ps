@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyGuarantorInviteToken } from '@/lib/guarantor/invite';
+import { GuarantorMandateActions } from '@/components/guarantor/guarantor-mandate-actions';
 
 type GuarantorReviewPageProps = {
   params: Promise<{ loanId: string }>;
@@ -48,8 +49,6 @@ export default async function GuarantorReviewPage({ params, searchParams }: Guar
     .eq('id', handshake.borrower_id as string)
     .maybeSingle();
 
-  const acceptPayload = JSON.stringify({ loanId, email, token, issuedAt, action: 'accept' });
-  const declinePayload = JSON.stringify({ loanId, email, token, issuedAt, action: 'decline' });
   const status = String(handshake.guarantor_status ?? 'none').toLowerCase();
   const alreadyAccepted = status === 'accepted' || Boolean(handshake.guarantor_mandate_id);
 
@@ -110,31 +109,12 @@ export default async function GuarantorReviewPage({ params, searchParams }: Guar
             </div>
 
             {!declined && !alreadyAccepted ? (
-              <>
-                <form action="/api/payments/setup-guarantor-mandate" method="post" className="flex flex-col gap-3 sm:flex-row">
-                  <input type="hidden" name="payload" value={declinePayload} readOnly />
-                  <button
-                    type="submit"
-                    name="action"
-                    value="decline"
-                    className="rounded-2xl border border-neutral-300 px-5 py-3 text-sm font-bold text-neutral-700 transition hover:bg-neutral-100 dark:border-white/10 dark:text-neutral-200 dark:hover:bg-white/5"
-                  >
-                    Decline
-                  </button>
-                </form>
-
-                <form action="/api/payments/setup-guarantor-mandate" method="post">
-                  <input type="hidden" name="payload" value={acceptPayload} readOnly />
-                  <button
-                    type="submit"
-                    name="action"
-                    value="accept"
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-brand-600 to-orange-500 px-6 py-3.5 text-sm font-black uppercase tracking-wide text-white shadow-glow transition hover:brightness-110"
-                  >
-                    Accept &amp; Set Up Guarantor Mandate
-                  </button>
-                </form>
-              </>
+              <GuarantorMandateActions
+                loanId={loanId}
+                email={email}
+                token={token}
+                issuedAt={issuedAt}
+              />
             ) : null}
           </div>
 
