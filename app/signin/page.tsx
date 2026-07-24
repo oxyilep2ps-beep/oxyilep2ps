@@ -30,15 +30,57 @@ function SignInForm() {
     setError(null);
 
     const supabase = createClient();
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (signInError) {
-      setError(signInError.message);
+    let signInResult = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+
+    // Legacy accounts created with email_confirm:false still hit this after a correct password.
+    // Auto-confirm via service role, then retry once so the user is not stuck.
+    const unconfirmedMessage = signInResult.error?.message?.toLowerCase() ?? '';
+    const isUnconfirmed =
+      Boolean(signInResult.error) &&
+      (unconfirmedMessage.includes('email not confirmed') ||
+        signInResult.error?.code === 'email_not_confirmed');
+
+    if (isUnconfirmed) {
+      try {
+        const rescue = await fetch('/api/auth/confirm-unverified-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail }),
+        });
+        const rescueBody = (await rescue.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+        };
+
+        if (rescue.ok && rescueBody.ok) {
+          signInResult = await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
+        }
+      } catch {
+        // Keep original sign-in error ("Email not confirmed")
+      }
+    }
+
+    if (signInResult.error) {
+      setError(signInResult.error.message);
       setLoading(false);
       return;
     }
 
-    const user = data.user;
+    const user = signInResult.data.user;
+    if (!user) {
+      setError('Sign-in succeeded but no user was returned.');
+      setLoading(false);
+      return;
+    }
+
     // Apply platform_access / hardcoded staff roles before reading the profile for redirect.
     await fetch('/api/auth/ensure-staff-role', { method: 'POST' });
 
