@@ -17,79 +17,93 @@ export function ChatInbox() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadInbox() {
       setLoading(true);
       setError(null);
 
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      if (authError || !user) {
-        setError('You must be signed in to view chats.');
-        setLoading(false);
-        return;
-      }
-
-      const { data: myProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError || !myProfile) {
-        setError('Could not load your profile.');
-        setLoading(false);
-        return;
-      }
-
-      const myRole = myProfile.role as MemberRole;
-      if (myRole !== 'INVESTOR' && myRole !== 'BORROWER') {
-        setError('Chat is only available for investors and borrowers.');
-        setLoading(false);
-        return;
-      }
-
-      const { data: peerData, error: peersError } = await supabase
-        .from('profiles')
-        .select('id, role, full_legal_name, username, avatar_url')
-        .eq('status', 'APPROVED')
-        .eq('role', oppositeRole(myRole))
-        .neq('role', 'ADMIN')
-        .neq('id', user.id)
-        .order('full_legal_name', { ascending: true })
-        .limit(50);
-
-      if (peersError) {
-        setError(peersError.message);
-        setLoading(false);
-        return;
-      }
-
-      const list = (peerData ?? []) as ChatPeer[];
-      setPeers(list);
-
-      if (list.length > 0) {
-        const ids = list.map((p) => p.id);
-        const { data: presenceRows } = await supabase
-          .from('user_presence')
-          .select('user_id, status, last_seen')
-          .in('user_id', ids);
-
-        const map: Record<string, UserPresence> = {};
-        for (const row of presenceRows ?? []) {
-          map[row.user_id as string] = row as UserPresence;
+        if (authError || !user) {
+          throw new Error(authError?.message || 'You must be signed in to view chats.');
         }
-        setPresenceMap(map);
-      }
 
-      setLoading(false);
+        const { data: myProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          throw new Error(`Profile load failed: ${profileError.message}`);
+        }
+        if (!myProfile) {
+          throw new Error('Could not load your profile.');
+        }
+
+        const myRole = myProfile.role as MemberRole;
+        if (myRole !== 'INVESTOR' && myRole !== 'BORROWER') {
+          throw new Error('Chat is only available for investors and borrowers.');
+        }
+
+        const { data: peerData, error: peersError } = await supabase
+          .from('profiles')
+          .select('id, role, full_legal_name, username, avatar_url')
+          .eq('status', 'APPROVED')
+          .eq('role', oppositeRole(myRole))
+          .neq('role', 'ADMIN')
+          .neq('id', user.id)
+          .order('full_legal_name', { ascending: true })
+          .limit(50);
+
+        if (peersError) {
+          throw new Error(`Chat peers query failed: ${peersError.message}`);
+        }
+
+        const list = (peerData ?? []) as ChatPeer[];
+        if (cancelled) return;
+        setPeers(list);
+
+        if (list.length > 0) {
+          const ids = list.map((p) => p.id);
+          const { data: presenceRows, error: presenceError } = await supabase
+            .from('user_presence')
+            .select('user_id, status, last_seen')
+            .in('user_id', ids);
+
+          if (presenceError) {
+            console.warn('🚨 CHAT PRESENCE FETCH ERROR:', presenceError.message);
+          }
+
+          const map: Record<string, UserPresence> = {};
+          for (const row of presenceRows ?? []) {
+            map[row.user_id as string] = row as UserPresence;
+          }
+          if (!cancelled) setPresenceMap(map);
+        }
+      } catch (err) {
+        console.error('🚨 CHAT FETCH ERROR:', err);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load chats');
+          setPeers([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     void loadInbox();
+    return () => {
+      cancelled = true;
+    };
   }, [supabase]);
 
+  // Realtime after initial fetch — never blocks the spinner.
   useEffect(() => {
     const channel = supabase
       .channel('inbox-presence')
@@ -119,9 +133,17 @@ export function ChatInbox() {
           <Loader2 size={24} className="animate-spin text-brand-500" />
         </div>
       ) : error ? (
-        <p className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-          {error}
-        </p>
+        <div className="glass-card mt-6 space-y-3 rounded-2xl border border-red-200 bg-red-50 p-6 dark:border-red-900/40 dark:bg-red-950/30">
+          <p className="text-sm font-semibold text-red-700 dark:text-red-300">Failed to load chats</p>
+          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-white"
+          >
+            Retry
+          </button>
+        </div>
       ) : peers.length === 0 ? (
         <div className="glass-card mt-6 rounded-2xl p-8 text-center">
           <MessageCircle className="mx-auto text-brand-500" size={36} />

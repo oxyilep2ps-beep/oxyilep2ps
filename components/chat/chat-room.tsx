@@ -128,76 +128,92 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
   );
 
   useEffect(() => {
+    let cancelled = false;
+
     async function bootstrap() {
       setLoading(true);
       setError(null);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      if (!user) {
-        setError('Sign in required.');
-        setLoading(false);
-        return;
+        if (authError || !user) {
+          throw new Error(authError?.message || 'Sign in required.');
+        }
+
+        const { data: myProfile, error: myProfileError } = await supabase
+          .from('profiles')
+          .select('id, role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (myProfileError) {
+          throw new Error(`Profile load failed: ${myProfileError.message}`);
+        }
+        if (!myProfile) {
+          throw new Error('Profile not found.');
+        }
+
+        const role = myProfile.role as MemberRole;
+        if (role !== 'INVESTOR' && role !== 'BORROWER') {
+          throw new Error('Chat unavailable for this account type.');
+        }
+
+        const { data: peerProfile, error: peerError } = await supabase
+          .from('profiles')
+          .select('id, role, full_legal_name, username, avatar_url')
+          .eq('id', peerUserId)
+          .eq('status', 'APPROVED')
+          .eq('role', oppositeRole(role))
+          .neq('role', 'ADMIN')
+          .maybeSingle();
+
+        if (peerError) {
+          throw new Error(`Peer profile load failed: ${peerError.message}`);
+        }
+        if (!peerProfile) {
+          throw new Error('This user is not available to chat.');
+        }
+
+        const uid = myProfile.id as string;
+        if (cancelled) return;
+
+        setMyId(uid);
+        setMyRole(role);
+        setPeer(peerProfile as ChatPeer);
+
+        const { data: presence } = await supabase
+          .from('user_presence')
+          .select('user_id, status, last_seen')
+          .eq('user_id', peerUserId)
+          .maybeSingle();
+
+        if (!cancelled) setPeerPresence((presence as UserPresence) ?? null);
+
+        await fetchMessages(uid, peerUserId);
+        await markConversationRead(peerUserId);
+        window.dispatchEvent(new CustomEvent('oxyile:chat-read'));
+        requestAnimationFrame(() => scrollToBottom('auto'));
+      } catch (err) {
+        console.error('🚨 CHAT ROOM FETCH ERROR:', err);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load chat room');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const { data: myProfile } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!myProfile) {
-        setError('Profile not found.');
-        setLoading(false);
-        return;
-      }
-
-      const role = myProfile.role as MemberRole;
-      if (role !== 'INVESTOR' && role !== 'BORROWER') {
-        setError('Chat unavailable for this account type.');
-        setLoading(false);
-        return;
-      }
-
-      const { data: peerProfile } = await supabase
-        .from('profiles')
-        .select('id, role, full_legal_name, username, avatar_url')
-        .eq('id', peerUserId)
-        .eq('status', 'APPROVED')
-        .eq('role', oppositeRole(role))
-        .neq('role', 'ADMIN')
-        .maybeSingle();
-
-      if (!peerProfile) {
-        setError('This user is not available to chat.');
-        setLoading(false);
-        return;
-      }
-
-      const uid = myProfile.id as string;
-      setMyId(uid);
-      setMyRole(role);
-      setPeer(peerProfile as ChatPeer);
-
-      const { data: presence } = await supabase
-        .from('user_presence')
-        .select('user_id, status, last_seen')
-        .eq('user_id', peerUserId)
-        .maybeSingle();
-
-      setPeerPresence((presence as UserPresence) ?? null);
-      await fetchMessages(uid, peerUserId);
-      await markConversationRead(peerUserId);
-      window.dispatchEvent(new CustomEvent('oxyile:chat-read'));
-      setLoading(false);
-      requestAnimationFrame(() => scrollToBottom('auto'));
     }
 
     void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchMessages, peerUserId, scrollToBottom, supabase]);
 
+  // Presence + realtime only after myId is known (initial fetch completed).
   useEffect(() => {
     if (!myId) return;
     const setPresence = async (status: 'online' | 'offline') => {

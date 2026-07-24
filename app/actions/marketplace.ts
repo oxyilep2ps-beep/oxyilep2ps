@@ -7,10 +7,8 @@ import { COLLATERAL_TYPES } from '@/lib/collateral/constants';
 import { uploadCollateralProof } from '@/lib/collateral/upload';
 import { calculateFlatEmi } from '@/lib/handshake/calculations';
 import { sendGuarantorInvite } from '@/lib/guarantor/invite';
-import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
+import { FIXED_INTEREST_RATE, TENURE_OPTIONS } from '@/lib/platform/constants';
 import type { MarketplaceHandshakeRow } from '@/lib/types/marketplace-handshake';
-
-const TENURE_OPTIONS = [6, 12, 24, 36] as const;
 
 function normalizeGuarantorStatus(
   status: string | null | undefined
@@ -284,5 +282,3 @@ export async function fundMarketplaceLoan(handshakeId: string): Promise<{ ok: bo
   revalidatePath('/admin-dashboard/handshakes');
   return { ok: true };
 }
-
-export { TENURE_OPTIONS };

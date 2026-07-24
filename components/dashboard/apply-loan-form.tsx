@@ -4,7 +4,8 @@ import { FormEvent, useMemo, useState } from 'react';
 import { Loader2, PoundSterling, ShieldCheck, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CollateralFormSection } from '@/components/collateral-form-section';
-import { applyForMarketplaceLoan, TENURE_OPTIONS } from '@/app/actions/marketplace';
+import { applyForMarketplaceLoan } from '@/app/actions/marketplace';
+import { TENURE_OPTIONS } from '@/lib/platform/constants';
 import { calculateFlatEmi } from '@/lib/handshake/calculations';
 import { FIXED_INTEREST_RATE, FIXED_INTEREST_RATE_LABEL } from '@/lib/platform/constants';
 
