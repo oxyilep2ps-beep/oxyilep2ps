@@ -294,8 +294,9 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      // Keep unconfirmed so the user still verifies email.
-      email_confirm: false,
+      // Auto-confirm so sign-in never fails with "Email not confirmed".
+      // Welcome / verify email is still sent below for onboarding UX.
+      email_confirm: true,
       user_metadata: userMeta,
       app_metadata: {
         account_role: kyc.role,

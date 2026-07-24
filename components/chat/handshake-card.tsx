@@ -60,6 +60,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
           setLocal((prev) =>
             normalizeHandshakeRow(payload.new as Record<string, unknown>, prev)
           );
+          onUpdated();
         }
       )
       .subscribe();
@@ -67,7 +68,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [handshake.id]);
+  }, [handshake.id, onUpdated]);
 
   const isInvestor = myId === local.lender_id && myRole === 'INVESTOR';
   const isBorrower = myId === local.borrower_id && myRole === 'BORROWER';
@@ -79,6 +80,46 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
   const guarantorWaiting =
     guarantorStatus === 'pending' || guarantorStatus === 'invited' || guarantorStatus === 'none';
   const guarantorEmailLabel = local.guarantor_email?.trim() || 'guarantor';
+
+  // Polling fallback while guarantor is still pending — covers Realtime delays/misses.
+  useEffect(() => {
+    if (!guarantorWaiting) return;
+
+    const supabase = createClient();
+    const handshakeId = local.id;
+    let cancelled = false;
+
+    const poll = async () => {
+      const { data, error: pollError } = await supabase
+        .from('handshakes')
+        .select('*')
+        .eq('id', handshakeId)
+        .maybeSingle();
+
+      if (cancelled || pollError || !data) return;
+
+      setLocal((prev) => {
+        const next = normalizeHandshakeRow(data as Record<string, unknown>, prev);
+        const nextStatus = String(next.guarantor_status ?? 'none').toLowerCase();
+        const prevStatus = String(prev.guarantor_status ?? 'none').toLowerCase();
+        if (
+          nextStatus === prevStatus &&
+          next.guarantor_mandate_id === prev.guarantor_mandate_id
+        ) {
+          return prev;
+        }
+        queueMicrotask(() => onUpdated());
+        return next;
+      });
+    };
+
+    void poll();
+    const intervalId = window.setInterval(() => void poll(), 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [guarantorWaiting, local.id, onUpdated]);
 
   const acceptLoanTerms = async () => {
     if (!isBorrower || local.borrower_approved_at) return;

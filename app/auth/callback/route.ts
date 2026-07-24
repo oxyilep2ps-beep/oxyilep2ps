@@ -41,6 +41,18 @@ export async function GET(request: Request) {
   }
 
   const admin = createAdminClient();
+
+  // Ensure auth.users is marked confirmed after a successful callback exchange.
+  // Covers legacy accounts created with email_confirm: false that still hit this route.
+  if (!user.email_confirmed_at) {
+    const { error: confirmError } = await admin.auth.admin.updateUserById(user.id, {
+      email_confirm: true,
+    });
+    if (confirmError) {
+      console.error('[auth/callback] email_confirm update failed:', confirmError.message);
+    }
+  }
+
   const elevatedRole = await getPlatformAccessRole(user.email);
 
   if (elevatedRole) {

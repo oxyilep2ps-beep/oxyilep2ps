@@ -276,6 +276,11 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
             [id]: normalizeHandshakeRow(updated, previous),
           };
         });
+
+        // Guarantor acceptance can arrive via service-role writes — refetch to stay in sync.
+        if (String(updated.guarantor_status ?? '').toLowerCase() === 'accepted') {
+          void loadHandshakes(myId, peer.id);
+        }
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'handshakes' }, () => {
         void loadHandshakes(myId, peer.id);
@@ -295,6 +300,20 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
       channelRef.current = null;
     };
   }, [loadHandshakes, myId, peer, peerUserId, supabase]);
+
+  // Room-level polling while any handshake still awaits guarantor acceptance.
+  const needsGuarantorPoll = Object.values(handshakeMap).some((row) => {
+    const status = String(row.guarantor_status ?? 'none').toLowerCase();
+    return status === 'pending' || status === 'invited' || status === 'none';
+  });
+
+  useEffect(() => {
+    if (!myId || !peer || !needsGuarantorPoll) return;
+    const intervalId = window.setInterval(() => {
+      void loadHandshakes(myId, peer.id);
+    }, 4000);
+    return () => window.clearInterval(intervalId);
+  }, [loadHandshakes, myId, needsGuarantorPoll, peer]);
 
   // Scroll after the message list mounts (not while the loading spinner is showing).
   useEffect(() => {
