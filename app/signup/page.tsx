@@ -68,9 +68,9 @@ export default function SignUpPage() {
       }
 
       if (!response.ok || !payload?.success) {
-        // Show the REAL server error string in the red toast
+        // Prefer the exact server error string for the red toast (e.g. email already registered).
         const realError =
-          payload?.error ||
+          (typeof payload?.error === 'string' && payload.error.trim()) ||
           (response.status === 413
             ? 'File is too large. Please upload a document under 10MB.'
             : `Form submission failed (HTTP ${response.status}).`);

@@ -149,7 +149,7 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
 
     console.info('[registerWithDocs] auth.signUp', email);
     const authClient = createAnonAuthClient();
-    const { data: signUpData, error: signUpError } = await authClient.auth.signUp({
+    const { data: authData, error: authError } = await authClient.auth.signUp({
       email,
       password,
       options: {
@@ -158,30 +158,34 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       },
     });
 
-    if (signUpError) {
-      console.error('[registerWithDocs] signUp error:', signUpError.message);
-      return { success: false, error: String(signUpError.message) };
+    if (authError) {
+      console.error('[registerWithDocs] signUp error:', authError.message);
+      const msg = String(authError.message || '');
+      if (/already|registered|exists/i.test(msg)) {
+        return {
+          success: false,
+          error:
+            'This email is already registered. Please log in or use a different email address.',
+        };
+      }
+      return { success: false, error: msg };
     }
 
-    const user = signUpData.user;
-    const userId = user?.id ? String(user.id) : null;
-    const identities = user?.identities ?? [];
+    // CRITICAL: use authData.user.id — NEVER authData.session (null when email confirm is on).
+    const userId = authData.user?.id ? String(authData.user.id) : null;
+    const identities = authData.user?.identities ?? [];
 
-    if (user && identities.length === 0) {
-      return {
-        success: false,
-        error: 'An account with this email already exists. Please sign in instead.',
-      };
-    }
-
-    if (!userId) {
+    // Email enumeration protection / duplicate email: 200 OK but user is null,
+    // or a user shell with empty identities.
+    if (!userId || identities.length === 0) {
       return {
         success: false,
         error:
-          'Signup succeeded but no user id was returned by Auth. Please try again or contact support.',
+          'This email is already registered. Please log in or use a different email address.',
       };
     }
 
+    // All storage uploads + profile writes happen ONLY after userId is confirmed.
     console.info('[registerWithDocs] uploading KYC for', userId);
     const admin = createAdminClient();
 
