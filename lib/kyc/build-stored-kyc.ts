@@ -2,9 +2,17 @@ import type { KycSubmissionPayload } from '@/lib/types/kyc';
 import type { KycDocumentPaths } from '@/lib/types/profile';
 
 /**
- * Build kyc_data to match AdminDashboard expected shape.
+ * Build kyc_data in BOTH shapes the admin UI / PDF / reject-cleanup expect:
+ * - identity.documents.* (canonical paths)
+ * - identityMeta.*Path (legacy / signup meta)
+ * Always include questionnaireAnswers when present so checkboxes survive preview/PDF.
  */
 export function buildStoredKycData(payload: KycSubmissionPayload, documents: KycDocumentPaths) {
+  const proofOfIdentity = documents.proofOfIdentity ?? null;
+  const livenessVideo = documents.livenessVideo ?? null;
+  const proofOfAddress = documents.proofOfAddress ?? null;
+  const incomeVerification = documents.incomeVerification ?? null;
+
   return {
     accountRole: payload.role,
     basic: {
@@ -14,19 +22,34 @@ export function buildStoredKycData(payload: KycSubmissionPayload, documents: Kyc
       currentAddress: payload.basic.currentAddress,
       addressHistory3Years: payload.basic.addressHistory3Years,
     },
+    // Canonical shape used by schema docs + reject cleanup + some readers
+    identity: {
+      proofOfIdentityType: payload.identityMeta.proofOfIdentityType,
+      documents: {
+        proofOfIdentity,
+        livenessVideo,
+        proofOfAddress,
+        incomeVerification,
+      },
+    },
+    // Legacy / alternate shape used by admin normalizeKyc fallbacks
     identityMeta: {
       proofOfIdentityType: payload.identityMeta.proofOfIdentityType,
-      hasProofOfIdentity: Boolean(documents.proofOfIdentity),
-      hasLivenessVideo: Boolean(documents.livenessVideo),
-      hasProofOfAddress: Boolean(documents.proofOfAddress),
-      idProofPath: documents.proofOfIdentity ?? null,
-      livenessPath: documents.livenessVideo ?? null,
-      addressProofPath: documents.proofOfAddress ?? null,
-      incomeVerificationPath: documents.incomeVerification ?? null,
+      hasProofOfIdentity: Boolean(proofOfIdentity),
+      hasLivenessVideo: Boolean(livenessVideo),
+      hasProofOfAddress: Boolean(proofOfAddress),
+      idProofPath: proofOfIdentity,
+      livenessPath: livenessVideo,
+      addressProofPath: proofOfAddress,
+      incomeVerificationPath: incomeVerification,
+      proofOfIdentity,
+      livenessVideo,
+      proofOfAddress,
+      incomeVerification,
     },
     ...(payload.lender ? { lender: payload.lender } : {}),
     ...(payload.borrower ? { borrower: payload.borrower } : {}),
-    ...(payload.questionnaireAnswers ? { questionnaireAnswers: payload.questionnaireAnswers } : {}),
+    questionnaireAnswers: payload.questionnaireAnswers ?? {},
     submittedAt: new Date().toISOString(),
   };
 }

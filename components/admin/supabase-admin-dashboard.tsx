@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Download, Loader2, ShieldCheck, Users, X } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { getCollateralProofSignedUrl } from '@/app/actions/admin-waitlist';
 import { getKycSignedUrlAction, rejectUserAction } from '@/app/actions/admin-users';
+import { listReviewProfilesAction } from '@/app/actions/admin-review-profiles';
 import { fetchKycDocumentForPdf } from '@/app/actions/admin-kyc-pdf';
 import { CollateralDetailsCard } from '@/components/admin/collateral-details-card';
 import { DocumentViewer } from '@/components/admin/document-viewer';
@@ -179,46 +179,71 @@ function normalizeProfileRow(row: Profile): Profile {
   };
 }
 
-const ADMIN_PROFILE_SELECT = [
-  'id',
-  'email',
-  'full_legal_name',
-  'postal_code',
-  'fca_test_answers',
-  'proof_of_identity_url',
-  'liveness_video_url',
-  'proof_of_address_url',
-  'income_verification_url',
-  'borrower_sort_code',
-  'borrower_account_number',
-  'username',
-  'bio',
-  'avatar_url',
-  'cover_url',
-  'role',
-  'status',
-  'account_status',
-  'target_amount',
-  'expected_interest_rate',
-  'collateral_type',
-  'collateral_value',
-  'collateral_description',
-  'collateral_proof_url',
-  'kyc_flagged',
-  'kyc_data',
-  'created_at',
-  'updated_at',
-  'reviewed_at',
-  'reviewed_by',
-].join(', ');
+function parseKycData(value: unknown): Record<string, unknown> | null {
+  if (isRecord(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return isRecord(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 function normalizeKyc(profile: Profile): NormalizedKyc {
-  const raw = isRecord(profile.kyc_data) ? profile.kyc_data : null;
+  const raw = parseKycData(profile.kyc_data);
   const basic = asRecord(raw?.basic) ?? asRecord(raw?.basicDetails) ?? asRecord(raw);
-  const identity = asRecord(raw?.identity) ?? asRecord(raw?.identityMeta);
-  const documents = asRecord(identity?.documents) ?? asRecord(raw?.documents);
+  const identityMeta = asRecord(raw?.identityMeta);
+  const identityBlock = asRecord(raw?.identity);
+  const identity = identityBlock ?? identityMeta;
+  const documents =
+    asRecord(identityBlock?.documents) ?? asRecord(identityMeta?.documents) ?? asRecord(raw?.documents);
   const lender = asRecord(raw?.lender);
   const borrower = asRecord(raw?.borrower);
+
+  const proofOfIdentity = pickOptionalText(
+    profile.proof_of_identity_url,
+    documents?.proofOfIdentity,
+    identityMeta?.idProofPath,
+    identityMeta?.proofOfIdentity,
+    identity?.idProofPath,
+    identity?.proofOfIdentity
+  );
+  const livenessVideo = pickOptionalText(
+    profile.liveness_video_url,
+    documents?.livenessVideo,
+    identityMeta?.livenessPath,
+    identityMeta?.livenessVideo,
+    identity?.livenessPath,
+    identity?.livenessVideo
+  );
+  const proofOfAddress = pickOptionalText(
+    profile.proof_of_address_url,
+    documents?.proofOfAddress,
+    identityMeta?.addressProofPath,
+    identityMeta?.proofOfAddress,
+    identity?.addressProofPath,
+    identity?.proofOfAddress
+  );
+  const incomeVerification = pickOptionalText(
+    profile.income_verification_url,
+    documents?.incomeVerification,
+    identityMeta?.incomeVerificationPath,
+    identityMeta?.incomeVerification,
+    identity?.incomeVerificationPath,
+    identity?.incomeVerification
+  );
+
+  const questionnaireFromKyc = isRecord(raw?.questionnaireAnswers)
+    ? Object.fromEntries(
+        Object.entries(raw.questionnaireAnswers).map(([key, value]) => [
+          key,
+          formatQuestionnaireAnswer(value),
+        ])
+      )
+    : {};
 
   return {
     accountRole:
@@ -238,38 +263,24 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
         ? (profile.fca_test_answers as Record<string, string>)
         : {},
     identity: {
-      proofOfIdentityType: pickText(identity?.proofOfIdentityType, raw?.proofOfIdentityType),
+      proofOfIdentityType: pickText(
+        identityBlock?.proofOfIdentityType,
+        identityMeta?.proofOfIdentityType,
+        raw?.proofOfIdentityType
+      ),
       documents: {
-        proofOfIdentity: pickOptionalText(
-          profile.proof_of_identity_url,
-          documents?.proofOfIdentity,
-          identity?.idProofPath,
-          identity?.proofOfIdentity
-        ),
-        livenessVideo: pickOptionalText(
-          profile.liveness_video_url,
-          documents?.livenessVideo,
-          identity?.livenessPath,
-          identity?.livenessVideo
-        ),
-        proofOfAddress: pickOptionalText(
-          profile.proof_of_address_url,
-          documents?.proofOfAddress,
-          identity?.addressProofPath,
-          identity?.proofOfAddress
-        ),
-        incomeVerification: pickOptionalText(
-          profile.income_verification_url,
-          documents?.incomeVerification,
-          identity?.incomeVerificationPath,
-          identity?.incomeVerification
-        ),
+        proofOfIdentity,
+        livenessVideo,
+        proofOfAddress,
+        incomeVerification,
       },
     },
     lender: lender
       ? {
           investorCategory: pickText(lender.investorCategory),
-          appropriatenessAnswers: Array.isArray(lender.appropriatenessAnswers) ? lender.appropriatenessAnswers : [],
+          appropriatenessAnswers: Array.isArray(lender.appropriatenessAnswers)
+            ? lender.appropriatenessAnswers
+            : [],
           sourceOfFunds: pickText(lender.sourceOfFunds),
           bankSortCode: pickText(lender.bankSortCode),
           bankAccountNumber: pickText(lender.bankAccountNumber),
@@ -284,24 +295,12 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
           creditCheckConsent: Boolean(borrower.creditCheckConsent),
           monthlyRentOrEmi: pickText(borrower.monthlyRentOrEmi),
           otherMonthlyExpenses: pickText(borrower.otherMonthlyExpenses),
-          hasIncomeVerification: Boolean(
-            pickOptionalText(
-              profile.income_verification_url,
-              identity?.incomeVerificationPath,
-              documents?.incomeVerification
-            )
-          ),
+          hasIncomeVerification: Boolean(incomeVerification),
         }
       : undefined,
     submittedAt: pickOptionalText(raw?.submittedAt),
-    questionnaireAnswers: isRecord(raw?.questionnaireAnswers)
-      ? Object.fromEntries(
-          Object.entries(raw.questionnaireAnswers).map(([key, value]) => [
-            key,
-            formatQuestionnaireAnswer(value),
-          ])
-        )
-      : undefined,
+    questionnaireAnswers:
+      Object.keys(questionnaireFromKyc).length > 0 ? questionnaireFromKyc : undefined,
   };
 }
 
@@ -442,27 +441,13 @@ export function SupabaseAdminDashboard() {
         return;
       }
 
-      const supabase = createClient();
-      const [pendingResult, approvedResult, listResult] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'PENDING').neq('role', 'ADMIN'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'APPROVED').neq('role', 'ADMIN'),
-        supabase
-          .from('profiles')
-          .select(ADMIN_PROFILE_SELECT)
-          .neq('role', 'ADMIN')
-          .eq('status', targetTab === 'pending' ? 'PENDING' : 'APPROVED')
-          .order('created_at', { ascending: false }),
-      ]);
+      const result = await listReviewProfilesAction(
+        targetTab === 'pending' ? 'PENDING' : 'APPROVED'
+      );
+      const fetched = result.profiles.map(normalizeProfileRow);
 
-      if (pendingResult.error) throw new Error(pendingResult.error.message);
-      if (approvedResult.error) throw new Error(approvedResult.error.message);
-      if (listResult.error) throw new Error(listResult.error.message);
-
-      const rows = (listResult.data ?? []) as unknown as Profile[];
-      const fetched = rows.map(normalizeProfileRow);
-
-      setPendingCount(pendingResult.count ?? 0);
-      setApprovedCount(approvedResult.count ?? 0);
+      setPendingCount(result.pendingCount);
+      setApprovedCount(result.approvedCount);
       setProfiles(fetched);
       setExpandedId((current) => {
         if (current && fetched.some((profile) => profile.id === current)) {

@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertAdmin } from '@/lib/auth/assert-admin';
+import { normalizeKycStoragePath } from '@/lib/kyc/recover-storage-paths';
 
 const KYC_BUCKETS = ['kyc-documents', 'documents'] as const;
 
@@ -25,7 +26,7 @@ export async function fetchKycDocumentForPdf(storagePath: string): Promise<{
 }> {
   await assertAdmin();
   const admin = createAdminClient();
-  const path = storagePath.trim();
+  const path = normalizeKycStoragePath(storagePath);
   if (!path) {
     throw new Error('storagePath is required');
   }

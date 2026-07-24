@@ -242,7 +242,72 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
         throw new Error(profileError.message);
       }
 
-      console.info('[registerWithDocs] profile upsert succeeded', userId);
+      // Verify paths actually landed — catch schema/trigger wipe issues early.
+      const { data: verified, error: verifyError } = await supabaseAdmin
+        .from('profiles')
+        .select(
+          'proof_of_identity_url, liveness_video_url, proof_of_address_url, income_verification_url, kyc_data'
+        )
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (verifyError) {
+        throw new Error(verifyError.message);
+      }
+
+      const savedId = verified?.proof_of_identity_url;
+      const savedLiveness = verified?.liveness_video_url;
+      const savedAddress = verified?.proof_of_address_url;
+      const savedKyc =
+        verified?.kyc_data && typeof verified.kyc_data === 'object'
+          ? (verified.kyc_data as Record<string, unknown>)
+          : null;
+      const hasIdentityDocs =
+        Boolean(
+          savedKyc &&
+            typeof savedKyc.identity === 'object' &&
+            savedKyc.identity &&
+            (savedKyc.identity as { documents?: { proofOfIdentity?: string } }).documents
+              ?.proofOfIdentity
+        ) || Boolean(savedKyc && (savedKyc.identityMeta as { idProofPath?: string } | undefined)?.idProofPath);
+      const hasQuestionnaire =
+        Boolean(savedKyc?.questionnaireAnswers) &&
+        typeof savedKyc?.questionnaireAnswers === 'object' &&
+        Object.keys(savedKyc.questionnaireAnswers as object).length > 0;
+      const expectsQuestionnaire =
+        Boolean(kyc.questionnaireAnswers) && Object.keys(kyc.questionnaireAnswers ?? {}).length > 0;
+
+      if (!savedId || !savedLiveness || !savedAddress || !hasIdentityDocs) {
+        console.error('[registerWithDocs] verify failed — paths/kyc missing after upsert', {
+          userId,
+          savedId,
+          savedLiveness,
+          savedAddress,
+          hasIdentityDocs,
+          kyc_data: verified?.kyc_data,
+        });
+        throw new Error(
+          'KYC documents uploaded but profile paths were not saved. Please apply the latest Supabase migrations and try again.'
+        );
+      }
+
+      if (expectsQuestionnaire && !hasQuestionnaire) {
+        console.error('[registerWithDocs] verify failed — questionnaireAnswers missing', {
+          userId,
+          kyc_data: verified?.kyc_data,
+        });
+        throw new Error(
+          'Questionnaire answers were not saved to the profile. Please apply the latest Supabase migrations and try again.'
+        );
+      }
+
+      console.info('[registerWithDocs] profile upsert verified', {
+        userId,
+        savedId,
+        savedLiveness,
+        savedAddress,
+        hasQuestionnaire,
+      });
 
       try {
         await createSubmission(email, fullLegalName, kyc_data);

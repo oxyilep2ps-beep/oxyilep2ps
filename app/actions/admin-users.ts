@@ -234,7 +234,8 @@ export async function getKycSignedUrlAction(storagePath: string): Promise<string
   try {
     await assertAdmin();
     const admin = createAdminClient();
-    const path = String(storagePath ?? '').trim();
+    const { normalizeKycStoragePath } = await import('@/lib/kyc/recover-storage-paths');
+    const path = normalizeKycStoragePath(storagePath);
     if (!path) {
       throw new Error('storagePath is required');
     }
