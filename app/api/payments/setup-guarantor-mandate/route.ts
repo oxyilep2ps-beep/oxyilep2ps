@@ -1,26 +1,28 @@
 import { NextResponse } from 'next/server';
+import gocardless from 'gocardless-nodejs';
+import { Environments } from 'gocardless-nodejs/constants';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyGuarantorInviteToken } from '@/lib/guarantor/invite';
-import { createBillingRequestMandateFlow } from '@/lib/gocardless/billing-request-flow';
 
 function appBaseUrl(req: Request): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
 }
 
-function wantsJson(req: Request): boolean {
-  const accept = req.headers.get('accept') ?? '';
-  const contentType = req.headers.get('content-type') ?? '';
-  return contentType.includes('application/json') || accept.includes('application/json');
-}
+const client = process.env.GOCARDLESS_ACCESS_TOKEN
+  ? gocardless(
+      process.env.GOCARDLESS_ACCESS_TOKEN,
+      process.env.GOCARDLESS_ENVIRONMENT === 'live' ? Environments.Live : Environments.Sandbox
+    )
+  : null;
 
-function jsonOrRedirect(req: Request, url: string, extra: Record<string, unknown> = {}) {
-  if (wantsJson(req)) {
-    return NextResponse.json({ ok: true, authorisation_url: url, redirectUrl: url, ...extra });
-  }
-  return NextResponse.redirect(url);
-}
-
-async function createGuarantorBillingRequest(req: Request, body: Record<string, unknown>): Promise<Response> {
+/**
+ * Guarantor mandate setup — ALWAYS returns JSON.
+ * The browser must then navigate with GET (never follow a 307 POST redirect to GoCardless).
+ */
+async function createGuarantorBillingRequest(
+  req: Request,
+  body: Record<string, unknown>
+): Promise<Response> {
   const {
     loanId,
     email,
@@ -71,7 +73,7 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
     declinedUrl.searchParams.set('email', guarantorEmail);
     declinedUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
     declinedUrl.searchParams.set('token', String(token ?? ''));
-    return jsonOrRedirect(req, declinedUrl.toString());
+    return NextResponse.json({ ok: true, redirectUrl: declinedUrl.toString() });
   }
 
   const completeUrl = new URL(`/guarantor/review/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
@@ -81,36 +83,61 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
   completeUrl.searchParams.set('token', String(token ?? ''));
 
   const sandboxForced =
-    process.env.PAYMENT_SANDBOX_MODE === 'true' || process.env.PAYMENT_SANDBOX_MODE === '1';
+    !client ||
+    process.env.PAYMENT_SANDBOX_MODE === 'true' ||
+    process.env.PAYMENT_SANDBOX_MODE === '1';
 
   if (sandboxForced) {
     completeUrl.searchParams.set('gocardless_stub', '1');
-    return jsonOrRedirect(req, completeUrl.toString(), { stub: true });
+    return NextResponse.json({
+      ok: true,
+      stub: true,
+      authorisation_url: completeUrl.toString(),
+      redirectUrl: completeUrl.toString(),
+    });
   }
 
   try {
-    const flow = await createBillingRequestMandateFlow({
-      borrowerId: String(handshake.borrower_id),
-      lenderId: String(handshake.lender_id),
-      handshakeId: id,
-      redirectUri: completeUrl.toString(),
-      exitUri: completeUrl.toString(),
+    // Same shape as /api/payments/setup-mandate (borrower) — proven path.
+    const billingRequest = await client!.billingRequests.create({
+      mandate_request: {
+        currency: 'GBP',
+      },
+      metadata: {
+        handshake_id: id.slice(0, 50),
+        role: 'guarantor',
+        guarantor_email: guarantorEmail.slice(0, 50),
+      },
     });
 
-    if (!flow.success || !flow.authorisation_url) {
+    completeUrl.searchParams.set('billingRequestId', billingRequest.id);
+
+    const flow = await client!.billingRequestFlows.create({
+      redirect_uri: completeUrl.toString(),
+      exit_uri: completeUrl.toString(),
+      links: {
+        billing_request: billingRequest.id,
+      },
+    });
+
+    if (!flow.authorisation_url) {
       return NextResponse.json(
-        { ok: false, error: flow.error ?? 'GoCardless did not return an authorisation URL.' },
+        { ok: false, error: 'GoCardless did not return an authorisation URL.' },
         { status: 502 }
       );
     }
 
-    return jsonOrRedirect(req, flow.authorisation_url, {
-      billing_request_id: flow.billing_request_id,
-      stub: flow.stub ?? false,
+    return NextResponse.json({
+      ok: true,
+      authorisation_url: flow.authorisation_url,
+      redirectUrl: flow.authorisation_url,
+      billing_request_id: billingRequest.id,
+      billing_request_flow_id: flow.id,
     });
   } catch (error) {
+    console.error('[setup-guarantor-mandate] GoCardless error:', error);
     const message = error instanceof Error ? error.message : 'GoCardless mandate setup failed';
-    // Never leak raw XML/gateway bodies as an uncaught crash — always JSON.
+    // Always JSON — never leak raw XML gateway bodies as an uncaught response.
     return NextResponse.json({ ok: false, error: message }, { status: 502 });
   }
 }
@@ -122,11 +149,11 @@ async function parseRequestBody(req: Request): Promise<Record<string, unknown>> 
     try {
       return (await req.json()) as Record<string, unknown>;
     } catch {
-      throw new Error('Invalid JSON body. Expected Content-Type: application/json with a JSON payload.');
+      throw new Error('Invalid JSON body. Expected Content-Type: application/json.');
     }
   }
 
-  // Legacy HTML form posts (application/x-www-form-urlencoded or multipart/form-data)
+  // Legacy form posts still supported, but we only ever reply with JSON (no redirect).
   try {
     const formData = await req.formData();
     const payload = formData.get('payload');
@@ -145,7 +172,6 @@ async function parseRequestBody(req: Request): Promise<Record<string, unknown>> 
       parsed.action = action.trim();
     }
 
-    // Also accept flat form fields
     for (const key of ['loanId', 'email', 'token', 'issuedAt'] as const) {
       const value = formData.get(key);
       if (typeof value === 'string' && value.trim() && parsed[key] == null) {
