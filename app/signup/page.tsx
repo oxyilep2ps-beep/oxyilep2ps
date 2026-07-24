@@ -8,7 +8,6 @@ import { SignUpWizard, type SignUpWizardFiles } from '@/components/sign-up-wizar
 import { AuthToast } from '@/components/auth-toast';
 import { Footer } from '@/components/footer';
 import { Logo } from '@/components/logo';
-import { registerUserWithDocs } from '@/app/actions/register-user';
 import type { KycSubmissionPayload } from '@/lib/types/kyc';
 
 const SIGNUP_SUCCESS_MESSAGE =
@@ -33,11 +32,12 @@ export default function SignUpPage() {
 
     try {
       if (!files.proofOfIdentity || !files.livenessVideo || !files.proofOfAddress) {
-        throw new Error('Proof of identity, liveness video, and proof of address are required.');
+        setError('Proof of identity, liveness video, and proof of address are required.');
+        return;
       }
 
-      // Entire auth + KYC upload + profile write runs server-side (service role).
-      // No client session required when email confirmation is enabled.
+      // Use API route (JSON errors) instead of Server Actions — large multipart
+      // uploads often trigger Next's masked "unexpected response" error.
       const formData = new FormData();
       formData.append('email', meta.email.trim());
       formData.append('password', meta.password);
@@ -51,9 +51,31 @@ export default function SignUpPage() {
         formData.append('incomeVerification', files.incomeVerification);
       }
 
-      const result = await registerUserWithDocs(formData);
-      if (!result?.success) {
-        throw new Error(result?.error || 'Registration failed. Please try again.');
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        body: formData,
+      });
+
+      let payload: { success?: boolean; error?: string; userId?: string } | null = null;
+      try {
+        payload = (await response.json()) as {
+          success?: boolean;
+          error?: string;
+          userId?: string;
+        };
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok || !payload?.success) {
+        // Show the REAL server error string in the red toast
+        const realError =
+          payload?.error ||
+          (response.status === 413
+            ? 'Upload too large. Please use smaller KYC files (under 45MB each).'
+            : `Form submission failed (HTTP ${response.status}).`);
+        setError(realError);
+        return;
       }
 
       setSuccessOpen(true);
@@ -62,7 +84,18 @@ export default function SignUpPage() {
         router.refresh();
       }, 2200);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Registration failed');
+      const message =
+        e instanceof Error && e.message
+          ? e.message
+          : 'Form submission failed. Please try again.';
+      // Unmask Next's generic boundary message with a clearer hint
+      if (/unexpected response/i.test(message)) {
+        setError(
+          'Upload failed before the server could respond. Try smaller files (under 45MB) and check the terminal logs for 🚨 SERVER ACTION CRASHED.'
+        );
+      } else {
+        setError(message);
+      }
     } finally {
       setSubmitting(false);
     }

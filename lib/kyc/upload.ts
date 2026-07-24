@@ -18,13 +18,13 @@ export type UploadableFile = {
  * Passing File objects directly to supabase-js in Server Actions is unreliable.
  */
 export async function fileToUploadBuffer(file: UploadableFile): Promise<{
-  buffer: Buffer;
+  bytes: Uint8Array;
   contentType: string;
   ext: string;
 }> {
   const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  if (!buffer.length) {
+  const bytes = new Uint8Array(arrayBuffer);
+  if (!bytes.byteLength) {
     throw new Error(`Empty file upload: ${file.name || 'unknown'}`);
   }
 
@@ -32,7 +32,7 @@ export async function fileToUploadBuffer(file: UploadableFile): Promise<{
     (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
   const contentType = file.type || 'application/octet-stream';
 
-  return { buffer, contentType, ext };
+  return { bytes, contentType, ext };
 }
 
 export async function uploadKycFile(
@@ -41,10 +41,10 @@ export async function uploadKycFile(
   file: UploadableFile,
   slug: string
 ): Promise<string> {
-  const { buffer, contentType, ext } = await fileToUploadBuffer(file);
+  const { bytes, contentType, ext } = await fileToUploadBuffer(file);
   const path = `${userId}/${slug}.${ext}`;
 
-  const { error } = await supabase.storage.from(KYC_BUCKET).upload(path, buffer, {
+  const { error } = await supabase.storage.from(KYC_BUCKET).upload(path, bytes, {
     upsert: true,
     contentType,
   });
@@ -55,7 +55,7 @@ export async function uploadKycFile(
 
   // Best-effort mirror into documents bucket (non-fatal).
   try {
-    await supabase.storage.from(KYC_BUCKET_ALIAS).upload(path, buffer, {
+    await supabase.storage.from(KYC_BUCKET_ALIAS).upload(path, bytes, {
       upsert: true,
       contentType,
     });
