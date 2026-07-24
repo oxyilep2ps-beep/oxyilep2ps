@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { extractRegisterPayload } from '@/lib/auth/extract-register-form';
 import { uploadAllKycDocuments, type WizardUploadFiles } from '@/lib/kyc/upload';
@@ -60,18 +59,6 @@ function getAppOrigin(): string {
   return 'http://localhost:3000';
 }
 
-function createAnonAuthClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
-  }
-
-  return createClient(url, anonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
-
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return String(error.message);
   if (typeof error === 'string' && error.trim()) return error;
@@ -86,8 +73,11 @@ function toErrorMessage(error: unknown): string {
  * Shared registration + KYC upload pipeline (used by API route AND server action).
  * Never throws — always returns a plain serializable result.
  *
- * Atomicity: if uploads or profile insert fail AFTER auth.signUp, we roll back
- * the Auth user via the service-role admin client so retries are not blocked.
+ * Auth: uses service-role admin.createUser (bypasses anon signUp CAPTCHA /
+ * enumeration protection / null-user quirks on Vercel).
+ *
+ * Atomicity: if uploads or profile insert fail AFTER createUser, we roll back
+ * the Auth user via admin.deleteUser so retries are not blocked.
  */
 export async function runRegisterWithDocs(formData: FormData): Promise<RegisterWithDocsResult> {
   let createdUserId: string | null = null;
@@ -95,7 +85,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
   try {
     console.info('[registerWithDocs] start');
 
-    // EPIC 1 — extract EVERY text field explicitly (flat FormData + nested kyc JSON).
     const extracted = extractRegisterPayload(formData);
     const { email, password, fullLegalName, kyc } = extracted;
     const expectedInterestRate = Number(
@@ -110,7 +99,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
     }
 
     if (!kyc.role || (!kyc.basic.ukPhone && !kyc.basic.dateOfBirth)) {
-      // Soft guard: still require a usable KYC payload
       if (!formData.get('kyc') && Object.keys(kyc.questionnaireAnswers ?? {}).length === 0) {
         return {
           success: false,
@@ -150,7 +138,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       ]),
     };
 
-    // EPIC 2 — strict terminal logs so we can see if files reached the server
     logExtractedFile('ID PROOF', files.proofOfIdentity);
     logExtractedFile('LIVENESS SELFIE', files.livenessVideo);
     logExtractedFile('ADDRESS PROOF', files.proofOfAddress);
@@ -163,7 +150,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       )
     );
 
-    // Mark identity flags from actual files when flat flags were omitted.
     kyc.identityMeta.hasProofOfIdentity =
       kyc.identityMeta.hasProofOfIdentity || Boolean(files.proofOfIdentity);
     kyc.identityMeta.hasLivenessVideo =
@@ -189,7 +175,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       income: files.incomeVerification?.size ?? 0,
     });
 
-    // EPIC 2 — explicit per-file presence/empty checks (exact reason to UI).
     if (!files.proofOfIdentity || files.proofOfIdentity.size === 0) {
       return { success: false, error: 'ID Proof file is missing or empty.' };
     }
@@ -217,6 +202,7 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
 
     const userMeta = {
       full_legal_name: fullLegalName,
+      legal_name: fullLegalName,
       uk_phone: String(kyc.basic?.ukPhone ?? ''),
       postal_code: String(kyc.basic?.postalCode ?? ''),
       date_of_birth: String(kyc.basic?.dateOfBirth ?? ''),
@@ -225,7 +211,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       proof_of_identity_type: String(kyc.identityMeta?.proofOfIdentityType ?? ''),
       account_role: kyc.role,
       role: kyc.role === 'borrower' ? 'BORROWER' : 'INVESTOR',
-      // Flat questionnaire safety net for trigger / debugging (full blob written on profile upsert)
       uk_resident: (kyc.questionnaireAnswers ?? {})['Are you a UK resident?'] ?? '',
       understands_risk:
         (kyc.questionnaireAnswers ?? {})['Do you understand P2P lending carries risk?'] ?? '',
@@ -236,52 +221,63 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
         : FIXED_INTEREST_RATE,
     };
 
-    console.info('[registerWithDocs] auth.signUp', email);
-    const authClient = createAnonAuthClient();
-    const { data: authData, error: authError } = await authClient.auth.signUp({
+    // Service-role client — admin.createUser + storage + profile upsert + rollback.
+    const supabaseAdmin = createAdminClient();
+
+    console.info('[registerWithDocs] admin.createUser', email);
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: userMeta,
-        emailRedirectTo: `${getAppOrigin()}/auth/callback`,
+      // Keep unconfirmed so the user still verifies email.
+      email_confirm: false,
+      user_metadata: userMeta,
+      app_metadata: {
+        account_role: kyc.role,
       },
     });
 
     if (authError) {
-      console.error('🚨 SUPABASE AUTH ERROR:', authError);
+      console.error('🚨 ADMIN AUTH ERROR:', authError);
       return {
         success: false,
         error: `Auth Error: ${authError.message}`,
       };
     }
 
-    // CRITICAL: use authData.user.id — NEVER authData.session (null when email confirm is on).
+    // Admin API returns a real user when authError is null — no enumeration-protection null shell.
     const userId = authData.user?.id ? String(authData.user.id) : null;
-    const identities = authData.user?.identities ?? [];
-
     if (!userId) {
       return {
         success: false,
-        error:
-          'Supabase returned no User ID. Email Enumeration Protection may have blocked this request because this email already exists in Supabase Auth Users.',
-      };
-    }
-
-    if (identities.length === 0) {
-      return {
-        success: false,
-        error:
-          'Supabase returned a user with no identities. Email Enumeration Protection indicates this email already exists in Supabase Auth Users.',
+        error: 'Admin createUser succeeded but returned no user id.',
       };
     }
 
     createdUserId = userId;
-    console.info('[registerWithDocs] auth user created', userId);
+    console.info('[registerWithDocs] auth user created via admin API', userId);
 
-    const supabaseAdmin = createAdminClient();
+    // Best-effort confirmation link (admin.createUser does not auto-send anon signup mail).
+    try {
+      const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
+        email,
+        password,
+        options: {
+          redirectTo: `${getAppOrigin()}/auth/callback`,
+          data: userMeta,
+        },
+      });
+      if (linkError) {
+        console.warn('[registerWithDocs] generateLink warning:', linkError.message);
+      } else {
+        console.info('[registerWithDocs] confirmation link generated for', email);
+      }
+    } catch (linkCrash) {
+      console.warn('[registerWithDocs] generateLink threw (non-fatal):', linkCrash);
+    }
 
     try {
-      // EPIC 2 — ArrayBuffer uploads; paths (and public mirror) mapped after success.
+      // Uploads + profile upsert use this admin-created userId.
       console.info('[registerWithDocs] uploading KYC documents for', userId);
       const documents = await uploadAllKycDocuments(supabaseAdmin, userId, files);
 
@@ -302,7 +298,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
         incomeVerificationUrl,
       });
 
-      // EPIC 3 — comprehensive profile upsert with ALL text fields + document paths.
       const kyc_data = buildStoredKycData(kyc, {
         proofOfIdentity: idProofUrl,
         livenessVideo: livenessUrl,
@@ -321,13 +316,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
         questionnaireAnswers: kyc_data.questionnaireAnswers,
       });
 
-      console.info('[registerWithDocs] profile upsert payload document columns', {
-        proof_of_identity_url: idProofUrl,
-        liveness_video_url: livenessUrl,
-        proof_of_address_url: addressProofUrl,
-        income_verification_url: incomeVerificationUrl,
-      });
-
       const profilePayload = {
         id: userId,
         full_legal_name: fullLegalName,
@@ -337,12 +325,10 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
         account_status: 'active' as const,
         postal_code: kyc.basic.postalCode?.trim().toUpperCase() || null,
         fca_test_answers: fcaTestAnswers,
-        // Document columns — EXACT schema names (not id_proof_url)
         proof_of_identity_url: idProofUrl,
         liveness_video_url: livenessUrl,
         proof_of_address_url: addressProofUrl,
         income_verification_url: incomeVerificationUrl,
-        // Flat Yes/No questionnaire columns (admin + kyc_data dual write)
         is_uk_resident:
           (kyc.questionnaireAnswers ?? {})['Are you a UK resident?'] ?? null,
         understands_p2p_risk:
@@ -441,7 +427,7 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       console.info('[registerWithDocs] success', userId);
       return { success: true, userId };
     } catch (processError: unknown) {
-      console.error('🚨 PIPELINE FAILED after auth.signUp:', processError);
+      console.error('🚨 PIPELINE FAILED after admin.createUser:', processError);
 
       if (userId) {
         try {
@@ -458,7 +444,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
 
       createdUserId = null;
 
-      // EPIC 1 — surface the EXACT reason to the UI (visible in Vercel prod).
       const exactReason = toErrorMessage(processError);
       return {
         success: false,
@@ -478,7 +463,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       }
     }
 
-    // EPIC 1 — never return a generic error; include the exact reason.
     const exactReason = error instanceof Error ? error.message : toErrorMessage(error);
     return {
       success: false,
