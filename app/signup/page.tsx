@@ -52,8 +52,8 @@ export default function SignUpPage() {
       }
 
       const result = await registerUserWithDocs(formData);
-      if (!result.ok) {
-        throw new Error(result.error);
+      if (!result?.success) {
+        throw new Error(result?.error || 'Registration failed. Please try again.');
       }
 
       setSuccessOpen(true);

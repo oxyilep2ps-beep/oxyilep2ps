@@ -5,8 +5,9 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
     serverActions: {
-      // KYC onboarding uploads ID + address + liveness video in one FormData payload.
-      bodySizeLimit: '55mb',
+      // KYC onboarding: ID + address + liveness video in one FormData payload.
+      // Keep well above Vercel/Next defaults so video uploads don't crash the action.
+      bodySizeLimit: '50mb',
     },
   },
 };

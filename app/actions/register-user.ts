@@ -9,19 +9,19 @@ import { createSubmission } from '@/lib/data/kyc-store';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
 import type { KycSubmissionPayload } from '@/lib/types/kyc';
 
-function toFile(value: FormDataEntryValue | null): File | null {
+function toUploadable(value: FormDataEntryValue | null): WizardUploadFiles[keyof WizardUploadFiles] {
   if (!value || typeof value === 'string') return null;
 
-  const blob = value as Blob & { name?: string; size: number; type: string };
+  const blob = value as Blob & { name?: string; size: number; type: string; arrayBuffer: () => Promise<ArrayBuffer> };
   if (!blob.size || blob.size <= 0) return null;
+  if (typeof blob.arrayBuffer !== 'function') return null;
 
-  if (typeof File !== 'undefined' && value instanceof File) {
-    return value;
-  }
-
-  return new File([blob], blob.name || 'upload.bin', {
+  return {
+    name: typeof blob.name === 'string' && blob.name ? blob.name : 'upload.bin',
     type: blob.type || 'application/octet-stream',
-  });
+    size: blob.size,
+    arrayBuffer: () => blob.arrayBuffer(),
+  };
 }
 
 function getAppOrigin(): string {
@@ -44,78 +44,81 @@ function createAnonAuthClient() {
   });
 }
 
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  return 'Unknown error occurred';
+}
+
 export type RegisterUserResult =
-  | { ok: true; userId: string }
-  | { ok: false; error: string };
+  | { success: true; userId: string }
+  | { success: false; error: string };
 
 /**
  * Full onboarding pipeline that does NOT require an auth session.
  * Uses the service-role client for Storage + profiles so RLS cannot block
  * uploads when email confirmation leaves the user without a session.
+ *
+ * CRITICAL: only return plain serializable objects — never raw Supabase responses.
  */
 export async function registerUserWithDocs(formData: FormData): Promise<RegisterUserResult> {
   try {
     // ── Step A: Extract ──────────────────────────────────────────────
-    const email = formData.get('email')?.toString().trim().toLowerCase() ?? '';
-    const password = formData.get('password')?.toString() ?? '';
-    const fullLegalName = formData.get('fullLegalName')?.toString().trim() ?? '';
-    const kycJson = formData.get('kyc')?.toString() ?? '';
+    const email = String(formData.get('email') ?? '')
+      .trim()
+      .toLowerCase();
+    const password = String(formData.get('password') ?? '');
+    const fullLegalName = String(formData.get('fullLegalName') ?? '').trim();
+    const kycJson = String(formData.get('kyc') ?? '');
     const expectedInterestRateRaw = formData.get('expected_interest_rate')?.toString();
     const expectedInterestRate = Number(expectedInterestRateRaw ?? FIXED_INTEREST_RATE);
 
     if (!email || !password || !fullLegalName || !kycJson) {
       return {
-        ok: false,
+        success: false,
         error: 'Email, password, full legal name, and KYC payload are required.',
       };
     }
 
     if (password.length < 8) {
-      return { ok: false, error: 'Password must be at least 8 characters.' };
+      return { success: false, error: 'Password must be at least 8 characters.' };
     }
 
     let kyc: KycSubmissionPayload;
     try {
       kyc = JSON.parse(kycJson) as KycSubmissionPayload;
     } catch {
-      return { ok: false, error: 'Invalid KYC payload.' };
+      return { success: false, error: 'Invalid KYC payload.' };
     }
 
     const files: WizardUploadFiles = {
-      proofOfIdentity: toFile(formData.get('proofOfIdentity')),
-      livenessVideo: toFile(formData.get('livenessVideo')),
-      proofOfAddress: toFile(formData.get('proofOfAddress')),
-      incomeVerification: toFile(formData.get('incomeVerification')),
+      proofOfIdentity: toUploadable(formData.get('proofOfIdentity')),
+      livenessVideo: toUploadable(formData.get('livenessVideo')),
+      proofOfAddress: toUploadable(formData.get('proofOfAddress')),
+      incomeVerification: toUploadable(formData.get('incomeVerification')),
     };
 
     if (!files.proofOfIdentity || !files.livenessVideo || !files.proofOfAddress) {
       return {
-        ok: false,
+        success: false,
         error: 'Proof of identity, liveness video, and proof of address are required.',
       };
     }
 
-    const kycDataForMeta = buildStoredKycData(kyc, {
-      proofOfIdentity: null,
-      livenessVideo: null,
-      proofOfAddress: null,
-      incomeVerification: null,
-    });
-
+    // Keep auth metadata SMALL — large kyc_data blobs can break signup responses.
     const userMeta = {
       full_legal_name: fullLegalName,
-      uk_phone: kyc.basic.ukPhone,
-      postal_code: kyc.basic.postalCode,
-      date_of_birth: kyc.basic.dateOfBirth,
-      current_address: kyc.basic.currentAddress,
-      address_history_3_years: kyc.basic.addressHistory3Years,
-      proof_of_identity_type: kyc.identityMeta.proofOfIdentityType,
+      uk_phone: String(kyc.basic?.ukPhone ?? ''),
+      postal_code: String(kyc.basic?.postalCode ?? ''),
+      date_of_birth: String(kyc.basic?.dateOfBirth ?? ''),
+      current_address: String(kyc.basic?.currentAddress ?? ''),
+      address_history_3_years: String(kyc.basic?.addressHistory3Years ?? ''),
+      proof_of_identity_type: String(kyc.identityMeta?.proofOfIdentityType ?? ''),
       account_role: kyc.role,
       role: kyc.role === 'borrower' ? 'BORROWER' : 'INVESTOR',
       expected_interest_rate: Number.isFinite(expectedInterestRate)
         ? expectedInterestRate
         : FIXED_INTEREST_RATE,
-      kyc_data: kycDataForMeta,
     };
 
     // ── Step B: Auth signup (no session required) ────────────────────
@@ -130,48 +133,44 @@ export async function registerUserWithDocs(formData: FormData): Promise<Register
     });
 
     if (signUpError) {
-      return { ok: false, error: signUpError.message };
+      return { success: false, error: String(signUpError.message) };
     }
 
     // CRITICAL: use user.id — never data.session (null when email confirm is on)
     const user = signUpData.user;
-    const userId = user?.id ?? null;
+    const userId = user?.id ? String(user.id) : null;
     const identities = user?.identities ?? [];
 
     if (user && identities.length === 0) {
       return {
-        ok: false,
+        success: false,
         error: 'An account with this email already exists. Please sign in instead.',
       };
     }
 
     if (!userId) {
       return {
-        ok: false,
+        success: false,
         error:
           'Signup succeeded but no user id was returned by Auth. Please try again or contact support.',
       };
     }
 
-    // ── Step C + D: Admin storage upload then profile upsert ─────────
+    // ── Step C: Admin storage upload (Buffer, not raw File) ──────────
     const admin = createAdminClient();
 
-    let documents;
+    let documents: Awaited<ReturnType<typeof uploadAllKycDocuments>>;
     try {
       documents = await uploadAllKycDocuments(admin, userId, files);
     } catch (uploadError) {
-      // Best-effort cleanup of orphaned auth user so they can retry cleanly
       try {
         await admin.auth.admin.deleteUser(userId);
       } catch {
         // ignore cleanup failures
       }
       return {
-        ok: false,
-        error:
-          uploadError instanceof Error
-            ? uploadError.message
-            : 'KYC document upload failed. Please try again.',
+        success: false,
+        error: toErrorMessage(uploadError) || 'KYC document upload failed. Please try again.',
       };
     }
 
@@ -181,9 +180,13 @@ export async function registerUserWithDocs(formData: FormData): Promise<Register
       } catch {
         // ignore
       }
-      return { ok: false, error: 'One or more KYC documents failed to upload. Please retry.' };
+      return {
+        success: false,
+        error: 'One or more KYC documents failed to upload. Please retry.',
+      };
     }
 
+    // ── Step D: Admin DB upsert ──────────────────────────────────────
     const kyc_data = buildStoredKycData(kyc, documents);
     const profileRole = mapWizardRoleToProfileRole(kyc.role);
     const fcaTestAnswers =
@@ -212,7 +215,7 @@ export async function registerUserWithDocs(formData: FormData): Promise<Register
     );
 
     if (profileError) {
-      return { ok: false, error: profileError.message };
+      return { success: false, error: String(profileError.message) };
     }
 
     try {
@@ -221,11 +224,12 @@ export async function registerUserWithDocs(formData: FormData): Promise<Register
       // Secondary store — non-fatal
     }
 
-    return { ok: true, userId };
+    return { success: true, userId };
   } catch (error) {
+    console.error('[registerUserWithDocs]', error);
     return {
-      ok: false,
-      error: error instanceof Error ? error.message : 'Registration failed. Please try again.',
+      success: false,
+      error: toErrorMessage(error),
     };
   }
 }
