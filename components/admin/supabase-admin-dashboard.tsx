@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Check, Download, Loader2, ShieldCheck, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getCollateralProofSignedUrl } from '@/app/actions/admin-waitlist';
-import { getKycSignedUrlAction } from '@/app/actions/admin-users';
+import { getKycSignedUrlAction, rejectUserAction } from '@/app/actions/admin-users';
 import { fetchKycDocumentForPdf } from '@/app/actions/admin-kyc-pdf';
 import { CollateralDetailsCard } from '@/components/admin/collateral-details-card';
 import { DocumentViewer } from '@/components/admin/document-viewer';
@@ -353,6 +353,7 @@ export function SupabaseAdminDashboard() {
   const [rejectReason, setRejectReason] = useState('');
   const [rejections, setRejections] = useState<RejectionRow[]>([]);
   const [rejectedCount, setRejectedCount] = useState(0);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const signedUrlCache = useRef<Record<string, string>>({});
 
   const load = useCallback(async (targetTab: Tab = tab) => {
@@ -416,6 +417,12 @@ export function SupabaseAdminDashboard() {
   useEffect(() => {
     void load(tab);
   }, [load, tab]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   const resolveDocumentUrl = useCallback(async (path: string) => {
     const cached = signedUrlCache.current[path];
@@ -483,8 +490,41 @@ export function SupabaseAdminDashboard() {
 
   const handleConfirmReject = useCallback(() => {
     if (!rejectTarget) return;
-    void submitReview({ userId: rejectTarget.id, action: 'REJECTED', reason: rejectReason });
-  }, [rejectReason, rejectTarget, submitReview]);
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setToast({ type: 'error', text: 'Please enter a rejection reason.' });
+      return;
+    }
+
+    setReviewing(true);
+    setMessage(null);
+
+    void (async () => {
+      try {
+        await rejectUserAction(rejectTarget.id, reason);
+        setRejectTarget(null);
+        setRejectReason('');
+        setToast({ type: 'success', text: 'Applicant rejected and email sent successfully.' });
+        setMessage('Applicant rejected and email sent successfully.');
+        await load('pending');
+        // Refresh rejected archive count in background
+        void listApplicationRejections()
+          .then((rows) => setRejectedCount(rows.length))
+          .catch(() => undefined);
+      } catch (error) {
+        const text =
+          error instanceof Error && /email|API logs/i.test(error.message)
+            ? 'Failed to send email. Please check API logs.'
+            : error instanceof Error
+              ? error.message
+              : 'Failed to send email. Please check API logs.';
+        setToast({ type: 'error', text });
+        setMessage(text);
+      } finally {
+        setReviewing(false);
+      }
+    })();
+  }, [load, rejectReason, rejectTarget]);
 
   const handleExportApprovedUsers = useCallback(() => {
     setExportingApproved(true);
@@ -579,7 +619,22 @@ export function SupabaseAdminDashboard() {
               )}
             </div>
 
-            {message && (
+            {toast && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mt-4 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold ${
+                  toast.type === 'success'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200'
+                    : 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200'
+                }`}
+              >
+                {toast.type === 'success' ? <Check size={16} /> : <X size={16} />}
+                {toast.text}
+              </motion.div>
+            )}
+
+            {message && !toast && (
               <motion.p
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}

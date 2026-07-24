@@ -99,46 +99,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'A rejection reason is required' }, { status: 400 });
     }
 
-    await admin.from('application_rejections').insert({
-      user_id: profile.id,
-      email: profile.email,
-      full_legal_name: profile.full_legal_name,
-      role: profile.role ?? null,
-      rejection_reason: body.reason.trim(),
-      kyc_data: profile.kyc_data,
-      rejected_by: adminUser.email,
-    });
-
-    const storagePaths = collectStoragePaths(profile.kyc_data as { identity?: { documents?: KycDocumentPaths } } | null);
-    if (storagePaths.length > 0) {
-      await admin.storage.from(KYC_BUCKET).remove(storagePaths);
-    }
-
-    await admin.from('profiles').delete().eq('id', profile.id);
-
-    const { error: authError } = await admin.auth.admin.deleteUser(profile.id);
-    if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 500 });
-    }
-
-    let emailWarning: string | null = null;
     try {
+      await admin.from('application_rejections').insert({
+        user_id: profile.id,
+        email: profile.email,
+        full_legal_name: profile.full_legal_name,
+        role: profile.role ?? null,
+        rejection_reason: body.reason.trim(),
+        kyc_data: profile.kyc_data,
+        rejected_by: adminUser.email,
+      });
+
+      // Email first — fail the request if Resend cannot deliver.
       await sendReviewEmail({
         to: profile.email,
         fullLegalName: profile.full_legal_name,
         status: 'REJECTED',
         reason: body.reason.trim(),
       });
-    } catch (error) {
-      emailWarning = error instanceof Error ? error.message : 'Rejection email failed to send';
-    }
 
-    revalidatePath('/admin-dashboard');
-    return NextResponse.json({
-      ok: true,
-      action: 'REJECTED',
-      warning: emailWarning,
-    });
+      const storagePaths = collectStoragePaths(
+        profile.kyc_data as { identity?: { documents?: KycDocumentPaths } } | null
+      );
+      if (storagePaths.length > 0) {
+        await admin.storage.from(KYC_BUCKET).remove(storagePaths);
+      }
+
+      await admin.from('profiles').delete().eq('id', profile.id);
+
+      const { error: authError } = await admin.auth.admin.deleteUser(profile.id);
+      if (authError) {
+        return NextResponse.json({ error: authError.message }, { status: 500 });
+      }
+
+      revalidatePath('/admin-dashboard');
+      return NextResponse.json({
+        ok: true,
+        action: 'REJECTED',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Rejection failed';
+      if (/resend|email|RESEND_API_KEY/i.test(message)) {
+        return NextResponse.json(
+          { error: 'Failed to send email. Please check API logs.' },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Review request failed' },

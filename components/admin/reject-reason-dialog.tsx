@@ -75,7 +75,7 @@ export function RejectReasonDialog({
               <button
                 type="button"
                 onClick={onConfirm}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !reason.trim()}
                 className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
