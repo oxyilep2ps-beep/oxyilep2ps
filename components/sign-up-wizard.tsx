@@ -31,6 +31,7 @@ import {
   isValidUkSortCode,
 } from '@/lib/validation/kyc';
 import { Logo } from '@/components/logo';
+import { AuthToast } from '@/components/auth-toast';
 import { StrategicQuestionsFields } from '@/components/strategic-questions-fields';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
 import {
@@ -41,6 +42,9 @@ import {
 } from '@/lib/questionnaire/strategic-questions';
 import { cn } from '@/lib/utils';
 import { APPROPRIATENESS_QUESTIONS } from '@/lib/kyc/constants';
+
+/** FinTech KYC standard — reject oversized docs before they hit the server. */
+const MAX_KYC_FILE_BYTES = 10 * 1024 * 1024;
 
 const STEPS = ['Basic Details', 'Identity & AML', 'Role-specific'] as const;
 
@@ -100,6 +104,7 @@ function FileDrop({
   accept,
   file,
   onFile,
+  onReject,
   icon,
 }: {
   label: string;
@@ -107,6 +112,7 @@ function FileDrop({
   accept?: string;
   file: File | null;
   onFile: (f: File | null) => void;
+  onReject?: (message: string) => void;
   icon: React.ReactNode;
 }) {
   return (
@@ -119,7 +125,16 @@ function FileDrop({
         type="file"
         className="sr-only"
         accept={accept}
-        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          const selected = e.target.files?.[0] ?? null;
+          if (selected && selected.size > MAX_KYC_FILE_BYTES) {
+            e.target.value = '';
+            onFile(null);
+            onReject?.('File is too large. Please upload a document under 10MB.');
+            return;
+          }
+          onFile(selected);
+        }}
       />
     </label>
   );
@@ -148,6 +163,7 @@ export interface SignUpWizardProps {
 export function SignUpWizard({ onComplete }: SignUpWizardProps) {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [role, setRole] = useState<AccountRole>('lender');
   const [errors, setErrors] = useState<string[]>([]);
   const [password, setPassword] = useState('');
@@ -461,27 +477,30 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             <FileDrop
               label="Proof of Identity"
-              hint="Passport, licence, or BRP scan"
-              accept="image/*,.pdf"
+              hint="JPG, PNG, or PDF — max 10MB"
+              accept=".jpg,.jpeg,.png,.pdf"
               file={identity.proofOfIdentity}
               onFile={(f) => setIdentity({ ...identity, proofOfIdentity: f })}
+              onReject={setFileError}
               icon={<FileText className="text-brand-500" size={24} />}
             />
             <FileDrop
               label="Proof of Address"
-              hint="Utility bill dated within 3 months"
-              accept="image/*,.pdf"
+              hint="JPG, PNG, or PDF — max 10MB"
+              accept=".jpg,.jpeg,.png,.pdf"
               file={identity.proofOfAddress}
               onFile={(f) => setIdentity({ ...identity, proofOfAddress: f })}
+              onReject={setFileError}
               icon={<Upload className="text-brand-500" size={24} />}
             />
           </div>
           <FileDrop
             label="Liveness Video / Selfie Check"
-            hint="~3 second video — face clearly visible"
-            accept="video/*,image/*"
+            hint="Image or MP4 video — max 10MB"
+            accept="image/*,video/mp4"
             file={identity.livenessVideo}
             onFile={(f) => setIdentity({ ...identity, livenessVideo: f })}
+            onReject={setFileError}
             icon={<Video className="text-brand-500" size={24} />}
           />
           <div className="flex items-center gap-3 rounded-2xl border border-white/60 bg-white/50 p-4 text-sm dark:border-white/10 dark:bg-black/40">
@@ -641,10 +660,11 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
             </label>
             <FileDrop
               label="Income Verification"
-              hint="Recent payslips (PDF/image)"
-              accept="image/*,.pdf"
+              hint="Recent payslips — JPG/PNG/PDF, max 10MB"
+              accept=".jpg,.jpeg,.png,.pdf"
               file={borrower.incomeVerificationFile}
               onFile={(f) => setBorrower({ ...borrower, incomeVerificationFile: f })}
+              onReject={setFileError}
               icon={<Building2 className="text-brand-500" size={24} />}
             />
             <label className="flex items-center gap-3 text-sm">
@@ -706,6 +726,13 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
 
   return (
     <motion.div layout className="glass-card rounded-[2.25rem] p-7 shadow-glass">
+      <AuthToast
+        open={Boolean(fileError)}
+        tone="error"
+        message={fileError ?? ''}
+        onClose={() => setFileError(null)}
+        autoCloseMs={8000}
+      />
       <motion.div layout className="mb-6">
         <div className="mb-4 flex justify-center sm:justify-start">
           <Logo size="sm" />

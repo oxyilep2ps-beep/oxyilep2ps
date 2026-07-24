@@ -1,12 +1,17 @@
 import type { NextConfig } from 'next';
 
+/**
+ * IMPORTANT: After changing this file, completely stop and restart the Next.js
+ * dev server (`Ctrl+C`, then `npm run dev`). Hot reload does NOT apply
+ * next.config changes.
+ */
 const nextConfig: NextConfig = {
   serverExternalPackages: ['ethers'],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
+    // Next.js 15 still nests serverActions under experimental in this project.
     serverActions: {
-      // KYC onboarding: ID + address + liveness video in one FormData payload.
-      // Keep well above Vercel/Next defaults so video uploads don't crash the action.
+      // Allow large KYC multipart payloads (ID + address + liveness).
       bodySizeLimit: '50mb',
     },
   },

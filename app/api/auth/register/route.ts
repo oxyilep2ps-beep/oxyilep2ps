@@ -21,7 +21,7 @@ export async function POST(request: Request) {
         {
           success: false,
           error:
-            'Could not read uploaded files. They may be too large — keep each KYC file under 45MB.',
+            'Could not read uploaded files. Please upload documents under 10MB each.',
         },
         { status: 413 }
       );

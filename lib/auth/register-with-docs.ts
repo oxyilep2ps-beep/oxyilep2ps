@@ -117,7 +117,7 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       };
     }
 
-    const maxBytes = 45 * 1024 * 1024;
+    const maxBytes = 10 * 1024 * 1024;
     for (const [label, file] of [
       ['Proof of identity', files.proofOfIdentity],
       ['Liveness video', files.livenessVideo],
@@ -127,7 +127,7 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       if (file && file.size > maxBytes) {
         return {
           success: false,
-          error: `${label} is too large (${Math.round(file.size / (1024 * 1024))}MB). Keep each file under 45MB.`,
+          error: `${label} is too large. Please upload a document under 10MB.`,
         };
       }
     }

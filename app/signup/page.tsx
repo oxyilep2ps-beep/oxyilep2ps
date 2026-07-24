@@ -72,7 +72,7 @@ export default function SignUpPage() {
         const realError =
           payload?.error ||
           (response.status === 413
-            ? 'Upload too large. Please use smaller KYC files (under 45MB each).'
+            ? 'File is too large. Please upload a document under 10MB.'
             : `Form submission failed (HTTP ${response.status}).`);
         setError(realError);
         return;
@@ -88,10 +88,9 @@ export default function SignUpPage() {
         e instanceof Error && e.message
           ? e.message
           : 'Form submission failed. Please try again.';
-      // Unmask Next's generic boundary message with a clearer hint
       if (/unexpected response/i.test(message)) {
         setError(
-          'Upload failed before the server could respond. Try smaller files (under 45MB) and check the terminal logs for 🚨 SERVER ACTION CRASHED.'
+          'Upload failed before the server could respond. Please use files under 10MB and restart the dev server after config changes.'
         );
       } else {
         setError(message);
