@@ -16,25 +16,26 @@ export async function POST(request: Request) {
     try {
       formData = await request.formData();
     } catch (parseError) {
-      console.error('🚨 SERVER ACTION CRASHED (formData parse):', parseError);
+      console.error('🚨 API FORMDATA PARSE FAILED:', parseError);
+      const exactReason =
+        parseError instanceof Error ? parseError.message : JSON.stringify(parseError);
       return NextResponse.json(
         {
           success: false,
-          error:
-            'Could not read uploaded files. Please upload documents under 10MB each.',
+          error: `Failed to parse form data: ${exactReason || 'Unknown multipart parsing error'}`,
         },
-        { status: 413 }
+        { status: 400 }
       );
     }
 
     const result = await runRegisterWithDocs(formData);
     return NextResponse.json(result, { status: result.success ? 201 : 400 });
   } catch (error: unknown) {
-    console.error('🚨 VERCEL SERVER ACTION CRASH:', error);
+    console.error('🚨 API FATAL CRASH:', error);
     const exactReason =
       error instanceof Error ? error.message : JSON.stringify(error);
     return NextResponse.json(
-      { success: false, error: `Upload Failed: ${exactReason || 'Unknown internal server error'}` },
+      { success: false, error: `System Crash: ${exactReason || 'Unknown internal server error'}` },
       { status: 500 }
     );
   }

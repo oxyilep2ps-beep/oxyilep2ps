@@ -125,21 +125,21 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
 
     const files: WizardUploadFiles = {
       proofOfIdentity: getUploadableFile(formData, [
-        'proofOfIdentity',
         'idProof',
+        'proofOfIdentity',
         'id_proof',
         'proof_of_identity',
       ]),
       livenessVideo: getUploadableFile(formData, [
+        'liveness',
         'livenessVideo',
         'livenessSelfie',
         'liveness_selfie',
         'liveness_video',
-        'liveness',
       ]),
       proofOfAddress: getUploadableFile(formData, [
-        'proofOfAddress',
         'addressProof',
+        'proofOfAddress',
         'address_proof',
         'proof_of_address',
       ]),
@@ -248,27 +248,30 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
     });
 
     if (authError) {
-      console.error('[registerWithDocs] signUp error:', authError.message);
-      const msg = String(authError.message || '');
-      if (/already|registered|exists/i.test(msg)) {
-        return {
-          success: false,
-          error:
-            'This email is already registered. Please log in or use a different email address.',
-        };
-      }
-      return { success: false, error: msg };
+      console.error('🚨 SUPABASE AUTH ERROR:', authError);
+      return {
+        success: false,
+        error: `Auth Error: ${authError.message}`,
+      };
     }
 
     // CRITICAL: use authData.user.id — NEVER authData.session (null when email confirm is on).
     const userId = authData.user?.id ? String(authData.user.id) : null;
     const identities = authData.user?.identities ?? [];
 
-    if (!userId || identities.length === 0) {
+    if (!userId) {
       return {
         success: false,
         error:
-          'This email is already registered. Please log in or use a different email address.',
+          'Supabase returned no User ID. Email Enumeration Protection may have blocked this request because this email already exists in Supabase Auth Users.',
+      };
+    }
+
+    if (identities.length === 0) {
+      return {
+        success: false,
+        error:
+          'Supabase returned a user with no identities. Email Enumeration Protection indicates this email already exists in Supabase Auth Users.',
       };
     }
 

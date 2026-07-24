@@ -126,24 +126,15 @@ function appendRegisterFormData(
   const liveness = assertFile(files.livenessVideo, 'Liveness selfie');
   const addressProof = assertFile(files.proofOfAddress, 'Address Proof');
 
-  // Canonical keys used by the registration pipeline (+ aliases for every server get)
-  formData.set('proofOfIdentity', idProof);
+  // One exact key per file. Duplicating File objects under aliases multiplies
+  // the multipart request size and can exceed Vercel's request-body limit.
   formData.set('idProof', idProof);
-  formData.set('id_proof', idProof);
-
-  formData.set('livenessVideo', liveness);
-  formData.set('livenessSelfie', liveness);
-  formData.set('liveness_selfie', liveness);
   formData.set('liveness', liveness);
-
-  formData.set('proofOfAddress', addressProof);
   formData.set('addressProof', addressProof);
-  formData.set('address_proof', addressProof);
 
   if (files.incomeVerification) {
     const income = assertFile(files.incomeVerification, 'Income verification');
     formData.set('incomeVerification', income);
-    formData.set('income_verification', income);
   }
 }
 
@@ -173,6 +164,18 @@ export default function SignUpPage() {
       const formData = new FormData();
       appendRegisterFormData(formData, kyc, meta, files);
 
+      // Pre-submit boundary audit: these are the exact values sent to the API.
+      // eslint-disable-next-line no-console
+      console.log('🚨 SENDING TO SERVER:', {
+        idProof: formData.get('idProof'),
+        liveness: formData.get('liveness'),
+        addressProof: formData.get('addressProof'),
+        incomeVerification: formData.get('incomeVerification'),
+        is_uk_resident: formData.get('is_uk_resident'),
+        understands_p2p_risk: formData.get('understands_p2p_risk'),
+        marketing_consent: formData.get('marketing_consent'),
+      });
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         body: formData,
@@ -190,12 +193,12 @@ export default function SignUpPage() {
       }
 
       if (!response.ok || !payload?.success) {
-        const realError =
+        // Show the backend response verbatim. Do not replace a 400 with a
+        // guessed duplicate-email message.
+        setError(
           (typeof payload?.error === 'string' && payload.error.trim()) ||
-          (response.status === 413
-            ? 'File is too large. Please upload a document under 10MB.'
-            : `Form submission failed (HTTP ${response.status}).`);
-        setError(realError);
+            `Server Error: ${response.status} ${response.statusText || 'Registration failed'}`
+        );
         return;
       }
 
