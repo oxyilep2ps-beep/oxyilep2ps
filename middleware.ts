@@ -8,7 +8,7 @@ import {
   isProtectedPath,
 } from '@/lib/auth/routing';
 import { getServerProfile } from '@/lib/auth/get-server-profile';
-import { isApprovedStatus } from '@/lib/auth/profile-status';
+import { isApprovedStatus, isSuspendedAccount } from '@/lib/auth/profile-status';
 
 function isStaffPortalPath(pathname: string): boolean {
   return pathname.startsWith('/hr') || pathname.startsWith('/blogger') || pathname.startsWith('/admin-dashboard');
@@ -20,7 +20,11 @@ export async function middleware(request: NextRequest) {
 
   supabaseResponse.headers.set('x-pathname', pathname);
 
-  if (pathname.startsWith('/auth/callback') || pathname.startsWith('/employee/')) {
+  if (
+    pathname.startsWith('/auth/callback') ||
+    pathname.startsWith('/employee/') ||
+    pathname === '/suspended'
+  ) {
     return supabaseResponse;
   }
 
@@ -31,6 +35,17 @@ export async function middleware(request: NextRequest) {
   }
 
   const email = user?.email ?? '';
+
+  // Suspended borrowers/investors (and any suspended account): kill session immediately.
+  if (user && profile && isSuspendedAccount(profile.account_status)) {
+    await supabase.auth.signOut();
+    const suspended = new URL('/suspended', request.url);
+    const redirectResponse = NextResponse.redirect(suspended);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
+  }
 
   // Revoked employees: if they hit staff portals and are no longer in allowed_employees, destroy session.
   if (user && email && isStaffPortalPath(pathname) && !isAdminEmail(email)) {

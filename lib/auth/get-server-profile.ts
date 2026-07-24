@@ -8,7 +8,7 @@ export async function getServerProfile(
 ): Promise<ProfileAuthRow | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, role, status, email')
+    .select('id, role, status, email, account_status')
     .eq('id', userId)
     .single();
 
@@ -23,10 +23,15 @@ export async function getServerProfile(
     return null;
   }
 
+  const accountStatusRaw = (data.account_status as string | null | undefined) ?? 'active';
+  const account_status =
+    accountStatusRaw.toString().trim().toLowerCase() === 'suspended' ? 'suspended' : 'active';
+
   return {
     id: data.id,
     role: data.role as ProfileRole,
     status,
     email: data.email as string | undefined,
+    account_status,
   };
 }

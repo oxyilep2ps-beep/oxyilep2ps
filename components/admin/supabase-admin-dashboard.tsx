@@ -6,6 +6,7 @@ import { Check, Download, Loader2, ShieldCheck, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getCollateralProofSignedUrl } from '@/app/actions/admin-waitlist';
 import { getKycSignedUrlAction } from '@/app/actions/admin-users';
+import { fetchKycDocumentForPdf } from '@/app/actions/admin-kyc-pdf';
 import { CollateralDetailsCard } from '@/components/admin/collateral-details-card';
 import { DocumentViewer } from '@/components/admin/document-viewer';
 import { RejectReasonDialog } from '@/components/admin/reject-reason-dialog';
@@ -28,6 +29,7 @@ type ResolvedDocument = {
   label: string;
   path: string | null;
   url: string | null;
+  dataUrl?: string | null;
   kind: DocumentKind;
   loaded: boolean;
   error?: string;
@@ -167,19 +169,27 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
         proofOfIdentity: pickOptionalText(
           profile.proof_of_identity_url,
           documents?.proofOfIdentity,
-          identity?.idProofPath
+          identity?.idProofPath,
+          identity?.proofOfIdentity
         ),
         livenessVideo: pickOptionalText(
           profile.liveness_video_url,
           documents?.livenessVideo,
-          identity?.livenessPath
+          identity?.livenessPath,
+          identity?.livenessVideo
         ),
         proofOfAddress: pickOptionalText(
           profile.proof_of_address_url,
           documents?.proofOfAddress,
-          identity?.addressProofPath
+          identity?.addressProofPath,
+          identity?.proofOfAddress
         ),
-        incomeVerification: pickOptionalText(documents?.incomeVerification, identity?.incomeVerificationPath),
+        incomeVerification: pickOptionalText(
+          profile.income_verification_url,
+          documents?.incomeVerification,
+          identity?.incomeVerificationPath,
+          identity?.incomeVerification
+        ),
       },
     },
     lender: lender
@@ -201,7 +211,11 @@ function normalizeKyc(profile: Profile): NormalizedKyc {
           monthlyRentOrEmi: pickText(borrower.monthlyRentOrEmi),
           otherMonthlyExpenses: pickText(borrower.otherMonthlyExpenses),
           hasIncomeVerification: Boolean(
-            pickOptionalText(identity?.incomeVerificationPath, documents?.incomeVerification)
+            pickOptionalText(
+              profile.income_verification_url,
+              identity?.incomeVerificationPath,
+              documents?.incomeVerification
+            )
           ),
         }
       : undefined,
@@ -682,19 +696,34 @@ function ProfileCard({
           if (!document.path) return document;
 
           try {
+            const fetched = await fetchKycDocumentForPdf(document.path);
             return {
               ...document,
-              url: await resolveDocumentUrl(document.path),
+              url: fetched.signedUrl,
+              dataUrl: fetched.dataUrl,
+              kind: fetched.kind,
               loaded: true,
               error: undefined,
             };
           } catch {
-            return {
-              ...document,
-              url: null,
-              loaded: true,
-              error: 'Could not load preview',
-            };
+            try {
+              const url = await resolveDocumentUrl(document.path);
+              return {
+                ...document,
+                url,
+                dataUrl: null,
+                loaded: true,
+                error: undefined,
+              };
+            } catch {
+              return {
+                ...document,
+                url: null,
+                dataUrl: null,
+                loaded: true,
+                error: 'Could not load preview',
+              };
+            }
           }
         })
       );
@@ -763,6 +792,7 @@ function ProfileCard({
         documents: resolvedDocuments.map((doc) => ({
           label: doc.label,
           url: doc.url,
+          dataUrl: doc.dataUrl,
           kind: doc.kind,
           error: doc.error,
         })),

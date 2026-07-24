@@ -8,23 +8,40 @@ import { logAdminAction } from '@/app/actions/admin-audit';
 import type { KycDocumentPaths } from '@/lib/types/profile';
 
 const KYC_BUCKET = 'kyc-documents';
+const KYC_BUCKET_ALIAS = 'documents';
 
 function collectStoragePaths(
-  kyc: { identity?: { documents?: KycDocumentPaths }; identityMeta?: KycDocumentPaths } | null,
+  kyc: {
+    identity?: { documents?: KycDocumentPaths };
+    identityMeta?: Record<string, unknown>;
+  } | null,
   profile?: {
     proof_of_identity_url?: string | null;
     liveness_video_url?: string | null;
     proof_of_address_url?: string | null;
+    income_verification_url?: string | null;
   } | null
 ): string[] {
-  const docs = kyc?.identity?.documents ?? kyc?.identityMeta;
+  const meta = kyc?.identityMeta ?? {};
+  const docs = kyc?.identity?.documents;
+  const fromMeta = [
+    meta.idProofPath,
+    meta.livenessPath,
+    meta.addressProofPath,
+    meta.incomeVerificationPath,
+    meta.proofOfIdentity,
+    meta.livenessVideo,
+    meta.proofOfAddress,
+    meta.incomeVerification,
+  ].filter((p): p is string => typeof p === 'string' && Boolean(p));
   const fromKyc = docs ? Object.values(docs).filter((p): p is string => Boolean(p)) : [];
   const fromProfile = [
     profile?.proof_of_identity_url,
     profile?.liveness_video_url,
     profile?.proof_of_address_url,
+    profile?.income_verification_url,
   ].filter((p): p is string => Boolean(p));
-  return [...new Set([...fromKyc, ...fromProfile])];
+  return [...new Set([...fromMeta, ...fromKyc, ...fromProfile])];
 }
 
 export async function approveUserAction(userId: string) {
@@ -57,21 +74,29 @@ export async function rejectUserAction(userId: string) {
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('kyc_data, proof_of_identity_url, liveness_video_url, proof_of_address_url')
+    .select(
+      'kyc_data, proof_of_identity_url, liveness_video_url, proof_of_address_url, income_verification_url'
+    )
     .eq('id', userId)
     .maybeSingle();
 
   const paths = collectStoragePaths(
-    profile?.kyc_data as { identity?: { documents?: KycDocumentPaths }; identityMeta?: KycDocumentPaths },
+    profile?.kyc_data as {
+      identity?: { documents?: KycDocumentPaths };
+      identityMeta?: Record<string, unknown>;
+    },
     profile
   );
   if (paths.length) {
     await admin.storage.from(KYC_BUCKET).remove(paths);
+    await admin.storage.from(KYC_BUCKET_ALIAS).remove(paths);
   }
 
-  const { data: folderFiles } = await admin.storage.from(KYC_BUCKET).list(userId);
-  if (folderFiles?.length) {
-    await admin.storage.from(KYC_BUCKET).remove(folderFiles.map((f) => `${userId}/${f.name}`));
+  for (const bucket of [KYC_BUCKET, KYC_BUCKET_ALIAS]) {
+    const { data: folderFiles } = await admin.storage.from(bucket).list(userId);
+    if (folderFiles?.length) {
+      await admin.storage.from(bucket).remove(folderFiles.map((f) => `${userId}/${f.name}`));
+    }
   }
 
   await admin.from('profiles').delete().eq('id', userId);
@@ -86,7 +111,14 @@ export async function rejectUserAction(userId: string) {
 export async function getKycSignedUrlAction(storagePath: string) {
   await assertAdmin();
   const admin = createAdminClient();
-  const { data, error } = await admin.storage.from(KYC_BUCKET).createSignedUrl(storagePath, 3600);
-  if (error) throw new Error(error.message);
-  return data.signedUrl;
+  const path = storagePath.trim();
+
+  for (const bucket of [KYC_BUCKET, KYC_BUCKET_ALIAS]) {
+    const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 3600);
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+  }
+
+  throw new Error('Could not create a signed URL for this KYC document');
 }

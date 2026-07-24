@@ -45,8 +45,41 @@ export async function POST(request: Request) {
     incomeVerification: toFile(formData.get('incomeVerification')),
   };
 
+  if (!files.proofOfIdentity || !files.livenessVideo || !files.proofOfAddress) {
+    return NextResponse.json(
+      {
+        error:
+          'Proof of identity, liveness video, and proof of address files are required before account data can be saved.',
+      },
+      { status: 400 }
+    );
+  }
+
   const admin = createAdminClient();
-  const documents = await uploadAllKycDocuments(admin, userId, files);
+
+  // CRITICAL: uploads must succeed BEFORE profile upsert so Admin Portal has document paths.
+  let documents;
+  try {
+    documents = await uploadAllKycDocuments(admin, userId, files);
+  } catch (uploadError) {
+    return NextResponse.json(
+      {
+        error:
+          uploadError instanceof Error
+            ? uploadError.message
+            : 'KYC document upload failed. Please try again.',
+      },
+      { status: 500 }
+    );
+  }
+
+  if (!documents.proofOfIdentity || !documents.livenessVideo || !documents.proofOfAddress) {
+    return NextResponse.json(
+      { error: 'One or more KYC documents failed to upload. Please retry.' },
+      { status: 500 }
+    );
+  }
+
   const kyc_data = buildStoredKycData(kyc, documents);
   const profileRole = mapWizardRoleToProfileRole(kyc.role);
   const fcaTestAnswers =
@@ -61,11 +94,13 @@ export async function POST(request: Request) {
       email,
       role: profileRole,
       status: 'PENDING',
+      account_status: 'active',
       postal_code: kyc.basic.postalCode?.trim().toUpperCase() ?? null,
       fca_test_answers: fcaTestAnswers,
-      proof_of_identity_url: documents.proofOfIdentity ?? null,
-      liveness_video_url: documents.livenessVideo ?? null,
-      proof_of_address_url: documents.proofOfAddress ?? null,
+      proof_of_identity_url: documents.proofOfIdentity,
+      liveness_video_url: documents.livenessVideo,
+      proof_of_address_url: documents.proofOfAddress,
+      income_verification_url: documents.incomeVerification ?? null,
       expected_interest_rate: FIXED_INTEREST_RATE,
       kyc_data,
     },
@@ -84,7 +119,9 @@ export async function POST(request: Request) {
 
   const { data: profile, error: fetchError } = await admin
     .from('profiles')
-    .select('id, email, full_legal_name, role, status, kyc_data, created_at, updated_at')
+    .select(
+      'id, email, full_legal_name, role, status, account_status, proof_of_identity_url, liveness_video_url, proof_of_address_url, income_verification_url, kyc_data, created_at, updated_at'
+    )
     .eq('id', userId)
     .maybeSingle();
 

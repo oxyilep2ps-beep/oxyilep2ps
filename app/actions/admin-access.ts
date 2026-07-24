@@ -222,3 +222,221 @@ export async function revokePlatformRole(emailInput: string): Promise<{ ok: bool
   revalidatePath('/admin-dashboard/access');
   return { ok: true };
 }
+
+export type PlatformUserRole = 'BORROWER' | 'INVESTOR';
+
+export type PlatformUserRow = {
+  id: string;
+  email: string;
+  full_legal_name: string;
+  role: PlatformUserRole;
+  status: string;
+  account_status: 'active' | 'suspended';
+  created_at: string;
+};
+
+const KYC_BUCKETS = ['kyc-documents', 'documents'] as const;
+
+async function listPlatformUsersByRole(role: PlatformUserRole): Promise<PlatformUserRow[]> {
+  await assertAdmin();
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from('profiles')
+    .select('id, email, full_legal_name, role, status, account_status, created_at')
+    .eq('role', role)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    email: String(row.email ?? ''),
+    full_legal_name: String(row.full_legal_name ?? ''),
+    role: row.role as PlatformUserRole,
+    status: String(row.status ?? 'PENDING'),
+    account_status:
+      String(row.account_status ?? 'active').toLowerCase() === 'suspended' ? 'suspended' : 'active',
+    created_at: String(row.created_at ?? new Date().toISOString()),
+  }));
+}
+
+export async function listBorrowers(): Promise<PlatformUserRow[]> {
+  return listPlatformUsersByRole('BORROWER');
+}
+
+export async function listInvestors(): Promise<PlatformUserRow[]> {
+  return listPlatformUsersByRole('INVESTOR');
+}
+
+export async function suspendPlatformUser(userId: string): Promise<{ ok: boolean; error?: string }> {
+  const adminUser = await assertAdmin();
+  if (!userId) return { ok: false, error: 'User id is required.' };
+
+  const admin = createAdminClient();
+  const { data: profile, error: lookupError } = await admin
+    .from('profiles')
+    .select('id, email, role, full_legal_name')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (lookupError || !profile) {
+    return { ok: false, error: lookupError?.message ?? 'User not found.' };
+  }
+
+  if (getProtectedAdminEmails().has(String(profile.email ?? '').toLowerCase())) {
+    return { ok: false, error: 'Protected admin accounts cannot be suspended.' };
+  }
+
+  if (!['BORROWER', 'INVESTOR'].includes(String(profile.role))) {
+    return { ok: false, error: 'Only borrowers and investors can be suspended here.' };
+  }
+
+  const { error } = await admin
+    .from('profiles')
+    .update({ account_status: 'suspended', updated_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (error) return { ok: false, error: error.message };
+
+  await logAdminAction(
+    adminUser.email ?? 'admin',
+    `Suspended platform user ${profile.email} (${profile.role})`
+  );
+  revalidatePath('/admin-dashboard/access');
+  return { ok: true };
+}
+
+export async function unsuspendPlatformUser(userId: string): Promise<{ ok: boolean; error?: string }> {
+  const adminUser = await assertAdmin();
+  if (!userId) return { ok: false, error: 'User id is required.' };
+
+  const admin = createAdminClient();
+  const { data: profile, error: lookupError } = await admin
+    .from('profiles')
+    .select('id, email, role')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (lookupError || !profile) {
+    return { ok: false, error: lookupError?.message ?? 'User not found.' };
+  }
+
+  const { error } = await admin
+    .from('profiles')
+    .update({ account_status: 'active', updated_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (error) return { ok: false, error: error.message };
+
+  await logAdminAction(
+    adminUser.email ?? 'admin',
+    `Unsuspended platform user ${profile.email} (${profile.role})`
+  );
+  revalidatePath('/admin-dashboard/access');
+  return { ok: true };
+}
+
+async function purgeUserStorage(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  profile: {
+    kyc_data?: unknown;
+    proof_of_identity_url?: string | null;
+    liveness_video_url?: string | null;
+    proof_of_address_url?: string | null;
+    income_verification_url?: string | null;
+    collateral_proof_url?: string | null;
+  }
+) {
+  const meta =
+    profile.kyc_data && typeof profile.kyc_data === 'object'
+      ? ((profile.kyc_data as { identityMeta?: Record<string, unknown> }).identityMeta ?? {})
+      : {};
+  const paths = [
+    profile.proof_of_identity_url,
+    profile.liveness_video_url,
+    profile.proof_of_address_url,
+    profile.income_verification_url,
+    profile.collateral_proof_url,
+    meta.idProofPath,
+    meta.livenessPath,
+    meta.addressProofPath,
+    meta.incomeVerificationPath,
+  ].filter((p): p is string => typeof p === 'string' && Boolean(p));
+
+  for (const bucket of KYC_BUCKETS) {
+    if (paths.length) {
+      await admin.storage.from(bucket).remove(paths);
+    }
+    const { data: folderFiles } = await admin.storage.from(bucket).list(userId);
+    if (folderFiles?.length) {
+      await admin.storage.from(bucket).remove(folderFiles.map((f) => `${userId}/${f.name}`));
+    }
+  }
+
+  if (profile.collateral_proof_url) {
+    await admin.storage.from('collateral_documents').remove([profile.collateral_proof_url]);
+  }
+}
+
+/**
+ * Permanently delete a borrower/investor profile, related storage objects, and auth user.
+ */
+export async function deletePlatformUser(userId: string): Promise<{ ok: boolean; error?: string }> {
+  const adminUser = await assertAdmin();
+  if (!userId) return { ok: false, error: 'User id is required.' };
+
+  const admin = createAdminClient();
+  const { data: profile, error: lookupError } = await admin
+    .from('profiles')
+    .select(
+      'id, email, role, full_legal_name, kyc_data, proof_of_identity_url, liveness_video_url, proof_of_address_url, income_verification_url, collateral_proof_url'
+    )
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (lookupError || !profile) {
+    return { ok: false, error: lookupError?.message ?? 'User not found.' };
+  }
+
+  const email = String(profile.email ?? '').toLowerCase();
+  if (getProtectedAdminEmails().has(email)) {
+    return { ok: false, error: 'Protected admin accounts cannot be deleted.' };
+  }
+
+  if (!['BORROWER', 'INVESTOR'].includes(String(profile.role))) {
+    return { ok: false, error: 'Only borrowers and investors can be hard-deleted here.' };
+  }
+
+  await purgeUserStorage(admin, userId, profile);
+
+  // Best-effort cleanup of related rows (ignore missing-table errors).
+  const relatedDeletes: Array<PromiseLike<unknown>> = [
+    admin.from('platform_access').delete().eq('email', email),
+    admin.from('allowed_employees').delete().eq('email', email),
+    admin.from('admin_allowlist').delete().eq('email', email),
+    admin.from('handshakes').delete().eq('borrower_id', userId),
+    admin.from('handshakes').delete().eq('lender_id', userId),
+  ];
+  await Promise.allSettled(relatedDeletes);
+
+  const { error: profileDeleteError } = await admin.from('profiles').delete().eq('id', userId);
+  if (profileDeleteError) {
+    return { ok: false, error: profileDeleteError.message };
+  }
+
+  const { error: authError } = await admin.auth.admin.deleteUser(userId);
+  if (authError) {
+    return { ok: false, error: authError.message };
+  }
+
+  await logAdminAction(
+    adminUser.email ?? 'admin',
+    `Permanently deleted platform user ${email} (${profile.role})`
+  );
+  revalidatePath('/admin-dashboard/access');
+  return { ok: true };
+}

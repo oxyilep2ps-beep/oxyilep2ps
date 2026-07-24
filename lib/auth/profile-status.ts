@@ -5,7 +5,12 @@ export type ProfileAuthRow = {
   role: ProfileRole;
   status: ProfileStatus;
   email?: string;
+  account_status?: 'active' | 'suspended' | null;
 };
+
+export function isSuspendedAccount(raw: string | null | undefined): boolean {
+  return (raw ?? '').toString().trim().toLowerCase() === 'suspended';
+}
 
 /** Normalize DB enum/text so `approved`, ` APPROVED `, etc. still match. */
 export function normalizeProfileStatus(raw: string | null | undefined): ProfileStatus | null {

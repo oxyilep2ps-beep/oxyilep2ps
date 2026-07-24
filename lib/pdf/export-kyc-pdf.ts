@@ -3,6 +3,8 @@ import { appendFcaDeedFooter } from '@/lib/pdf/fca-deed-footer';
 export type PdfExportDocument = {
   label: string;
   url: string | null;
+  /** Prefetched data URL (base64) for inline image embedding — avoids CORS. */
+  dataUrl?: string | null;
   kind: 'image' | 'pdf' | 'video' | 'other';
   error?: string;
 };
@@ -21,18 +23,21 @@ const PAPER = { r: 255, g: 249, b: 245 };
 const LINE = { r: 255, g: 210, b: 190 };
 
 async function loadImageDimensions(
-  url: string
+  source: string
 ): Promise<{ width: number; height: number; dataUrl: string } | null> {
   try {
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
+    let dataUrl = source;
+    if (!source.startsWith('data:')) {
+      const response = await fetch(source, { mode: 'cors' });
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }
 
     return await new Promise((resolve) => {
       const img = new Image();
@@ -217,7 +222,33 @@ export async function exportKycDossierPdf(params: {
   for (const doc of params.documents) {
     const labelHeight = 16;
 
-    if (doc.kind !== 'image' || !doc.url) {
+    // PDF / video / other: never force inline render — show an external link when available.
+    if (doc.kind === 'pdf' || doc.kind === 'video' || doc.kind === 'other') {
+      ensureSpace(labelHeight + 22);
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(LINE.r, LINE.g, LINE.b);
+      pdf.roundedRect(PAGE_MARGIN_MM, y, contentWidth, labelHeight + 16, 4, 4, 'FD');
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.setTextColor(BRAND.r, BRAND.g, BRAND.b);
+      pdf.text(doc.label, PAGE_MARGIN_MM + 5, y + 8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(MUTED.r, MUTED.g, MUTED.b);
+      if (doc.url) {
+        pdf.textWithLink('View Document [External Link]', PAGE_MARGIN_MM + 5, y + 17, { url: doc.url });
+        pdf.setTextColor(BRAND.r, BRAND.g, BRAND.b);
+        pdf.textWithLink(doc.url.slice(0, 90) + (doc.url.length > 90 ? '…' : ''), PAGE_MARGIN_MM + 5, y + 24, {
+          url: doc.url,
+        });
+      } else {
+        pdf.text(doc.error ?? 'Document not available for inline PDF rendering', PAGE_MARGIN_MM + 5, y + 17);
+      }
+      y += labelHeight + 24;
+      continue;
+    }
+
+    if (doc.kind !== 'image' || (!doc.dataUrl && !doc.url)) {
       ensureSpace(labelHeight + 18);
       pdf.setFillColor(255, 255, 255);
       pdf.setDrawColor(LINE.r, LINE.g, LINE.b);
@@ -234,19 +265,25 @@ export async function exportKycDossierPdf(params: {
       continue;
     }
 
-    const loaded = await loadImageDimensions(doc.url);
+    const loaded = await loadImageDimensions(doc.dataUrl || doc.url || '');
     if (!loaded) {
-      ensureSpace(labelHeight + 14);
+      ensureSpace(labelHeight + 18);
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(LINE.r, LINE.g, LINE.b);
+      pdf.roundedRect(PAGE_MARGIN_MM, y, contentWidth, labelHeight + 12, 4, 4, 'FD');
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(10);
       pdf.setTextColor(BRAND.r, BRAND.g, BRAND.b);
-      pdf.text(doc.label, PAGE_MARGIN_MM, y);
-      y += 5;
+      pdf.text(doc.label, PAGE_MARGIN_MM + 5, y + 8);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(8.5);
       pdf.setTextColor(MUTED.r, MUTED.g, MUTED.b);
-      pdf.text('Could not render image', PAGE_MARGIN_MM, y);
-      y += BLOCK_GAP_MM;
+      if (doc.url) {
+        pdf.textWithLink('View Document [External Link]', PAGE_MARGIN_MM + 5, y + 17, { url: doc.url });
+      } else {
+        pdf.text('Could not render image', PAGE_MARGIN_MM + 5, y + 17);
+      }
+      y += labelHeight + 20;
       continue;
     }
 

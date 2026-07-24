@@ -29,6 +29,7 @@ export interface StoredKycData {
     idProofPath?: string | null;
     livenessPath?: string | null;
     addressProofPath?: string | null;
+    incomeVerificationPath?: string | null;
   };
   lender?: {
     investorCategory: string;
@@ -58,6 +59,7 @@ export interface Profile {
   proof_of_identity_url?: string | null;
   liveness_video_url?: string | null;
   proof_of_address_url?: string | null;
+  income_verification_url?: string | null;
   borrower_sort_code?: string | null;
   borrower_account_number?: string | null;
   username?: string | null;
@@ -66,6 +68,8 @@ export interface Profile {
   cover_url?: string | null;
   role: ProfileRole;
   status: ProfileStatus;
+  /** Platform access gate — independent of KYC approval status. */
+  account_status?: 'active' | 'suspended' | null;
   target_amount?: number | null;
   expected_interest_rate?: number | null;
   collateral_type?: string | null;

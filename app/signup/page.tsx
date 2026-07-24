@@ -78,36 +78,35 @@ export default function SignUpPage() {
 
       const userId = user?.id ?? null;
 
-      // Best-effort document upload when Auth returns a user id (common even with
-      // email confirmation enabled). Text KYC fields are already in raw_user_meta_data
-      // and will be written by the handle_new_user trigger regardless.
-      if (userId) {
-        const formData = new FormData();
-        formData.append('userId', userId);
-        formData.append('email', meta.email.trim());
-        formData.append('fullLegalName', meta.fullLegalName);
-        formData.append('kyc', JSON.stringify(kyc));
-        formData.append('expected_interest_rate', String(meta.expected_interest_rate));
+      if (!userId) {
+        throw new Error(
+          'Account was created but we could not obtain your user id. Please confirm your email, then contact support if documents are missing.'
+        );
+      }
 
-        if (files.proofOfIdentity) formData.append('proofOfIdentity', files.proofOfIdentity);
-        if (files.livenessVideo) formData.append('livenessVideo', files.livenessVideo);
-        if (files.proofOfAddress) formData.append('proofOfAddress', files.proofOfAddress);
-        if (files.incomeVerification) formData.append('incomeVerification', files.incomeVerification);
+      if (!files.proofOfIdentity || !files.livenessVideo || !files.proofOfAddress) {
+        throw new Error('Proof of identity, liveness video, and proof of address are required.');
+      }
 
-        try {
-          const response = await fetch('/api/kyc/submit', {
-            method: 'POST',
-            body: formData,
-          });
-          const data = (await response.json()) as { ok?: boolean; error?: string };
-          if (!response.ok || !data.ok) {
-            // eslint-disable-next-line no-console
-            console.warn('[signup] KYC document upload deferred:', data.error ?? response.status);
-          }
-        } catch (uploadError) {
-          // eslint-disable-next-line no-console
-          console.warn('[signup] KYC document upload failed; profile text data is still saved via trigger', uploadError);
-        }
+      // Upload ALL KYC files first (via API). Fail signup persistence if uploads fail.
+      const formData = new FormData();
+      formData.append('userId', userId);
+      formData.append('email', meta.email.trim());
+      formData.append('fullLegalName', meta.fullLegalName);
+      formData.append('kyc', JSON.stringify(kyc));
+      formData.append('expected_interest_rate', String(meta.expected_interest_rate));
+      formData.append('proofOfIdentity', files.proofOfIdentity);
+      formData.append('livenessVideo', files.livenessVideo);
+      formData.append('proofOfAddress', files.proofOfAddress);
+      if (files.incomeVerification) formData.append('incomeVerification', files.incomeVerification);
+
+      const response = await fetch('/api/kyc/submit', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error ?? 'Failed to upload KYC documents. Please try again.');
       }
 
       setSuccessOpen(true);
