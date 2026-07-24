@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CheckCircle2, ExternalLink, Loader2, ShieldCheck, XCircle } from 'lucide-react';
+import { ExternalLink, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { completeBorrowerBankLink } from '@/app/actions/payment';
 import {

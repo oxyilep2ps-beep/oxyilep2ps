@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Bot, MessageCircle, Send, X } from 'lucide-react';
@@ -63,10 +63,6 @@ export function OliverBot() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isChatExpanded, isTyping]);
-
-  const openWidget = useCallback(() => {
-    setIsWidgetOpen(true);
-  }, []);
 
   useEffect(() => {
     const onOpen = () => {

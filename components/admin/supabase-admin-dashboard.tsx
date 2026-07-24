@@ -458,16 +458,17 @@ export function SupabaseAdminDashboard() {
       if (approvedResult.error) throw new Error(approvedResult.error.message);
       if (listResult.error) throw new Error(listResult.error.message);
 
-      const fetched = ((listResult.data ?? []) as Profile[]).map(normalizeProfileRow);
+      const rows = (listResult.data ?? []) as unknown as Profile[];
+      const fetched = rows.map(normalizeProfileRow);
 
       setPendingCount(pendingResult.count ?? 0);
       setApprovedCount(approvedResult.count ?? 0);
       setProfiles(fetched);
       setExpandedId((current) => {
-        if (current && (listResult.data ?? []).some((profile) => profile.id === current)) {
+        if (current && fetched.some((profile) => profile.id === current)) {
           return current;
         }
-        return (listResult.data?.[0]?.id as string | undefined) ?? null;
+        return fetched[0]?.id ?? null;
       });
     } catch (error) {
       setProfiles([]);
@@ -937,7 +938,6 @@ function ProfileCard({
     profile.collateral_description,
     profile.collateral_type,
     profile.collateral_value,
-    profile.expected_interest_rate,
     profile.role,
     profile.status,
     profile.target_amount,
