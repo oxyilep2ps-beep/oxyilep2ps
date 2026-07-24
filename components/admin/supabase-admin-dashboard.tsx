@@ -145,6 +145,73 @@ function safeFormatDate(value: string | null | undefined): string {
   return parsed.toLocaleString('en-GB');
 }
 
+/** Normalize DB rows so legacy profiles without KYC URL columns never crash the UI. */
+function normalizeProfileRow(row: Profile): Profile {
+  return {
+    ...row,
+    full_legal_name: row.full_legal_name ?? '',
+    email: row.email ?? '',
+    postal_code: row.postal_code ?? null,
+    fca_test_answers: row.fca_test_answers ?? null,
+    proof_of_identity_url: row.proof_of_identity_url ?? null,
+    liveness_video_url: row.liveness_video_url ?? null,
+    proof_of_address_url: row.proof_of_address_url ?? null,
+    income_verification_url: row.income_verification_url ?? null,
+    borrower_sort_code: row.borrower_sort_code ?? null,
+    borrower_account_number: row.borrower_account_number ?? null,
+    username: row.username ?? null,
+    bio: row.bio ?? null,
+    avatar_url: row.avatar_url ?? null,
+    cover_url: row.cover_url ?? null,
+    account_status: row.account_status === 'suspended' ? 'suspended' : 'active',
+    target_amount: row.target_amount ?? null,
+    expected_interest_rate: row.expected_interest_rate ?? null,
+    collateral_type: row.collateral_type ?? null,
+    collateral_value: row.collateral_value ?? null,
+    collateral_description: row.collateral_description ?? null,
+    collateral_proof_url: row.collateral_proof_url ?? null,
+    kyc_flagged: Boolean(row.kyc_flagged),
+    kyc_data: row.kyc_data ?? null,
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+    reviewed_at: row.reviewed_at ?? null,
+    reviewed_by: row.reviewed_by ?? null,
+  };
+}
+
+const ADMIN_PROFILE_SELECT = [
+  'id',
+  'email',
+  'full_legal_name',
+  'postal_code',
+  'fca_test_answers',
+  'proof_of_identity_url',
+  'liveness_video_url',
+  'proof_of_address_url',
+  'income_verification_url',
+  'borrower_sort_code',
+  'borrower_account_number',
+  'username',
+  'bio',
+  'avatar_url',
+  'cover_url',
+  'role',
+  'status',
+  'account_status',
+  'target_amount',
+  'expected_interest_rate',
+  'collateral_type',
+  'collateral_value',
+  'collateral_description',
+  'collateral_proof_url',
+  'kyc_flagged',
+  'kyc_data',
+  'created_at',
+  'updated_at',
+  'reviewed_at',
+  'reviewed_by',
+].join(', ');
+
 function normalizeKyc(profile: Profile): NormalizedKyc {
   const raw = isRecord(profile.kyc_data) ? profile.kyc_data : null;
   const basic = asRecord(raw?.basic) ?? asRecord(raw?.basicDetails) ?? asRecord(raw);
@@ -381,7 +448,7 @@ export function SupabaseAdminDashboard() {
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'APPROVED').neq('role', 'ADMIN'),
         supabase
           .from('profiles')
-          .select('*')
+          .select(ADMIN_PROFILE_SELECT)
           .neq('role', 'ADMIN')
           .eq('status', targetTab === 'pending' ? 'PENDING' : 'APPROVED')
           .order('created_at', { ascending: false }),
@@ -391,18 +458,7 @@ export function SupabaseAdminDashboard() {
       if (approvedResult.error) throw new Error(approvedResult.error.message);
       if (listResult.error) throw new Error(listResult.error.message);
 
-      // Strict logging: inspect rows returned from DB to debug missing fields/files
-      const fetched = (listResult.data ?? []) as Profile[];
-      // eslint-disable-next-line no-console
-      console.log('DB COUNTS:', { pending: pendingResult.count, approved: approvedResult.count });
-      fetched.forEach((p) => {
-        // eslint-disable-next-line no-console
-        console.log('RAW FETCHED USER FROM DB:', p);
-        // eslint-disable-next-line no-console
-        console.log('PARSED KYC_DATA:', p.kyc_data);
-        // eslint-disable-next-line no-console
-        console.log('KYC_DATA_KEYS:', Object.keys((p.kyc_data ?? {}) as Record<string, unknown>));
-      });
+      const fetched = ((listResult.data ?? []) as Profile[]).map(normalizeProfileRow);
 
       setPendingCount(pendingResult.count ?? 0);
       setApprovedCount(approvedResult.count ?? 0);
