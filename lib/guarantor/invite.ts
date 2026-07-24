@@ -33,7 +33,7 @@ export function createGuarantorInviteToken(loanId: string, email: string, issued
 export function buildGuarantorInviteUrl(loanId: string, email: string): { url: string; issuedAt: number; token: string } {
   const issuedAt = Date.now();
   const token = createGuarantorInviteToken(loanId, email, issuedAt);
-  const url = new URL(`/guarantor/invite/${encodeURIComponent(loanId)}`, getBaseUrl());
+  const url = new URL(`/guarantor/review/${encodeURIComponent(loanId)}`, getBaseUrl());
   url.searchParams.set('email', email.toLowerCase());
   url.searchParams.set('issuedAt', String(issuedAt));
   url.searchParams.set('token', token);

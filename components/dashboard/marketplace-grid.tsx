@@ -48,18 +48,25 @@ function OpportunityCard({
           </p>
           <p className="text-sm text-neutral-500">{row.tenure_months} months · EMI £{row.emi_amount.toLocaleString('en-GB')}/mo</p>
         </div>
-        {ltv !== null ? (
-          <span
-            className={cn(
-              'rounded-full px-3 py-1 text-xs font-bold',
-              risk === 'safe'
-                ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300'
-                : 'bg-amber-500/15 text-amber-800 dark:text-amber-300'
-            )}
-          >
-            LTV {formatLtvRatio(row.loan_amount, row.collateral_value)}
-          </span>
-        ) : null}
+        <div className="flex flex-col items-end gap-2">
+          {row.guarantor_status === 'accepted' ? (
+            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+              Guarantor Backed
+            </span>
+          ) : null}
+          {ltv !== null ? (
+            <span
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-bold',
+                risk === 'safe'
+                  ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-amber-500/15 text-amber-800 dark:text-amber-300'
+              )}
+            >
+              LTV {formatLtvRatio(row.loan_amount, row.collateral_value)}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">

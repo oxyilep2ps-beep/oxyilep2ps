@@ -120,11 +120,19 @@ async function completeGuarantorMandate(params: {
     resolvedMandateId = found;
   }
 
+  // Link guarantor auth user when an account already exists for this email.
+  const { data: guarantorProfile } = await admin
+    .from('profiles')
+    .select('id')
+    .ilike('email', params.email)
+    .maybeSingle();
+
   const { error: updateError } = await admin
     .from('handshakes')
     .update({
       guarantor_status: 'accepted',
       guarantor_mandate_id: resolvedMandateId,
+      guarantor_user_id: (guarantorProfile?.id as string | undefined) ?? null,
     })
     .eq('id', params.loanId);
 

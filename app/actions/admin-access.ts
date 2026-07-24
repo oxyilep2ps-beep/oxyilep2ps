@@ -142,6 +142,10 @@ export async function assignPlatformRole(
     await admin.from('admin_allowlist').upsert({ email }, { onConflict: 'email' });
   }
 
+  // Keep strict employee directory in sync
+  const employeeRole = role === 'ADMIN' ? 'admin' : role === 'HR' ? 'hr' : 'blogger';
+  await admin.from('allowed_employees').upsert({ email, role: employeeRole }, { onConflict: 'email' });
+
   // If the user already has a profile, apply the role immediately
   const existing = await findProfileByEmail(admin, email);
 
@@ -189,6 +193,12 @@ export async function revokePlatformRole(emailInput: string): Promise<{ ok: bool
 
   // Do not remove protected admins from allowlist; for others drop ADMIN allowlist entry
   await admin.from('admin_allowlist').delete().eq('email', email);
+
+  // Strict employee directory revoke — fired staff lose portal access immediately.
+  const { error: employeeDeleteError } = await admin.from('allowed_employees').delete().eq('email', email);
+  if (employeeDeleteError) {
+    return { ok: false, error: employeeDeleteError.message };
+  }
 
   const existing = await findProfileByEmail(admin, email);
 

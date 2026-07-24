@@ -3,11 +3,16 @@ import { updateSession } from '@/lib/supabase/middleware';
 import {
   canAccessPath,
   getAuthRedirectPath,
+  isAdminEmail,
   isAuthPage,
   isProtectedPath,
 } from '@/lib/auth/routing';
 import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
+
+function isStaffPortalPath(pathname: string): boolean {
+  return pathname.startsWith('/hr') || pathname.startsWith('/blogger') || pathname.startsWith('/admin-dashboard');
+}
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user, supabase } = await updateSession(request);
@@ -15,7 +20,7 @@ export async function middleware(request: NextRequest) {
 
   supabaseResponse.headers.set('x-pathname', pathname);
 
-  if (pathname.startsWith('/auth/callback')) {
+  if (pathname.startsWith('/auth/callback') || pathname.startsWith('/employee/')) {
     return supabaseResponse;
   }
 
@@ -26,6 +31,32 @@ export async function middleware(request: NextRequest) {
   }
 
   const email = user?.email ?? '';
+
+  // Revoked employees: if they hit staff portals and are no longer in allowed_employees, destroy session.
+  if (user && email && isStaffPortalPath(pathname) && !isAdminEmail(email)) {
+    const isElevated =
+      profile?.role === 'ADMIN' || profile?.role === 'HR' || profile?.role === 'BLOGGER';
+
+    if (isElevated) {
+      const { data: employeeRow, error: employeeLookupError } = await supabase
+        .from('allowed_employees')
+        .select('email')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
+
+      // Skip hard logout when the directory table is not available yet (migration pending).
+      if (!employeeLookupError && !employeeRow) {
+        await supabase.auth.signOut();
+        const login = new URL('/employee/login', request.url);
+        login.searchParams.set('revoked', '1');
+        const redirectResponse = NextResponse.redirect(login);
+        supabaseResponse.cookies.getAll().forEach((cookie) => {
+          redirectResponse.cookies.set(cookie.name, cookie.value);
+        });
+        return redirectResponse;
+      }
+    }
+  }
 
   if (user && profile && isApprovedStatus(profile.status) && pathname.startsWith('/pending-verification')) {
     const dest = getAuthRedirectPath(profile, email);
@@ -47,8 +78,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(signIn);
   }
 
-  // Role-scoped protection: Admins → all staff portals; HR → /hr; Blogger → /blogger.
-  // Roles come from profiles.role (seeded / platform_access) and hardcoded ADMIN_EMAIL / staff emails.
   if (user && isProtectedPath(pathname) && !canAccessPath(pathname, profile, email)) {
     const dest = getAuthRedirectPath(profile, email);
     if (pathname !== dest) {

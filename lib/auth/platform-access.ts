@@ -14,7 +14,7 @@ export function elevatedRoleFromHardcodedEmail(email: string | undefined | null)
   return null;
 }
 
-/** Look up a pre-authorized / granted role from platform_access. */
+/** Look up a pre-authorized / granted role from platform_access + allowed_employees. */
 export async function getPlatformAccessRole(email: string | undefined | null): Promise<ElevatedPlatformRole | null> {
   if (!email) return null;
   const normalized = email.trim().toLowerCase();
@@ -25,6 +25,20 @@ export async function getPlatformAccessRole(email: string | undefined | null): P
 
   try {
     const admin = createAdminClient();
+
+    const { data: employee } = await admin
+      .from('allowed_employees')
+      .select('role')
+      .eq('email', normalized)
+      .maybeSingle();
+
+    if (employee?.role) {
+      const mapped = String(employee.role).toLowerCase();
+      if (mapped === 'admin') return 'ADMIN';
+      if (mapped === 'hr') return 'HR';
+      if (mapped === 'blogger') return 'BLOGGER';
+    }
+
     const { data } = await admin
       .from('platform_access')
       .select('role')

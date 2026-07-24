@@ -17,12 +17,12 @@ function normalizeGuarantorStatus(
 ): MarketplaceHandshakeRow['guarantor_status'] {
   const normalized = (status ?? 'none').toLowerCase();
   switch (normalized) {
+    case 'pending':
     case 'invited':
+      return 'invited';
     case 'accepted':
     case 'rejected':
       return normalized;
-    case 'pending':
-      return 'invited';
     case 'verified':
     case 'signed':
       return 'accepted';
@@ -127,7 +127,7 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
         status: 'PENDING',
         marketplace: true,
         guarantor_email: guarantorEmail || null,
-        guarantor_status: guarantorEmail ? 'invited' : 'none',
+        guarantor_status: guarantorEmail ? 'pending' : 'none',
       })
       .select('id')
       .single();
@@ -188,7 +188,7 @@ export async function inviteGuarantor(
     .from('handshakes')
     .update({
       guarantor_email: email,
-      guarantor_status: 'invited',
+      guarantor_status: 'pending',
     })
     .eq('id', loan);
 
@@ -232,7 +232,8 @@ export async function listMarketplaceOpportunities(): Promise<{ rows: Marketplac
     )
     .eq('marketplace', true)
     .eq('status', 'PENDING')
-    .eq('collateral_status', 'verified')
+    // TODO: Re-enable collateral verification check once feature is finalized.
+    // .eq('collateral_status', 'verified')
     .is('lender_id', null)
     .order('created_at', { ascending: false });
 
@@ -266,7 +267,8 @@ export async function fundMarketplaceLoan(handshakeId: string): Promise<{ ok: bo
     .eq('id', handshakeId)
     .eq('marketplace', true)
     .eq('status', 'PENDING')
-    .eq('collateral_status', 'verified')
+    // TODO: Re-enable collateral verification check once feature is finalized.
+    // .eq('collateral_status', 'verified')
     .is('lender_id', null)
     .select('id')
     .maybeSingle();

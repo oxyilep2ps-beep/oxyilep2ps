@@ -61,7 +61,7 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
       return NextResponse.json({ ok: false, error: declineError.message }, { status: 500 });
     }
 
-    const declinedUrl = new URL(`/guarantor/invite/${encodeURIComponent(id)}`, appBaseUrl(req));
+    const declinedUrl = new URL(`/guarantor/review/${encodeURIComponent(id)}`, appBaseUrl(req));
     declinedUrl.searchParams.set('status', 'declined');
     declinedUrl.searchParams.set('email', guarantorEmail);
     declinedUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
@@ -73,7 +73,7 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
   const sandboxOnly = !client || process.env.PAYMENT_SANDBOX_MODE === 'true' || process.env.PAYMENT_SANDBOX_MODE === '1';
 
   if (sandboxOnly) {
-    const completeUrl = new URL(`/guarantor/invite/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
+    const completeUrl = new URL(`/guarantor/review/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
     completeUrl.searchParams.set('loanId', id);
     completeUrl.searchParams.set('email', guarantorEmail);
     completeUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));
@@ -88,7 +88,7 @@ async function createGuarantorBillingRequest(req: Request, body: Record<string, 
     },
   });
 
-  const redirectUrl = new URL(`/guarantor/invite/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
+  const redirectUrl = new URL(`/guarantor/review/${encodeURIComponent(id)}/complete`, appBaseUrl(req));
   redirectUrl.searchParams.set('loanId', id);
   redirectUrl.searchParams.set('email', guarantorEmail);
   redirectUrl.searchParams.set('issuedAt', String(issuedAt ?? ''));

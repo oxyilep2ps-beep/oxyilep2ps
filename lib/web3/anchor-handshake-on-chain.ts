@@ -79,6 +79,7 @@ export async function anchorHandshakeOnPolygon(params: {
       lenderId: params.lenderId,
       amount: params.amount,
       timestamp: params.timestamp,
+      guarantorUserId: params.guarantorUserId ?? null,
     });
 
     const { ethers } = await import('ethers');
