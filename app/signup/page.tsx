@@ -8,10 +8,131 @@ import { SignUpWizard, type SignUpWizardFiles } from '@/components/sign-up-wizar
 import { AuthToast } from '@/components/auth-toast';
 import { Footer } from '@/components/footer';
 import { Logo } from '@/components/logo';
+import { STRATEGIC_QUESTIONS } from '@/lib/questionnaire/strategic-questions';
 import type { KycSubmissionPayload } from '@/lib/types/kyc';
 
 const SIGNUP_SUCCESS_MESSAGE =
-  'Account created and documents uploaded! Please check your email to confirm.';
+  "Account created successfully! Please check your email to confirm. (Note: Please check your Spam or Junk folder if you don't see it within a few minutes).";
+
+/** Append every onboarding text field explicitly (plus files + full kyc JSON backup). */
+function appendRegisterFormData(
+  formData: FormData,
+  kyc: KycSubmissionPayload,
+  meta: { email: string; fullLegalName: string; password: string; expected_interest_rate: number },
+  files: SignUpWizardFiles
+) {
+  formData.append('email', meta.email.trim());
+  formData.append('password', meta.password);
+  formData.append('fullLegalName', meta.fullLegalName);
+  formData.append('full_legal_name', meta.fullLegalName);
+  formData.append('legal_name', meta.fullLegalName);
+  formData.append('expected_interest_rate', String(meta.expected_interest_rate));
+
+  // Account role
+  formData.append('account_role', kyc.role);
+  formData.append('accountRole', kyc.role);
+  formData.append('role', kyc.role);
+
+  // Basic details
+  formData.append('basic_email', kyc.basic.email ?? meta.email.trim());
+  formData.append('uk_phone', kyc.basic.ukPhone ?? '');
+  formData.append('ukPhone', kyc.basic.ukPhone ?? '');
+  formData.append('postal_code', kyc.basic.postalCode ?? '');
+  formData.append('postalCode', kyc.basic.postalCode ?? '');
+  formData.append('date_of_birth', kyc.basic.dateOfBirth ?? '');
+  formData.append('dateOfBirth', kyc.basic.dateOfBirth ?? '');
+  formData.append('current_address', kyc.basic.currentAddress ?? '');
+  formData.append('currentAddress', kyc.basic.currentAddress ?? '');
+  formData.append('address_history_3_years', kyc.basic.addressHistory3Years ?? '');
+  formData.append('addressHistory3Years', kyc.basic.addressHistory3Years ?? '');
+
+  // Identity meta
+  formData.append('proof_of_identity_type', kyc.identityMeta.proofOfIdentityType ?? '');
+  formData.append('proofOfIdentityType', kyc.identityMeta.proofOfIdentityType ?? '');
+  formData.append('has_proof_of_identity', String(Boolean(kyc.identityMeta.hasProofOfIdentity)));
+  formData.append('has_liveness_video', String(Boolean(kyc.identityMeta.hasLivenessVideo)));
+  formData.append('has_proof_of_address', String(Boolean(kyc.identityMeta.hasProofOfAddress)));
+
+  // Strategic questionnaire — both machine keys and human aliases
+  const answers = kyc.questionnaireAnswers ?? {};
+  for (const q of STRATEGIC_QUESTIONS) {
+    const value = answers[q.label] ?? '';
+    formData.append(q.key, value);
+    if (q.key === 'uk_resident') formData.append('is_uk_resident', value);
+    if (q.key === 'marketing_consent') formData.append('launch_updates', value);
+  }
+
+  // Role-specific fields
+  if (kyc.lender) {
+    formData.append('investor_category', kyc.lender.investorCategory ?? '');
+    formData.append('investorCategory', kyc.lender.investorCategory ?? '');
+    formData.append('source_of_funds', kyc.lender.sourceOfFunds ?? '');
+    formData.append('sourceOfFunds', kyc.lender.sourceOfFunds ?? '');
+    formData.append('bank_sort_code', kyc.lender.bankSortCode ?? '');
+    formData.append('bankSortCode', kyc.lender.bankSortCode ?? '');
+    formData.append('bank_account_number', kyc.lender.bankAccountNumber ?? '');
+    formData.append('bankAccountNumber', kyc.lender.bankAccountNumber ?? '');
+    formData.append('appropriateness_0', String(kyc.lender.appropriatenessAnswers?.[0] ?? ''));
+    formData.append('appropriateness_1', String(kyc.lender.appropriatenessAnswers?.[1] ?? ''));
+    formData.append('appropriateness_2', String(kyc.lender.appropriatenessAnswers?.[2] ?? ''));
+  }
+
+  if (kyc.borrower) {
+    formData.append('purpose_of_loan', kyc.borrower.purposeOfLoan ?? '');
+    formData.append('purposeOfLoan', kyc.borrower.purposeOfLoan ?? '');
+    formData.append('employment_status', kyc.borrower.employmentStatus ?? '');
+    formData.append('employmentStatus', kyc.borrower.employmentStatus ?? '');
+    formData.append('annual_income', kyc.borrower.annualIncome ?? '');
+    formData.append('annualIncome', kyc.borrower.annualIncome ?? '');
+    formData.append('open_banking_consent', String(Boolean(kyc.borrower.openBankingConsent)));
+    formData.append('openBankingConsent', String(Boolean(kyc.borrower.openBankingConsent)));
+    formData.append('credit_check_consent', String(Boolean(kyc.borrower.creditCheckConsent)));
+    formData.append('creditCheckConsent', String(Boolean(kyc.borrower.creditCheckConsent)));
+    formData.append('monthly_rent_or_emi', kyc.borrower.monthlyRentOrEmi ?? '');
+    formData.append('monthlyRentOrEmi', kyc.borrower.monthlyRentOrEmi ?? '');
+    formData.append('other_monthly_expenses', kyc.borrower.otherMonthlyExpenses ?? '');
+    formData.append('otherMonthlyExpenses', kyc.borrower.otherMonthlyExpenses ?? '');
+    formData.append(
+      'has_income_verification',
+      String(Boolean(kyc.borrower.hasIncomeVerification || files.incomeVerification))
+    );
+  }
+
+  // Full JSON backup (must not be the only source of truth anymore)
+  formData.append('kyc', JSON.stringify(kyc));
+
+  // ── Files: append the real File object under EVERY known key alias ──
+  const assertFile = (file: File | null | undefined, label: string): File => {
+    if (!(file instanceof File) || file.size <= 0) {
+      throw new Error(`${label} is missing or empty. Please re-select the file.`);
+    }
+    // eslint-disable-next-line no-console
+    console.log(`📎 Client appending ${label}:`, file.name, file.size, file.type);
+    return file;
+  };
+
+  const idProof = assertFile(files.proofOfIdentity, 'ID Proof');
+  const liveness = assertFile(files.livenessVideo, 'Liveness selfie');
+  const addressProof = assertFile(files.proofOfAddress, 'Address Proof');
+
+  // Canonical keys used by the registration pipeline
+  formData.append('proofOfIdentity', idProof);
+  formData.append('livenessVideo', liveness);
+  formData.append('proofOfAddress', addressProof);
+  // Aliases (must match any server formData.get(...) variants)
+  formData.append('idProof', idProof);
+  formData.append('id_proof', idProof);
+  formData.append('livenessSelfie', liveness);
+  formData.append('liveness_selfie', liveness);
+  formData.append('addressProof', addressProof);
+  formData.append('address_proof', addressProof);
+
+  if (files.incomeVerification) {
+    const income = assertFile(files.incomeVerification, 'Income verification');
+    formData.append('incomeVerification', income);
+    formData.append('income_verification', income);
+  }
+}
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -36,20 +157,8 @@ export default function SignUpPage() {
         return;
       }
 
-      // Use API route (JSON errors) instead of Server Actions — large multipart
-      // uploads often trigger Next's masked "unexpected response" error.
       const formData = new FormData();
-      formData.append('email', meta.email.trim());
-      formData.append('password', meta.password);
-      formData.append('fullLegalName', meta.fullLegalName);
-      formData.append('kyc', JSON.stringify(kyc));
-      formData.append('expected_interest_rate', String(meta.expected_interest_rate));
-      formData.append('proofOfIdentity', files.proofOfIdentity);
-      formData.append('livenessVideo', files.livenessVideo);
-      formData.append('proofOfAddress', files.proofOfAddress);
-      if (files.incomeVerification) {
-        formData.append('incomeVerification', files.incomeVerification);
-      }
+      appendRegisterFormData(formData, kyc, meta, files);
 
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -68,7 +177,6 @@ export default function SignUpPage() {
       }
 
       if (!response.ok || !payload?.success) {
-        // Prefer the exact server error string for the red toast (e.g. email already registered).
         const realError =
           (typeof payload?.error === 'string' && payload.error.trim()) ||
           (response.status === 413

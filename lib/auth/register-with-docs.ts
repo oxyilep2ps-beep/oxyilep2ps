@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { extractRegisterPayload } from '@/lib/auth/extract-register-form';
 import { uploadAllKycDocuments, type WizardUploadFiles } from '@/lib/kyc/upload';
 import { buildStoredKycData, mapWizardRoleToProfileRole } from '@/lib/kyc/build-stored-kyc';
 import { buildFcaTestAnswers } from '@/lib/kyc/fca-answers';
 import { createSubmission } from '@/lib/data/kyc-store';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
-import type { KycSubmissionPayload } from '@/lib/types/kyc';
 
 export type RegisterWithDocsResult =
   | { success: true; userId: string }
@@ -29,6 +29,27 @@ function toUploadable(value: FormDataEntryValue | null): WizardUploadFiles[keyof
     size: blob.size,
     arrayBuffer: () => blob.arrayBuffer(),
   };
+}
+
+/** Read a file from FormData trying several exact key aliases. */
+function getUploadableFile(
+  formData: FormData,
+  keys: string[]
+): WizardUploadFiles[keyof WizardUploadFiles] {
+  for (const key of keys) {
+    const value = formData.get(key);
+    const file = toUploadable(value);
+    if (file) return file;
+  }
+  return null;
+}
+
+function logExtractedFile(label: string, file: WizardUploadFiles[keyof WizardUploadFiles]) {
+  if (file) {
+    console.log(`🚨 EXTRACTED ${label}:`, `Name: ${file.name}, Size: ${file.size}`);
+  } else {
+    console.log(`🚨 EXTRACTED ${label}:`, 'MISSING!');
+  }
 }
 
 function getAppOrigin(): string {
@@ -74,52 +95,108 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
   try {
     console.info('[registerWithDocs] start');
 
-    const email = String(formData.get('email') ?? '')
-      .trim()
-      .toLowerCase();
-    const password = String(formData.get('password') ?? '');
-    const fullLegalName = String(formData.get('fullLegalName') ?? '').trim();
-    const kycJson = String(formData.get('kyc') ?? '');
-    const expectedInterestRateRaw = formData.get('expected_interest_rate')?.toString();
-    const expectedInterestRate = Number(expectedInterestRateRaw ?? FIXED_INTEREST_RATE);
+    // EPIC 1 — extract EVERY text field explicitly (flat FormData + nested kyc JSON).
+    const extracted = extractRegisterPayload(formData);
+    const { email, password, fullLegalName, kyc } = extracted;
+    const expectedInterestRate = Number(
+      extracted.expectedInterestRateRaw ?? FIXED_INTEREST_RATE
+    );
 
-    if (!email || !password || !fullLegalName || !kycJson) {
+    if (!email || !password || !fullLegalName) {
       return {
         success: false,
-        error: 'Email, password, full legal name, and KYC payload are required.',
+        error: 'Email, password, and full legal name are required.',
       };
+    }
+
+    if (!kyc.role || (!kyc.basic.ukPhone && !kyc.basic.dateOfBirth)) {
+      // Soft guard: still require a usable KYC payload
+      if (!formData.get('kyc') && Object.keys(kyc.questionnaireAnswers ?? {}).length === 0) {
+        return {
+          success: false,
+          error: 'KYC questionnaire and basic details are required.',
+        };
+      }
     }
 
     if (password.length < 8) {
       return { success: false, error: 'Password must be at least 8 characters.' };
     }
 
-    let kyc: KycSubmissionPayload;
-    try {
-      kyc = JSON.parse(kycJson) as KycSubmissionPayload;
-    } catch {
-      return { success: false, error: 'Invalid KYC payload.' };
-    }
-
     const files: WizardUploadFiles = {
-      proofOfIdentity: toUploadable(formData.get('proofOfIdentity')),
-      livenessVideo: toUploadable(formData.get('livenessVideo')),
-      proofOfAddress: toUploadable(formData.get('proofOfAddress')),
-      incomeVerification: toUploadable(formData.get('incomeVerification')),
+      proofOfIdentity: getUploadableFile(formData, [
+        'proofOfIdentity',
+        'idProof',
+        'id_proof',
+        'proof_of_identity',
+      ]),
+      livenessVideo: getUploadableFile(formData, [
+        'livenessVideo',
+        'livenessSelfie',
+        'liveness_selfie',
+        'liveness_video',
+      ]),
+      proofOfAddress: getUploadableFile(formData, [
+        'proofOfAddress',
+        'addressProof',
+        'address_proof',
+        'proof_of_address',
+      ]),
+      incomeVerification: getUploadableFile(formData, [
+        'incomeVerification',
+        'income_verification',
+        'incomeProof',
+      ]),
     };
 
-    console.info('[registerWithDocs] files', {
+    // EPIC 2 — strict terminal logs so we can see if files reached the server
+    logExtractedFile('ID PROOF', files.proofOfIdentity);
+    logExtractedFile('LIVENESS SELFIE', files.livenessVideo);
+    logExtractedFile('ADDRESS PROOF', files.proofOfAddress);
+    logExtractedFile('INCOME VERIFICATION', files.incomeVerification);
+
+    console.log(
+      '🧾 FormData file keys present:',
+      [...formData.keys()].filter((k) =>
+        /proof|id|liveness|address|income|video|selfie|document/i.test(k)
+      )
+    );
+
+    // Mark identity flags from actual files when flat flags were omitted.
+    kyc.identityMeta.hasProofOfIdentity =
+      kyc.identityMeta.hasProofOfIdentity || Boolean(files.proofOfIdentity);
+    kyc.identityMeta.hasLivenessVideo =
+      kyc.identityMeta.hasLivenessVideo || Boolean(files.livenessVideo);
+    kyc.identityMeta.hasProofOfAddress =
+      kyc.identityMeta.hasProofOfAddress || Boolean(files.proofOfAddress);
+    if (kyc.borrower) {
+      kyc.borrower.hasIncomeVerification =
+        kyc.borrower.hasIncomeVerification || Boolean(files.incomeVerification);
+    }
+
+    console.info('[registerWithDocs] extracted fields', {
+      email,
+      fullLegalName,
+      accountRole: kyc.role,
+      questionnaireKeys: Object.keys(kyc.questionnaireAnswers ?? {}),
+      questionnaireAnswers: kyc.questionnaireAnswers,
+      hasBorrower: Boolean(kyc.borrower),
+      hasLender: Boolean(kyc.lender),
       id: files.proofOfIdentity?.size ?? 0,
       liveness: files.livenessVideo?.size ?? 0,
       address: files.proofOfAddress?.size ?? 0,
       income: files.incomeVerification?.size ?? 0,
     });
 
-    if (!files.proofOfIdentity || !files.livenessVideo || !files.proofOfAddress) {
-      return {
-        success: false,
-        error: 'Proof of identity, liveness video, and proof of address are required.',
-      };
+    // EPIC 2 — explicit per-file presence/empty checks (exact reason to UI).
+    if (!files.proofOfIdentity || files.proofOfIdentity.size === 0) {
+      return { success: false, error: 'ID Proof file is missing or empty.' };
+    }
+    if (!files.livenessVideo || files.livenessVideo.size === 0) {
+      return { success: false, error: 'Liveness selfie/video file is missing or empty.' };
+    }
+    if (!files.proofOfAddress || files.proofOfAddress.size === 0) {
+      return { success: false, error: 'Address Proof file is missing or empty.' };
     }
 
     const maxBytes = 10 * 1024 * 1024;
@@ -147,6 +224,12 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       proof_of_identity_type: String(kyc.identityMeta?.proofOfIdentityType ?? ''),
       account_role: kyc.role,
       role: kyc.role === 'borrower' ? 'BORROWER' : 'INVESTOR',
+      // Flat questionnaire safety net for trigger / debugging (full blob written on profile upsert)
+      uk_resident: (kyc.questionnaireAnswers ?? {})['Are you a UK resident?'] ?? '',
+      understands_risk:
+        (kyc.questionnaireAnswers ?? {})['Do you understand P2P lending carries risk?'] ?? '',
+      marketing_consent:
+        (kyc.questionnaireAnswers ?? {})['May we email you about launch updates?'] ?? '',
       expected_interest_rate: Number.isFinite(expectedInterestRate)
         ? expectedInterestRate
         : FIXED_INTEREST_RATE,
@@ -180,8 +263,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
     const userId = authData.user?.id ? String(authData.user.id) : null;
     const identities = authData.user?.identities ?? [];
 
-    // Email enumeration protection / duplicate email: 200 OK but user is null,
-    // or a user shell with empty identities.
     if (!userId || identities.length === 0) {
       return {
         success: false,
@@ -193,56 +274,84 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
     createdUserId = userId;
     console.info('[registerWithDocs] auth user created', userId);
 
-    // Service-role client — required for auth.admin.deleteUser rollback.
     const supabaseAdmin = createAdminClient();
 
-    // ── Inner try: uploads + profile insert. On failure → Auth rollback. ──
     try {
+      // EPIC 2 — ArrayBuffer uploads; paths (and public mirror) mapped after success.
       console.info('[registerWithDocs] uploading KYC documents for', userId);
       const documents = await uploadAllKycDocuments(supabaseAdmin, userId, files);
 
-      if (!documents.proofOfIdentity || !documents.livenessVideo || !documents.proofOfAddress) {
+      const idProofUrl = documents.proofOfIdentity ?? null;
+      const livenessUrl = documents.livenessVideo ?? null;
+      const addressProofUrl = documents.proofOfAddress ?? null;
+      const incomeVerificationUrl = documents.incomeVerification ?? null;
+
+      if (!idProofUrl || !livenessUrl || !addressProofUrl) {
         throw new Error('One or more KYC documents failed to upload. Please retry.');
       }
 
       console.info('[registerWithDocs] storage uploads succeeded', {
         userId,
-        paths: documents,
+        idProofUrl,
+        livenessUrl,
+        addressProofUrl,
+        incomeVerificationUrl,
       });
 
-      const kyc_data = buildStoredKycData(kyc, documents);
+      // EPIC 3 — comprehensive profile upsert with ALL text fields + document paths.
+      const kyc_data = buildStoredKycData(kyc, {
+        proofOfIdentity: idProofUrl,
+        livenessVideo: livenessUrl,
+        proofOfAddress: addressProofUrl,
+        incomeVerification: incomeVerificationUrl,
+      });
       const profileRole = mapWizardRoleToProfileRole(kyc.role);
       const fcaTestAnswers =
         kyc.role === 'lender' && kyc.lender
           ? buildFcaTestAnswers(kyc.lender.appropriatenessAnswers)
           : {};
 
-      console.info('[registerWithDocs] profile upsert', userId);
-      const { error: profileError } = await supabaseAdmin.from('profiles').upsert(
-        {
-          id: userId,
-          full_legal_name: fullLegalName,
-          email,
-          role: profileRole,
-          status: 'PENDING',
-          account_status: 'active',
-          postal_code: kyc.basic.postalCode?.trim().toUpperCase() ?? null,
-          fca_test_answers: fcaTestAnswers,
-          proof_of_identity_url: documents.proofOfIdentity,
-          liveness_video_url: documents.livenessVideo,
-          proof_of_address_url: documents.proofOfAddress,
-          income_verification_url: documents.incomeVerification ?? null,
-          expected_interest_rate: FIXED_INTEREST_RATE,
-          kyc_data,
-        },
-        { onConflict: 'id' }
-      );
+      console.info('[registerWithDocs] profile upsert', {
+        userId,
+        role: profileRole,
+        questionnaireAnswers: kyc_data.questionnaireAnswers,
+      });
+
+      console.info('[registerWithDocs] profile upsert payload document columns', {
+        proof_of_identity_url: idProofUrl,
+        liveness_video_url: livenessUrl,
+        proof_of_address_url: addressProofUrl,
+        income_verification_url: incomeVerificationUrl,
+      });
+
+      const profilePayload = {
+        id: userId,
+        full_legal_name: fullLegalName,
+        email,
+        role: profileRole,
+        status: 'PENDING' as const,
+        account_status: 'active' as const,
+        postal_code: kyc.basic.postalCode?.trim().toUpperCase() || null,
+        fca_test_answers: fcaTestAnswers,
+        // EPIC 4 — document URL/path columns MUST be present (never omitted)
+        proof_of_identity_url: idProofUrl,
+        liveness_video_url: livenessUrl,
+        proof_of_address_url: addressProofUrl,
+        income_verification_url: incomeVerificationUrl,
+        expected_interest_rate: Number.isFinite(expectedInterestRate)
+          ? expectedInterestRate
+          : FIXED_INTEREST_RATE,
+        kyc_data,
+      };
+
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .upsert(profilePayload, { onConflict: 'id' });
 
       if (profileError) {
         throw new Error(profileError.message);
       }
 
-      // Verify paths actually landed — catch schema/trigger wipe issues early.
       const { data: verified, error: verifyError } = await supabaseAdmin
         .from('profiles')
         .select(
@@ -269,13 +378,16 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
             savedKyc.identity &&
             (savedKyc.identity as { documents?: { proofOfIdentity?: string } }).documents
               ?.proofOfIdentity
-        ) || Boolean(savedKyc && (savedKyc.identityMeta as { idProofPath?: string } | undefined)?.idProofPath);
+        ) ||
+        Boolean(
+          savedKyc &&
+            (savedKyc.identityMeta as { idProofPath?: string } | undefined)?.idProofPath
+        );
       const hasQuestionnaire =
         Boolean(savedKyc?.questionnaireAnswers) &&
         typeof savedKyc?.questionnaireAnswers === 'object' &&
         Object.keys(savedKyc.questionnaireAnswers as object).length > 0;
-      const expectsQuestionnaire =
-        Boolean(kyc.questionnaireAnswers) && Object.keys(kyc.questionnaireAnswers ?? {}).length > 0;
+      const expectsQuestionnaire = Object.keys(kyc.questionnaireAnswers ?? {}).length > 0;
 
       if (!savedId || !savedLiveness || !savedAddress || !hasIdentityDocs) {
         console.error('[registerWithDocs] verify failed — paths/kyc missing after upsert', {
@@ -320,7 +432,6 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
     } catch (processError: unknown) {
       console.error('🚨 PIPELINE FAILED after auth.signUp:', processError);
 
-      // ROLLBACK: delete orphaned Auth user so the email can be reused.
       if (userId) {
         try {
           const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
@@ -336,17 +447,16 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
 
       createdUserId = null;
 
+      // EPIC 1 — surface the EXACT reason to the UI (visible in Vercel prod).
+      const exactReason = toErrorMessage(processError);
       return {
         success: false,
-        error:
-          toErrorMessage(processError) ||
-          'Failed to process documents. Your account creation was rolled back. Please try again.',
+        error: `Upload Failed: ${exactReason || 'account creation was rolled back. Please try again.'}`,
       };
     }
   } catch (error: unknown) {
-    console.error('🚨 SERVER ACTION CRASHED:', error);
+    console.error('🚨 VERCEL SERVER ACTION CRASH:', error);
 
-    // Last-resort rollback if Auth user was created before an unexpected outer failure.
     if (createdUserId) {
       try {
         const supabaseAdmin = createAdminClient();
@@ -357,13 +467,11 @@ export async function runRegisterWithDocs(formData: FormData): Promise<RegisterW
       }
     }
 
-    const message =
-      error && typeof error === 'object' && 'message' in error
-        ? String((error as { message?: unknown }).message || 'Unknown internal server error')
-        : toErrorMessage(error);
+    // EPIC 1 — never return a generic error; include the exact reason.
+    const exactReason = error instanceof Error ? error.message : toErrorMessage(error);
     return {
       success: false,
-      error: message || 'Unknown internal server error',
+      error: `Upload Failed: ${exactReason || 'Unknown internal server error'}`,
     };
   }
 }

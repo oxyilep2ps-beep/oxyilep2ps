@@ -16,6 +16,8 @@ export function buildStoredKycData(payload: KycSubmissionPayload, documents: Kyc
   return {
     accountRole: payload.role,
     basic: {
+      fullLegalName: payload.basic.fullLegalName,
+      email: payload.basic.email,
       ukPhone: payload.basic.ukPhone,
       postalCode: payload.basic.postalCode,
       dateOfBirth: payload.basic.dateOfBirth,
@@ -48,7 +50,17 @@ export function buildStoredKycData(payload: KycSubmissionPayload, documents: Kyc
       incomeVerification,
     },
     ...(payload.lender ? { lender: payload.lender } : {}),
-    ...(payload.borrower ? { borrower: payload.borrower } : {}),
+    ...(payload.borrower
+      ? {
+          borrower: {
+            ...payload.borrower,
+            hasIncomeVerification: Boolean(
+              payload.borrower.hasIncomeVerification || incomeVerification
+            ),
+          },
+        }
+      : {}),
+    // Always persist questionnaire answers (never omit — empty object if unanswered)
     questionnaireAnswers: payload.questionnaireAnswers ?? {},
     submittedAt: new Date().toISOString(),
   };

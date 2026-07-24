@@ -15,6 +15,8 @@ export interface KycDocumentPaths {
 export interface StoredKycData {
   accountRole: 'lender' | 'borrower';
   basic: {
+    fullLegalName?: string;
+    email?: string;
     ukPhone: string;
     postalCode?: string;
     dateOfBirth: string;
@@ -46,7 +48,10 @@ export interface StoredKycData {
     creditCheckConsent: boolean;
     monthlyRentOrEmi: string;
     otherMonthlyExpenses: string;
+    hasIncomeVerification?: boolean;
   };
+  /** Strategic Yes/No answers keyed by question label. */
+  questionnaireAnswers?: Record<string, string>;
   submittedAt: string;
 }
 

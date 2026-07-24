@@ -477,6 +477,12 @@ export function SupabaseAdminDashboard() {
     const cached = signedUrlCache.current[path];
     if (cached) return cached;
 
+    // Already a public/signed URL — use directly (no second round-trip).
+    if (/^https?:\/\//i.test(path)) {
+      signedUrlCache.current[path] = path;
+      return path;
+    }
+
     // eslint-disable-next-line no-console
     console.log('GENERATING SIGNED URL FOR:', path);
     const url = await getKycSignedUrlAction(path);

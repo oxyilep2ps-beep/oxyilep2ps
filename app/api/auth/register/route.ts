@@ -30,11 +30,12 @@ export async function POST(request: Request) {
     const result = await runRegisterWithDocs(formData);
     return NextResponse.json(result, { status: result.success ? 201 : 400 });
   } catch (error: unknown) {
-    console.error('🚨 SERVER ACTION CRASHED:', error);
-    const message =
-      error && typeof error === 'object' && 'message' in error
-        ? String((error as { message?: unknown }).message || 'Unknown internal server error')
-        : 'Unknown internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    console.error('🚨 VERCEL SERVER ACTION CRASH:', error);
+    const exactReason =
+      error instanceof Error ? error.message : JSON.stringify(error);
+    return NextResponse.json(
+      { success: false, error: `Upload Failed: ${exactReason || 'Unknown internal server error'}` },
+      { status: 500 }
+    );
   }
 }

@@ -92,7 +92,11 @@ begin
         'hasLivenessVideo', false,
         'hasProofOfAddress', false
       ),
-      'questionnaireAnswers', '{}'::jsonb,
+      'questionnaireAnswers', jsonb_strip_nulls(jsonb_build_object(
+        'Are you a UK resident?', nullif(meta->>'uk_resident', ''),
+        'Do you understand P2P lending carries risk?', nullif(meta->>'understands_risk', ''),
+        'May we email you about launch updates?', nullif(meta->>'marketing_consent', '')
+      )),
       'submittedAt', timezone('utc', now())
     );
   end if;
