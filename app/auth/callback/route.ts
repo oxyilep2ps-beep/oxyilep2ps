@@ -16,6 +16,10 @@ export async function GET(request: Request) {
   const next = searchParams.get('next') ?? '';
 
   if (!code) {
+    const next = searchParams.get('next') ?? '';
+    if (next.startsWith('/reset-password') || next.startsWith('/forgot-password')) {
+      return NextResponse.redirect(`${origin}/forgot-password?error=expired`);
+    }
     return NextResponse.redirect(`${origin}/signin?error=auth_callback_failed`);
   }
 
@@ -24,6 +28,13 @@ export async function GET(request: Request) {
 
   if (error) {
     console.error('[auth/callback] exchangeCodeForSession failed:', error.message);
+    const next = searchParams.get('next') ?? '';
+    if (next.startsWith('/reset-password') || next.includes('reset-password')) {
+      const fromEmployee = next.includes('from=employee');
+      const qs = new URLSearchParams({ error: 'expired' });
+      if (fromEmployee) qs.set('from', 'employee');
+      return NextResponse.redirect(`${origin}/forgot-password?${qs.toString()}`);
+    }
     return NextResponse.redirect(`${origin}/signin?error=auth_callback_failed`);
   }
 

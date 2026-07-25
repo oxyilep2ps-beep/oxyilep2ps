@@ -92,6 +92,14 @@ export default function EmployeeLoginPage() {
               className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-2 dark:border-white/10 dark:bg-neutral-950"
             />
           </label>
+          <div className="text-right">
+            <Link
+              href="/forgot-password?from=employee"
+              className="text-xs font-semibold text-brand-600 hover:text-brand-500 dark:text-brand-300"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <button
             type="submit"
             disabled={loading}
