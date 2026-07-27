@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   Wallet,
 } from 'lucide-react';
-import { initiateJITFunding } from '@/app/actions/payment';
 import { createClient } from '@/lib/supabase/client';
 import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
 import { getHandshakeUiPhase, hasValidPolygonTx } from '@/lib/handshake/ui-state';
@@ -148,14 +147,28 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
     setError(null);
 
     try {
-      const result = await initiateJITFunding(local.id, Number(local.amount));
-      if (!result.success) {
-        setError(result.error);
-        setIsRedirecting(false);
-        return;
+      const res = await fetch('/api/payments/initiate-jit-funding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          handshakeId: local.id,
+          amount: Number(local.amount),
+        }),
+      });
+
+      const body = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        checkout_url?: string;
+        error?: string;
+      };
+
+      if (!res.ok || !body.success || !body.checkout_url) {
+        throw new Error(body.error ?? `Funding failed (${res.status})`);
       }
+
       stashPendingHandshakeId(local.id);
-      window.location.href = result.checkout_url;
+      window.location.href = body.checkout_url;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not start investor checkout');
       setIsRedirecting(false);

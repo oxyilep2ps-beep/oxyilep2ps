@@ -18,7 +18,10 @@ function getGoCardlessBaseUrl(): string {
 
 async function gcFetch<T>(path: string, body: unknown): Promise<T> {
   const token = process.env.GOCARDLESS_ACCESS_TOKEN;
-  if (!token) throw new Error('GOCARDLESS_ACCESS_TOKEN is not configured');
+  if (!token) {
+    console.error('🚨 CRITICAL: Missing Payment API Key in Environment Variables (GOCARDLESS_ACCESS_TOKEN)');
+    throw new Error('GOCARDLESS_ACCESS_TOKEN is not configured');
+  }
 
   const res = await fetch(`${getGoCardlessBaseUrl()}${path}`, {
     method: 'POST',
@@ -32,6 +35,12 @@ async function gcFetch<T>(path: string, body: unknown): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text();
+    console.error('🚨 GOCARDLESS API ERROR:', res.status, path, text);
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `GoCardless Unauthorized (${res.status}). Check GOCARDLESS_ACCESS_TOKEN and GOCARDLESS_ENVIRONMENT on Vercel.`
+      );
+    }
     throw new Error(`GoCardless ${res.status}: ${text}`);
   }
 
@@ -50,14 +59,16 @@ export async function createInvestorJITCheckout(params: {
   const token = process.env.GOCARDLESS_ACCESS_TOKEN;
 
   if (!token) {
+    console.error('🚨 CRITICAL: Missing Payment API Key in Environment Variables (GOCARDLESS_ACCESS_TOKEN)');
     const stubUrl = new URL(params.successRedirectUrl);
     stubUrl.searchParams.set('stub', '1');
     stubUrl.searchParams.set('handshake_id', params.handshakeId);
+    stubUrl.searchParams.set('billing_request_id', `BRQ_JIT_STUB_${Date.now()}`);
     return {
       success: true,
       stub: true,
       checkout_url: stubUrl.toString(),
-      billing_request_id: `BRQ_JIT_STUB_${Date.now()}`,
+      billing_request_id: stubUrl.searchParams.get('billing_request_id') ?? undefined,
       billing_request_flow_id: `BRF_JIT_STUB_${Date.now()}`,
     };
   }

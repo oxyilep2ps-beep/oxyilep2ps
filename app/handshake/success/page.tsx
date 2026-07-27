@@ -4,13 +4,14 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, ExternalLink, Loader2, Wallet, XCircle } from 'lucide-react';
-import { confirmEscrowAndRoute } from '@/app/actions/payment';
 import { resolveHandshakeIdFromParams } from '@/lib/payments/pending-handshake';
 
 function InvestorFundSuccessInner() {
   const searchParams = useSearchParams();
   const handshakeId = resolveHandshakeIdFromParams(searchParams);
-  const billingRequestId = searchParams.get('billing_request_id') ?? undefined;
+  const billingRequestId =
+    searchParams.get('billing_request_id') ?? searchParams.get('billingRequestId') ?? undefined;
+  const stub = searchParams.get('stub') === '1' || searchParams.get('gocardless_stub') === '1';
 
   const [phase, setPhase] = useState<'confirming' | 'success' | 'error'>('confirming');
   const [error, setError] = useState<string | null>(null);
@@ -23,17 +24,39 @@ function InvestorFundSuccessInner() {
     }
 
     const run = async () => {
-      const result = await confirmEscrowAndRoute(handshakeId, billingRequestId);
-      if (!result.success) {
+      try {
+        const res = await fetch('/api/payments/confirm-investor-funding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            handshakeId,
+            billingRequestId: billingRequestId ?? (stub ? 'stub' : undefined),
+          }),
+        });
+
+        const body = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          funded?: boolean;
+          error?: string;
+        };
+
+        if (!res.ok || !body.success) {
+          setPhase('error');
+          setError(body.error ?? `Funding failed (${res.status})`);
+          return;
+        }
+
+        setPhase('success');
+      } catch (err) {
+        console.error('🚨 CONFIRM INVESTOR FUNDING CLIENT CRASH:', err);
         setPhase('error');
-        setError(result.error);
-        return;
+        setError(err instanceof Error ? err.message : 'Funding confirmation failed');
       }
-      setPhase('success');
     };
 
     void run();
-  }, [handshakeId, billingRequestId]);
+  }, [billingRequestId, handshakeId, stub]);
 
   if (phase === 'confirming') {
     return (
@@ -54,10 +77,18 @@ function InvestorFundSuccessInner() {
       <section className="mx-auto flex min-h-[75vh] max-w-lg flex-col items-center justify-center px-4 py-16 text-center">
         <XCircle className="text-red-500" size={52} />
         <h1 className="mt-4 text-xl font-black">Funding failed</h1>
-        <p className="mt-2 text-sm text-red-600">{error}</p>
-        <Link href="/chats" className="mt-6 text-sm font-semibold text-brand-600">
-          Back to chats
-        </Link>
+        <p className="mt-2 max-w-md text-sm text-red-600">{error}</p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href={`/signin?redirect=${encodeURIComponent(`/handshake/success?handshake_id=${handshakeId ?? ''}`)}`}
+            className="text-sm font-semibold text-brand-600"
+          >
+            Sign in and retry confirmation
+          </Link>
+          <Link href="/chats" className="text-sm font-semibold text-neutral-600">
+            Back to chats
+          </Link>
+        </div>
       </section>
     );
   }

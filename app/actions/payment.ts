@@ -33,13 +33,23 @@ export async function initiateJITFunding(
   amount: number
 ): Promise<InitiateJITFundingResult> {
   try {
+    if (!process.env.GOCARDLESS_ACCESS_TOKEN) {
+      console.error('🚨 CRITICAL: Missing Payment API Key in Environment Variables (GOCARDLESS_ACCESS_TOKEN)');
+    }
+
     const supabase = await createClient();
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
+    if (authError) {
+      console.error('🚨 FUNDING AUTH ERROR (getUser):', authError.message, authError);
+    }
+
     if (!user) {
-      return { success: false, error: 'Unauthorized' };
+      console.error('🚨 NO SUPABASE SESSION FOUND IN Server Action initiateJITFunding');
+      return { success: false, error: 'Unauthorized: Please log in again.' };
     }
 
     const id = handshakeId?.trim();
@@ -67,7 +77,11 @@ export async function initiateJITFunding(
     }
 
     if (handshake.lender_id !== user.id) {
-      return { success: false, error: 'Only the investor can fund this escrow' };
+      console.error('🚨 FUNDING UNAUTHORIZED CRASH: lender mismatch', {
+        userId: user.id,
+        lenderId: handshake.lender_id,
+      });
+      return { success: false, error: 'Unauthorized: Only the investor can fund this escrow.' };
     }
 
     if (handshake.funded_at || handshake.status === 'FUNDED' || handshake.status === 'ACTIVE') {
@@ -107,6 +121,7 @@ export async function initiateJITFunding(
     });
 
     if (!checkout.success || !checkout.checkout_url) {
+      console.error('🚨 FUNDING GOCARDLESS CHECKOUT FAILED:', checkout.error);
       return { success: false, error: checkout.error ?? 'Could not create payment link' };
     }
 
@@ -115,10 +130,11 @@ export async function initiateJITFunding(
       checkout_url: checkout.checkout_url,
       stub: checkout.stub,
     };
-  } catch (e) {
+  } catch (error: unknown) {
+    console.error('🚨 FUNDING UNAUTHORIZED CRASH:', error);
     return {
       success: false,
-      error: e instanceof Error ? e.message : 'JIT funding initiation failed',
+      error: error instanceof Error ? error.message : 'Unauthorized: Check Server Logs',
     };
   }
 }
@@ -130,16 +146,27 @@ export async function confirmEscrowAndRoute(
   handshakeId: string,
   billingRequestId?: string
 ): Promise<ConfirmEscrowAndRouteResult> {
-  void billingRequestId;
-
   try {
     const supabase = await createClient();
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
+    if (authError) {
+      console.error('🚨 CONFIRM ESCROW AUTH ERROR:', authError.message);
+    }
+
     if (!user) {
-      return { success: false, error: 'Unauthorized' };
+      console.error('🚨 NO SUPABASE SESSION FOUND IN Server Action confirmEscrowAndRoute', {
+        handshakeId,
+        hasBillingRequestId: Boolean(billingRequestId),
+      });
+      // Prefer the cookie-aware API route from the success page; keep action for compatibility.
+      return {
+        success: false,
+        error: 'Unauthorized: Please log in again to confirm funding.',
+      };
     }
 
     const id = handshakeId?.trim();
@@ -159,7 +186,11 @@ export async function confirmEscrowAndRoute(
     }
 
     if (handshake.lender_id !== user.id) {
-      return { success: false, error: 'Only the funding investor can confirm this escrow' };
+      console.error('🚨 FUNDING UNAUTHORIZED CRASH: lender mismatch on confirm', {
+        userId: user.id,
+        lenderId: handshake.lender_id,
+      });
+      return { success: false, error: 'Unauthorized: Only the funding investor can confirm this escrow.' };
     }
 
     if (handshake.funded_at || handshake.status === 'FUNDED') {
@@ -197,10 +228,11 @@ export async function confirmEscrowAndRoute(
     revalidatePath('/handshake/success');
 
     return { success: true, funded: true };
-  } catch (e) {
+  } catch (error: unknown) {
+    console.error('🚨 FUNDING UNAUTHORIZED CRASH:', error);
     return {
       success: false,
-      error: e instanceof Error ? e.message : 'Escrow confirmation failed',
+      error: error instanceof Error ? error.message : 'Unauthorized: Check Server Logs',
     };
   }
 }
