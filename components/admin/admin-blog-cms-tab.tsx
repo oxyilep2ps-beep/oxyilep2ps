@@ -13,10 +13,25 @@ import {
   type AdminBlogRow,
 } from '@/app/actions/admin-blogs';
 import { uploadBlogCover } from '@/app/actions/hr-blogs';
+import { uploadBloggerInlineImage } from '@/app/actions/blogger-blogs';
 import { blogCoverUrl } from '@/lib/blog/types';
 import { BlogEditorPanel } from '@/components/blog/blog-editor-panel';
+import { RejectBlogModal } from '@/components/admin/reject-blog-modal';
 
 type Tab = 'pending' | 'published';
+
+function SkeletonCards() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="glass-card animate-pulse rounded-2xl p-4">
+          <div className="h-4 w-2/3 rounded bg-neutral-300/60 dark:bg-white/10" />
+          <div className="mt-3 h-3 w-1/3 rounded bg-neutral-200/60 dark:bg-white/5" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function AdminBlogCmsTab() {
   const [tab, setTab] = useState<Tab>('pending');
@@ -27,6 +42,7 @@ export function AdminBlogCmsTab() {
   const [reviewBlog, setReviewBlog] = useState<AdminBlogRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,10 +69,15 @@ export function AdminBlogCmsTab() {
   const closeReview = () => {
     setReviewId(null);
     setReviewBlog(null);
+    setRejectOpen(false);
     void load();
   };
 
-  const handleApprove = async (payload: { title: string; content: string; cover_image_url: string | null }) => {
+  const handleApprove = async (payload: {
+    title: string;
+    content: string;
+    cover_image_url: string | null;
+  }) => {
     if (!reviewId) return;
     setBusy(true);
     try {
@@ -70,19 +91,28 @@ export function AdminBlogCmsTab() {
     }
   };
 
-  const handleReject = async () => {
+  const handleRejectConfirm = async (payload: {
+    rejectionReason: string;
+    adminFeedback: string;
+  }) => {
     if (!reviewId) return;
     setBusy(true);
     try {
-      await rejectBlog(reviewId);
-      setMessage('Returned to blogger as rejected.');
+      await rejectBlog(reviewId, payload);
+      setMessage('Returned to blogger with feedback.');
       closeReview();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Reject failed');
     } finally {
       setBusy(false);
     }
   };
 
-  const handlePublishedSave = async (payload: { title: string; content: string; cover_image_url: string | null }) => {
+  const handlePublishedSave = async (payload: {
+    title: string;
+    content: string;
+    cover_image_url: string | null;
+  }) => {
     if (!reviewId) return;
     setBusy(true);
     try {
@@ -114,7 +144,7 @@ export function AdminBlogCmsTab() {
       <div>
         <h2 className="text-xl font-black text-neutral-950 dark:text-white">Blog Manager</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Review blogger submissions and manage live articles.
+          Review blogger submissions with the same rich editor, approve, or reject with feedback.
         </p>
       </div>
 
@@ -161,13 +191,18 @@ export function AdminBlogCmsTab() {
               fd.set('file', file);
               return uploadBlogCover(fd);
             }}
+            onUploadInlineImage={async (file) => {
+              const fd = new FormData();
+              fd.set('file', file);
+              return uploadBloggerInlineImage(fd);
+            }}
             onSubmit={tab === 'pending' ? handleApprove : handlePublishedSave}
           />
           {tab === 'pending' && (
             <button
               type="button"
               disabled={busy}
-              onClick={() => void handleReject()}
+              onClick={() => setRejectOpen(true)}
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
               <XCircle size={16} />
@@ -182,15 +217,16 @@ export function AdminBlogCmsTab() {
       ) : (
         <>
           {loading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="animate-spin text-brand-500" size={28} />
-            </div>
+            <SkeletonCards />
           ) : rows.length === 0 ? (
             <p className="text-sm text-neutral-500">No blogs in this tab.</p>
           ) : (
             <div className="space-y-3">
               {rows.map((row) => (
-                <article key={row.id} className="glass-card flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+                <article
+                  key={row.id}
+                  className="glass-card flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4"
+                >
                   <div>
                     <p className="font-semibold">{row.title}</p>
                     <p className="text-xs text-neutral-500">
@@ -222,6 +258,14 @@ export function AdminBlogCmsTab() {
           )}
         </>
       )}
+
+      <RejectBlogModal
+        open={rejectOpen && Boolean(reviewBlog)}
+        blogTitle={reviewBlog?.title ?? ''}
+        busy={busy}
+        onClose={() => setRejectOpen(false)}
+        onConfirm={handleRejectConfirm}
+      />
     </div>
   );
 }

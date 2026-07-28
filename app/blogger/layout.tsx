@@ -1,14 +1,17 @@
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { BloggerBottomNav } from '@/components/blogger/blogger-bottom-nav';
 import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/auth/routing';
 import { isBloggerStaffEmail } from '@/lib/auth/role-emails';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
 
 const links = [
   { href: '/blogger', label: 'Overview' },
   { href: '/blogger/blogs', label: 'Blog Editor' },
-  { href: '/blogger/seo', label: 'SEO Guide' },
+  { href: '/blogger/seo', label: 'SEO Studio' },
+  { href: '/blogger/seo-guide', label: 'SEO Guide' },
+  { href: '/blogger/settings', label: 'Settings' },
 ];
 
 export default async function BloggerLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +34,7 @@ export default async function BloggerLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-7xl px-4 pb-24 pt-8 sm:px-6">
+    <div className="mx-auto min-h-screen max-w-7xl px-4 pb-28 pt-8 sm:px-6">
       <header className="glass-card mb-8 rounded-2xl p-6">
         <Logo size="sm" />
         <p className="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Blogger Portal</p>
@@ -49,6 +52,7 @@ export default async function BloggerLayout({ children }: { children: React.Reac
         </nav>
       </header>
       {children}
+      <BloggerBottomNav />
     </div>
   );
 }

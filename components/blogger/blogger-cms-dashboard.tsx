@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   deleteBloggerBlog,
   listBloggerBlogs,
@@ -10,12 +10,26 @@ import {
   submitBloggerBlog,
   updateBloggerBlog,
   uploadBloggerBlogCover,
+  uploadBloggerInlineImage,
 } from '@/app/actions/blogger-blogs';
 import type { BlogRow } from '@/lib/blog/types';
 import { blogCoverUrl } from '@/lib/blog/types';
 import { BlogEditorPanel } from '@/components/blog/blog-editor-panel';
 
 type Tab = 'drafts' | 'pending' | 'published' | 'references';
+
+function SkeletonCards() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="glass-card animate-pulse rounded-2xl p-4">
+          <div className="h-4 w-2/3 rounded bg-neutral-300/70 dark:bg-white/10" />
+          <div className="mt-3 h-3 w-1/3 rounded bg-neutral-200/70 dark:bg-white/5" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function BloggerCmsDashboard() {
   const [tab, setTab] = useState<Tab>('drafts');
@@ -79,9 +93,14 @@ export function BloggerCmsDashboard() {
   };
 
   const editorVisible = creating || editing;
+  const uploadInline = async (file: File) => {
+    const fd = new FormData();
+    fd.set('file', file);
+    return uploadBloggerInlineImage(fd);
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-black text-neutral-950 dark:text-white">Blogger CMS</h2>
@@ -102,7 +121,7 @@ export function BloggerCmsDashboard() {
       <div className="flex flex-wrap gap-2">
         {(
           [
-            { id: 'drafts', label: 'My Drafts' },
+            { id: 'drafts', label: 'My Drafts / Rejected' },
             { id: 'pending', label: 'Pending Approval' },
             { id: 'published', label: 'Published' },
             { id: 'references', label: 'Writing Prompts' },
@@ -128,7 +147,11 @@ export function BloggerCmsDashboard() {
         <div className="glass-card rounded-2xl p-5">
           <div className="mb-4 flex items-center justify-between">
             <p className="font-bold text-brand-600">
-              {editing ? `Editing: ${editing.title}` : fromReference ? `From prompt: ${fromReference.title}` : 'New article'}
+              {editing
+                ? `Editing: ${editing.title}`
+                : fromReference
+                  ? `From prompt: ${fromReference.title}`
+                  : 'New article'}
             </p>
             <button type="button" onClick={closeEditor} className="text-sm font-semibold text-neutral-500">
               Close
@@ -139,13 +162,22 @@ export function BloggerCmsDashboard() {
             initialTitle={editing?.title ?? fromReference?.title ?? ''}
             initialContent={editing?.content ?? fromReference?.content ?? '<p></p>'}
             initialCoverUrl={editing ? blogCoverUrl(editing) : null}
-            submitLabel={editing?.status === 'PUBLISHED' ? 'Save & Re-submit for Approval' : 'Submit for Approval'}
+            adminFeedback={editing?.status === 'REJECTED' ? editing.admin_feedback : null}
+            rejectionReason={editing?.status === 'REJECTED' ? editing.rejection_reason : null}
+            submitLabel={
+              editing?.status === 'REJECTED'
+                ? 'Resubmit for Approval'
+                : editing?.status === 'PUBLISHED'
+                  ? 'Save & Re-submit for Approval'
+                  : 'Submit for Approval'
+            }
             showDraftButton={!editing || editing.status === 'DRAFT' || editing.status === 'REJECTED'}
             onUploadCover={async (file) => {
               const fd = new FormData();
               fd.set('file', file);
               return uploadBloggerBlogCover(fd);
             }}
+            onUploadInlineImage={uploadInline}
             onSaveDraft={async (payload) => {
               if (editing) {
                 await updateBloggerBlog({ id: editing.id, ...payload, submitForApproval: false });
@@ -171,60 +203,80 @@ export function BloggerCmsDashboard() {
           />
           {editing?.status === 'PUBLISHED' && (
             <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-              Saving a published post sends it back to pending approval and removes it from the public site until admin approves again.
+              Saving a published post sends it back to pending approval and removes it from the public site until
+              admin approves again.
             </p>
           )}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="animate-spin text-brand-500" size={28} />
-        </div>
+        <SkeletonCards />
       ) : rows.length === 0 ? (
         <p className="text-sm text-neutral-500">No blogs in this tab.</p>
       ) : (
         <div className="space-y-3">
           {rows.map((row) => (
-            <article key={row.id} className="glass-card flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-neutral-950 dark:text-white">{row.title}</p>
-                <p className="text-xs text-neutral-500">
-                  {row.status} · {new Date(row.updated_at).toLocaleString('en-GB')}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {tab === 'references' ? (
-                  <button
-                    type="button"
-                    onClick={() => startFromReference(row)}
-                    className="rounded-full bg-brand-500 px-3 py-1.5 text-xs font-bold text-white"
-                  >
-                    Use as template
-                  </button>
-                ) : (
-                  <>
+            <article
+              key={row.id}
+              className={`glass-card rounded-2xl p-4 ${
+                row.status === 'REJECTED' ? 'border border-red-400/50 ring-1 ring-red-500/20' : ''
+              }`}
+            >
+              {row.status === 'REJECTED' ? (
+                <div className="mb-3 flex items-start gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-black uppercase tracking-wider">
+                      Rejected{row.rejection_reason ? ` · ${row.rejection_reason}` : ''}
+                    </p>
+                    <p className="mt-1 line-clamp-2">
+                      {row.admin_feedback?.replace(/<[^>]+>/g, ' ').trim() ||
+                        'Open the post to read admin feedback, fix issues, then resubmit.'}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-neutral-950 dark:text-white">{row.title}</p>
+                  <p className="text-xs text-neutral-500">
+                    {row.status} · {new Date(row.updated_at).toLocaleString('en-GB')}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {tab === 'references' ? (
                     <button
                       type="button"
-                      onClick={() => startEdit(row)}
-                      className="inline-flex items-center gap-1 rounded-full border border-brand-300 px-3 py-1.5 text-xs font-bold text-brand-600"
+                      onClick={() => startFromReference(row)}
+                      className="rounded-full bg-brand-500 px-3 py-1.5 text-xs font-bold text-white"
                     >
-                      <Pencil size={14} />
-                      Edit
+                      Use as template
                     </button>
-                    {row.status !== 'PUBLISHED' && (
+                  ) : (
+                    <>
                       <button
                         type="button"
-                        disabled={busyId === row.id}
-                        onClick={() => void handleDelete(row.id)}
-                        className="inline-flex items-center gap-1 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        onClick={() => startEdit(row)}
+                        className="inline-flex items-center gap-1 rounded-full border border-brand-300 px-3 py-1.5 text-xs font-bold text-brand-600"
                       >
-                        <Trash2 size={14} />
-                        Delete
+                        <Pencil size={14} />
+                        {row.status === 'REJECTED' ? 'Fix & Resubmit' : 'Edit'}
                       </button>
-                    )}
-                  </>
-                )}
+                      {row.status !== 'PUBLISHED' && (
+                        <button
+                          type="button"
+                          disabled={busyId === row.id}
+                          onClick={() => void handleDelete(row.id)}
+                          className="inline-flex items-center gap-1 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                        >
+                          {busyId === row.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                          Delete
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </article>
           ))}
@@ -232,11 +284,11 @@ export function BloggerCmsDashboard() {
       )}
 
       <p className="text-xs text-neutral-500">
-        Need help? Visit the{' '}
-        <Link href="/admin-dashboard/blogs" className="font-semibold text-brand-600">
-          admin blog queue
+        New here? Read the{' '}
+        <Link href="/blogger/seo-guide" className="font-semibold text-brand-600">
+          SEO Guide
         </Link>{' '}
-        after submission.
+        for every ranking tool in Editorial Studio.
       </p>
     </div>
   );

@@ -169,8 +169,14 @@ export function BloggerSeoHub() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="animate-spin text-brand-500" size={32} />
+        <div className="grid gap-3 md:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="glass-card animate-pulse rounded-2xl p-5">
+              <div className="h-4 w-1/2 rounded bg-neutral-300/60 dark:bg-white/10" />
+              <div className="mt-4 h-3 w-full rounded bg-neutral-200/60 dark:bg-white/5" />
+              <div className="mt-2 h-3 w-2/3 rounded bg-neutral-200/60 dark:bg-white/5" />
+            </div>
+          ))}
         </div>
       ) : null}
 

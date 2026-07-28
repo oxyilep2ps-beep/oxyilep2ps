@@ -1,15 +1,20 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
+import Image from '@tiptap/extension-image';
+import { ImagePlus, Loader2 } from 'lucide-react';
 
 type RichTextEditorProps = {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  /** Optional inline image uploader — returns a public URL. */
+  onUploadInlineImage?: (file: File) => Promise<string>;
+  onInlineImagesChange?: (urls: string[]) => void;
 };
 
 type ToolbarButton = {
@@ -18,7 +23,33 @@ type ToolbarButton = {
   active: boolean;
 };
 
-export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+type SlashItem = {
+  id: string;
+  label: string;
+  description: string;
+  run: () => void;
+};
+
+function extractImageUrls(html: string): string[] {
+  const urls: string[] = [];
+  const re = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(html))) urls.push(match[1]);
+  return [...new Set(urls)];
+}
+
+export function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+  onUploadInlineImage,
+  onInlineImagesChange,
+}: RichTextEditorProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [slashOpen, setSlashOpen] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const [uploading, setUploading] = useState(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -29,17 +60,49 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
         openOnClick: false,
         autolink: true,
       }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: 'my-4 max-h-[420px] w-full rounded-xl object-cover',
+        },
+      }),
     ],
     content: value,
     immediatelyRender: false,
     editorProps: {
       attributes: {
         class:
-          'min-h-[300px] w-full rounded-b-2xl border border-t-0 border-white/60 bg-white/70 px-4 py-3 text-sm text-neutral-900 outline-none dark:border-white/10 dark:bg-black/40 dark:text-neutral-100',
+          'min-h-[300px] w-full rounded-b-2xl border border-t-0 border-white/60 bg-white/70 px-4 py-3 text-sm text-neutral-900 outline-none dark:border-white/10 dark:bg-black/40 dark:text-neutral-100 prose prose-sm dark:prose-invert max-w-none',
+      },
+      handleKeyDown: (_view, event) => {
+        if (event.key === '/' && !event.metaKey && !event.ctrlKey) {
+          // Open slash menu on next tick after character inserts
+          window.setTimeout(() => {
+            setSlashOpen(true);
+            setSlashQuery('');
+          }, 0);
+        }
+        if (event.key === 'Escape') {
+          setSlashOpen(false);
+        }
+        return false;
       },
     },
     onUpdate({ editor: activeEditor }) {
-      onChange(activeEditor.getHTML());
+      const html = activeEditor.getHTML();
+      onChange(html);
+      onInlineImagesChange?.(extractImageUrls(html));
+
+      const { from } = activeEditor.state.selection;
+      const textBefore = activeEditor.state.doc.textBetween(Math.max(0, from - 24), from, '\n');
+      const slashMatch = textBefore.match(/\/([a-zA-Z]*)$/);
+      if (slashMatch) {
+        setSlashOpen(true);
+        setSlashQuery(slashMatch[1].toLowerCase());
+      } else if (!textBefore.endsWith('/')) {
+        setSlashOpen(false);
+      }
     },
   });
 
@@ -49,6 +112,38 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
       editor.commands.setContent(value || '<p></p>', { emitUpdate: false });
     }
   }, [editor, value]);
+
+  const clearSlashToken = useCallback(() => {
+    if (!editor) return;
+    const { from } = editor.state.selection;
+    const textBefore = editor.state.doc.textBetween(Math.max(0, from - 24), from, '\n');
+    const slashMatch = textBefore.match(/\/[a-zA-Z]*$/);
+    if (slashMatch) {
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: from - slashMatch[0].length, to: from })
+        .run();
+    }
+  }, [editor]);
+
+  const insertInlineImage = useCallback(
+    async (file: File) => {
+      if (!editor || !onUploadInlineImage) return;
+      setUploading(true);
+      try {
+        const url = await onUploadInlineImage(file);
+        clearSlashToken();
+        editor.chain().focus().setImage({ src: url, alt: file.name.replace(/\.[^.]+$/, '') }).run();
+        setSlashOpen(false);
+      } catch (err) {
+        window.alert(err instanceof Error ? err.message : 'Image upload failed');
+      } finally {
+        setUploading(false);
+      }
+    },
+    [clearSlashToken, editor, onUploadInlineImage]
+  );
 
   if (!editor) return null;
 
@@ -62,6 +157,71 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
     }
     editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
   };
+
+  const slashItems: SlashItem[] = [
+    {
+      id: 'h2',
+      label: 'Heading 2',
+      description: 'Section title',
+      run: () => {
+        clearSlashToken();
+        editor.chain().focus().toggleHeading({ level: 2 }).run();
+        setSlashOpen(false);
+      },
+    },
+    {
+      id: 'h3',
+      label: 'Heading 3',
+      description: 'Subsection',
+      run: () => {
+        clearSlashToken();
+        editor.chain().focus().toggleHeading({ level: 3 }).run();
+        setSlashOpen(false);
+      },
+    },
+    {
+      id: 'bullet',
+      label: 'Bullet list',
+      description: 'Unordered list',
+      run: () => {
+        clearSlashToken();
+        editor.chain().focus().toggleBulletList().run();
+        setSlashOpen(false);
+      },
+    },
+    {
+      id: 'number',
+      label: 'Numbered list',
+      description: 'Ordered list',
+      run: () => {
+        clearSlashToken();
+        editor.chain().focus().toggleOrderedList().run();
+        setSlashOpen(false);
+      },
+    },
+    {
+      id: 'quote',
+      label: 'Quote',
+      description: 'Blockquote callout',
+      run: () => {
+        clearSlashToken();
+        editor.chain().focus().toggleBlockquote().run();
+        setSlashOpen(false);
+      },
+    },
+    {
+      id: 'image',
+      label: 'Image',
+      description: 'Upload inline image',
+      run: () => {
+        if (!onUploadInlineImage) {
+          window.alert('Inline image upload is not available here.');
+          return;
+        }
+        fileInputRef.current?.click();
+      },
+    },
+  ].filter((item) => !slashQuery || item.id.includes(slashQuery) || item.label.toLowerCase().includes(slashQuery));
 
   const buttons: ToolbarButton[] = [
     { label: 'B', onClick: () => editor.chain().focus().toggleBold().run(), active: editor.isActive('bold') },
@@ -105,8 +265,8 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
   ];
 
   return (
-    <div>
-      <div className="flex flex-wrap gap-2 rounded-t-2xl border border-white/60 bg-white/80 p-3 dark:border-white/10 dark:bg-black/50">
+    <div className="relative">
+      <div className="flex flex-wrap items-center gap-2 rounded-t-2xl border border-white/60 bg-white/80 p-3 dark:border-white/10 dark:bg-black/50">
         {buttons.map((button) => (
           <button
             key={button.label}
@@ -121,11 +281,59 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
             {button.label}
           </button>
         ))}
+        {onUploadInlineImage ? (
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-lg bg-brand-500/15 px-3 py-1 text-xs font-bold text-brand-600 disabled:opacity-50"
+          >
+            {uploading ? <Loader2 size={12} className="animate-spin" /> : <ImagePlus size={12} />}
+            Inline image
+          </button>
+        ) : null}
+        <span className="ml-auto hidden text-[10px] font-semibold uppercase tracking-wider text-neutral-400 sm:inline">
+          Type / for slash commands
+        </span>
       </div>
       {placeholder && !editor.getText().trim() && (
         <p className="pointer-events-none -mb-8 mt-3 px-4 text-xs text-neutral-500">{placeholder}</p>
       )}
       <EditorContent editor={editor} />
+
+      {slashOpen && slashItems.length > 0 ? (
+        <div className="absolute left-4 top-24 z-20 w-64 overflow-hidden rounded-2xl border border-white/20 bg-neutral-950/95 shadow-2xl backdrop-blur">
+          <p className="border-b border-white/10 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-brand-400">
+            Slash commands
+          </p>
+          <ul className="max-h-64 overflow-y-auto p-1">
+            {slashItems.map((item) => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  onClick={item.run}
+                  className="flex w-full flex-col rounded-xl px-3 py-2 text-left hover:bg-brand-500/20"
+                >
+                  <span className="text-sm font-semibold text-white">{item.label}</span>
+                  <span className="text-[11px] text-neutral-400">{item.description}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file) void insertInlineImage(file);
+        }}
+      />
     </div>
   );
 }

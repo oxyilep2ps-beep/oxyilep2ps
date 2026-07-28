@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logAdminAction } from '@/app/actions/admin-audit';
 
 function mapRow(row: Record<string, unknown>): BlogRow {
+  const inline = row.inline_images;
   return {
     id: String(row.id),
     title: String(row.title),
@@ -20,6 +21,9 @@ function mapRow(row: Record<string, unknown>): BlogRow {
     updated_at: String(row.updated_at),
     approved_at: (row.approved_at as string | null) ?? null,
     approved_by: (row.approved_by as string | null) ?? null,
+    admin_feedback: (row.admin_feedback as string | null) ?? null,
+    rejection_reason: (row.rejection_reason as string | null) ?? null,
+    inline_images: Array.isArray(inline) ? inline.map(String) : [],
   };
 }
 
@@ -103,6 +107,8 @@ export async function approveBlog(
       status: 'PUBLISHED',
       approved_at: new Date().toISOString(),
       approved_by: user.id,
+      admin_feedback: null,
+      rejection_reason: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
@@ -116,20 +122,32 @@ export async function approveBlog(
   return { success: true };
 }
 
-export async function rejectBlog(id: string) {
-  await assertAdmin();
+export async function rejectBlog(
+  id: string,
+  input?: { rejectionReason?: string; adminFeedback?: string }
+) {
+  const user = await assertAdmin();
   const admin = createAdminClient();
+
+  const { data: blog } = await admin.from('blogs').select('title').eq('id', id).maybeSingle();
 
   const { error } = await admin
     .from('blogs')
     .update({
       status: 'REJECTED',
+      rejection_reason: input?.rejectionReason?.trim() || 'Other',
+      admin_feedback: input?.adminFeedback?.trim() || null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
 
   if (error) throw new Error(error.message);
+  await logAdminAction(
+    user.email ?? 'admin',
+    `Rejected blog "${blog?.title ?? id}" (${input?.rejectionReason ?? 'Other'})`
+  );
   revalidatePath('/admin-dashboard/blogs');
+  revalidatePath('/blogger');
   revalidatePath('/blogs');
   return { success: true };
 }

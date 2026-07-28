@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 function mapRow(row: Record<string, unknown>): BlogRow {
+  const inline = row.inline_images;
   return {
     id: String(row.id),
     title: String(row.title),
@@ -18,6 +19,11 @@ function mapRow(row: Record<string, unknown>): BlogRow {
     status: row.status as BlogStatus,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
+    approved_at: (row.approved_at as string | null) ?? null,
+    approved_by: (row.approved_by as string | null) ?? null,
+    admin_feedback: (row.admin_feedback as string | null) ?? null,
+    rejection_reason: (row.rejection_reason as string | null) ?? null,
+    inline_images: Array.isArray(inline) ? inline.map(String) : [],
   };
 }
 
@@ -30,7 +36,7 @@ export async function listBloggerBlogs(filter: 'drafts' | 'pending' | 'published
   if (filter === 'references') {
     query = query.is('author_id', null).eq('status', 'DRAFT');
   } else if (filter === 'drafts') {
-    query = query.eq('author_id', user.id).eq('status', 'DRAFT');
+    query = query.eq('author_id', user.id).in('status', ['DRAFT', 'REJECTED']);
   } else if (filter === 'pending') {
     query = query.eq('author_id', user.id).eq('status', 'PENDING_APPROVAL');
   } else {
@@ -132,6 +138,7 @@ export async function submitBloggerBlog(payload: {
   title: string;
   content: string;
   cover_image_url?: string | null;
+  inline_images?: string[];
   fromReferenceId?: string;
 }) {
   const user = await assertBloggerOrAdmin();
@@ -141,8 +148,12 @@ export async function submitBloggerBlog(payload: {
     title: payload.title.trim(),
     content: payload.content.trim(),
     cover_image_url: payload.cover_image_url ?? null,
+    inline_images: payload.inline_images ?? [],
     author_id: user.id,
     status: 'PENDING_APPROVAL' as const,
+    // Clear prior rejection notes on resubmit
+    admin_feedback: null,
+    rejection_reason: null,
     updated_at: new Date().toISOString(),
   };
 
@@ -263,4 +274,27 @@ export async function uploadBloggerBlogCover(formData: FormData): Promise<string
 
   const { data } = supabase.storage.from('blog-covers').getPublicUrl(path);
   return data.publicUrl;
+}
+
+/** Upload an inline body image to the blog-inline bucket and return its public URL. */
+export async function uploadBloggerInlineImage(formData: FormData): Promise<string> {
+  await assertBloggerOrAdmin();
+  const file = formData.get('file');
+  if (!file || typeof file === 'string') throw new Error('Image file required');
+
+  const supabase = await createClient();
+  const blob = file as Blob;
+  const ext = file instanceof File && file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+  const path = `inline/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { error } = await supabase.storage.from('blog-inline').upload(path, blob, { upsert: true });
+  if (error) {
+    // Fallback to blog-covers if inline bucket migration is not applied yet.
+    const fallbackPath = `inline/${Date.now()}.${ext}`;
+    const fallback = await supabase.storage.from('blog-covers').upload(fallbackPath, blob, { upsert: true });
+    if (fallback.error) throw new Error(error.message);
+    return supabase.storage.from('blog-covers').getPublicUrl(fallbackPath).data.publicUrl;
+  }
+
+  return supabase.storage.from('blog-inline').getPublicUrl(path).data.publicUrl;
 }

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { RichTextEditor } from '@/components/blog/rich-text-editor';
 import { AuthToast } from '@/components/auth-toast';
+import { SeoAdvancedToolsPanel } from '@/components/blogger/seo-advanced-tools-panel';
 import {
   checkKeywordCannibalization,
   saveSeoBlogPost,
@@ -537,6 +538,17 @@ export function BloggerSeoStudio({ initialPost }: Props) {
               ) : null}
             </div>
           </div>
+
+          <SeoAdvancedToolsPanel
+            title={title}
+            contentHtml={content}
+            focusKeyword={focusKeyword}
+            internalLinkCount={analysis.internalLinks.length}
+            contentScore={analysis.contentScore}
+            onApplyTitle={setTitle}
+            onApplyMeta={setMeta}
+            onApplyContent={setContent}
+          />
         </aside>
       </div>
     </div>
