@@ -195,16 +195,21 @@ export function grammarMagicWand(html: string): string {
 }
 
 export function estimateTrafficValue(searchVolume: number, contentScore: number): {
-  monthlyValueUsd: number;
+  monthlyValueGbp: number;
   label: string;
 } {
   const cpc = 1.8 + (searchVolume % 7) * 0.35;
   const ctr = Math.max(0.01, contentScore / 100) * 0.12;
   const clicks = searchVolume * ctr;
   const value = Math.round(clicks * cpc);
+  const formatted = new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    maximumFractionDigits: 0,
+  }).format(value);
   return {
-    monthlyValueUsd: value,
-    label: `~$${value.toLocaleString()}/mo estimated traffic value`,
+    monthlyValueGbp: value,
+    label: `~${formatted}/mo estimated traffic value`,
   };
 }
 
@@ -501,7 +506,7 @@ export const SEO_GUIDE_FEATURES: SeoGuideFeature[] = [
   {
     id: 'traffic-value',
     name: 'Estimated Traffic Value Calculator',
-    what: 'Mock $/mo value from volume × score × CPC.',
+    what: 'Mock £/mo value from volume × score × CPC (GBP).',
     where: 'New tools → Traffic value',
     how: 'Use to prioritize which draft to finish first.',
     benefit: 'Aligns editorial effort with ROI.',
