@@ -31,21 +31,39 @@ export async function listBloggerBlogs(filter: 'drafts' | 'pending' | 'published
   const user = await assertBloggerOrAdmin();
   const admin = createAdminClient();
 
+  // Fetch by author (or reference prompts), then filter status case-insensitively.
+  // Avoids empty Published tabs when DB rows use mixed casing (PUBLISHED vs published).
   let query = admin.from('blogs').select('*').order('updated_at', { ascending: false });
 
   if (filter === 'references') {
-    query = query.is('author_id', null).eq('status', 'DRAFT');
-  } else if (filter === 'drafts') {
-    query = query.eq('author_id', user.id).in('status', ['DRAFT', 'REJECTED']);
-  } else if (filter === 'pending') {
-    query = query.eq('author_id', user.id).eq('status', 'PENDING_APPROVAL');
+    query = query.is('author_id', null);
   } else {
-    query = query.eq('author_id', user.id).eq('status', 'PUBLISHED');
+    query = query.eq('author_id', user.id);
   }
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
+
+  const rows = (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
+  const statusKey = (s: string) => s.trim().toUpperCase().replace(/\s+/g, '_');
+
+  if (filter === 'references') {
+    return rows.filter((r) => statusKey(r.status) === 'DRAFT');
+  }
+  if (filter === 'drafts') {
+    return rows.filter((r) => {
+      const s = statusKey(r.status);
+      return s === 'DRAFT' || s === 'REJECTED';
+    });
+  }
+  if (filter === 'pending') {
+    return rows.filter((r) => {
+      const s = statusKey(r.status);
+      return s === 'PENDING_APPROVAL' || s === 'PENDING';
+    });
+  }
+  // published
+  return rows.filter((r) => statusKey(r.status) === 'PUBLISHED');
 }
 
 export async function getBloggerBlog(id: string) {

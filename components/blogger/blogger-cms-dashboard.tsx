@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   deleteBloggerBlog,
@@ -20,11 +21,17 @@ type Tab = 'drafts' | 'pending' | 'published' | 'references';
 
 function SkeletonCards() {
   return (
-    <div className="space-y-3">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="glass-card animate-pulse rounded-2xl p-4">
-          <div className="h-4 w-2/3 rounded bg-neutral-300/70 dark:bg-white/10" />
-          <div className="mt-3 h-3 w-1/3 rounded bg-neutral-200/70 dark:bg-white/5" />
+    <div className="mt-2 flex w-full flex-col gap-4" aria-busy="true" aria-label="Loading blogs">
+      {[1, 2, 3].map((index) => (
+        <div
+          key={index}
+          className="flex h-[88px] w-full animate-pulse items-center justify-between rounded-2xl border border-white/5 bg-neutral-800/30 p-4"
+        >
+          <div className="flex w-2/3 flex-col gap-3">
+            <div className="h-5 w-3/4 rounded-md bg-neutral-700/40" />
+            <div className="h-3 w-1/3 rounded-md bg-neutral-700/30" />
+          </div>
+          <div className="h-9 w-32 rounded-full bg-orange-500/10" />
         </div>
       ))}
     </div>
@@ -34,25 +41,83 @@ function SkeletonCards() {
 export function BloggerCmsDashboard() {
   const [tab, setTab] = useState<Tab>('drafts');
   const [rows, setRows] = useState<BlogRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [editing, setEditing] = useState<BlogRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [fromReference, setFromReference] = useState<BlogRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // Quick Create from bottom nav: /blogger?new=1
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('new') === '1') {
+      setCreating(true);
+      setEditing(null);
+      setFromReference(null);
+      window.history.replaceState({}, '', '/blogger');
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // CRITICAL: clear previous tab data instantly so drafts never flash on Published
+    setIsLoading(true);
+    setRows([]);
+
+    void (async () => {
+      try {
+        const data = await listBloggerBlogs(tab);
+        if (!cancelled) setRows(data);
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
+
+  const reloadCurrentTab = useCallback(async () => {
+    setIsLoading(true);
+    setRows([]);
     try {
       const data = await listBloggerBlogs(tab);
       setRows(data);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, [tab]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const dismissEditor = () => {
+    setEditing(null);
+    setCreating(false);
+    setFromReference(null);
+  };
+
+  const closeEditor = () => {
+    dismissEditor();
+    void reloadCurrentTab();
+  };
+
+  const switchTab = (next: Tab) => {
+    dismissEditor();
+    if (next === tab) {
+      void reloadCurrentTab();
+      return;
+    }
+    // Clear immediately on click (before React commits the new tab effect)
+    setIsLoading(true);
+    setRows([]);
+    setTab(next);
+  };
 
   const startNew = () => {
     setCreating(true);
@@ -72,19 +137,12 @@ export function BloggerCmsDashboard() {
     setFromReference(null);
   };
 
-  const closeEditor = () => {
-    setEditing(null);
-    setCreating(false);
-    setFromReference(null);
-    void load();
-  };
-
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this blog?')) return;
     setBusyId(id);
     try {
       await deleteBloggerBlog(id);
-      await load();
+      await reloadCurrentTab();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Delete failed');
     } finally {
@@ -130,10 +188,7 @@ export function BloggerCmsDashboard() {
           <button
             key={item.id}
             type="button"
-            onClick={() => {
-              setTab(item.id);
-              closeEditor();
-            }}
+            onClick={() => switchTab(item.id)}
             className={`rounded-full px-4 py-2 text-sm font-bold ${
               tab === item.id ? 'bg-brand-500 text-white' : 'bg-white/60 text-neutral-700 dark:bg-white/10'
             }`}
@@ -210,12 +265,13 @@ export function BloggerCmsDashboard() {
         </div>
       ) : null}
 
-      {loading ? (
+      {/* 1) loading → skeletons  2) empty → message  3) data → cards */}
+      {isLoading ? (
         <SkeletonCards />
       ) : rows.length === 0 ? (
-        <p className="text-sm text-neutral-500">No blogs in this tab.</p>
+        <p className="cms-fade-in text-sm text-neutral-500">No blogs in this tab.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="cms-fade-in space-y-3">
           {rows.map((row) => (
             <article
               key={row.id}

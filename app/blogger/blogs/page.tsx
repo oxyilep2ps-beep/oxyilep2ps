@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { BloggerCmsDashboard } from '@/components/blogger/blogger-cms-dashboard';
 
-export default function BloggerBlogsRedirect() {
-  redirect('/blogger');
+export default function BloggerBlogsPage() {
+  return <BloggerCmsDashboard />;
 }
