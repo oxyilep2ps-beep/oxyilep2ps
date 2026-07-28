@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Pencil, Trash2, XCircle } from 'lucide-react';
+import { Pencil, Trash2, XCircle } from 'lucide-react';
 import {
   approveBlog,
   deleteAdminBlog,

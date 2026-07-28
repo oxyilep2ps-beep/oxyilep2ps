@@ -5,12 +5,17 @@ import { usePathname } from 'next/navigation';
 import { BookOpen, Home, Newspaper, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const items = [
+const items: {
+  href: string;
+  label: string;
+  icon: typeof Home;
+  exact?: boolean;
+}[] = [
   { href: '/blogger', label: 'Overview', icon: Home, exact: true },
   { href: '/blogger/blogs', label: 'Blog Editor', icon: Newspaper },
   { href: '/blogger/seo-guide', label: 'SEO Guide', icon: BookOpen },
   { href: '/blogger/settings', label: 'Settings', icon: Settings },
-] as const;
+];
 
 export function BloggerBottomNav() {
   const pathname = usePathname();
