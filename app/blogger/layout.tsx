@@ -8,6 +8,7 @@ import { isBloggerStaffEmail } from '@/lib/auth/role-emails';
 const links = [
   { href: '/blogger', label: 'Overview' },
   { href: '/blogger/blogs', label: 'Blog Editor' },
+  { href: '/blogger/seo', label: 'SEO Guide' },
 ];
 
 export default async function BloggerLayout({ children }: { children: React.ReactNode }) {
