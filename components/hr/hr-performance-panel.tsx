@@ -15,7 +15,9 @@ import {
   updateOffboarding,
 } from '@/app/actions/hr-suite';
 import { formatGbp } from '@/lib/hr/types';
+import { HR_INPUT_CLASS, HR_SELECT_CLASS, HR_TEXTAREA_CLASS } from '@/lib/hr/ui';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
+import { cn } from '@/lib/utils';
 
 export function HrPerformancePanel() {
   const [loading, setLoading] = useState(true);
@@ -117,16 +119,16 @@ export function HrPerformancePanel() {
             });
           }}
         >
-          <select name="employee_id" required className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+          <select name="employee_id" required className={HR_SELECT_CLASS}>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.full_name}
               </option>
             ))}
           </select>
-          <input name="quarter" defaultValue="2026-Q3" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="title" required placeholder="Goal title" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5 sm:col-span-2" />
-          <input name="description" placeholder="Description" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5 sm:col-span-2" />
+          <input name="quarter" defaultValue="2026-Q3" className={HR_INPUT_CLASS} />
+          <input name="title" required placeholder="Goal title" className={cn(HR_INPUT_CLASS, 'sm:col-span-2')} />
+          <input name="description" placeholder="Description" className={cn(HR_INPUT_CLASS, 'sm:col-span-2')} />
           <button type="submit" disabled={pending} className="rounded-full bg-brand-500 py-2 text-sm font-bold text-white sm:col-span-2">
             Add goal
           </button>
@@ -178,16 +180,16 @@ export function HrPerformancePanel() {
             });
           }}
         >
-          <select name="employee_id" required className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+          <select name="employee_id" required className={HR_SELECT_CLASS}>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.full_name}
               </option>
             ))}
           </select>
-          <input name="from_name" required placeholder="From (manager/peer)" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="rating" type="number" min={1} max={5} defaultValue={4} className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <textarea name="feedback" required rows={2} placeholder="Constructive feedback" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+          <input name="from_name" required placeholder="From (manager/peer)" className={HR_INPUT_CLASS} />
+          <input name="rating" type="number" min={1} max={5} defaultValue={4} className={HR_INPUT_CLASS} />
+          <textarea name="feedback" required rows={2} placeholder="Constructive feedback" className={HR_TEXTAREA_CLASS} />
           <button type="submit" className="rounded-full bg-brand-500 py-2 text-sm font-bold text-white">
             Log feedback
           </button>
@@ -221,8 +223,8 @@ export function HrPerformancePanel() {
             });
           }}
         >
-          <input name="subject" required placeholder="Subject" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <textarea name="body" required rows={3} placeholder="Details (stored without your identity)" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+          <input name="subject" required placeholder="Subject" className={HR_INPUT_CLASS} />
+          <textarea name="body" required rows={3} placeholder="Details (stored without your identity)" className={HR_TEXTAREA_CLASS} />
           <button type="submit" className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-bold text-white dark:bg-white dark:text-neutral-900">
             Submit securely
           </button>

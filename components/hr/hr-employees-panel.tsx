@@ -14,6 +14,7 @@ import {
 } from '@/app/actions/hr-suite';
 import type { EmployeeHrProfile, LeaveRequest } from '@/lib/hr/types';
 import { formatGbp } from '@/lib/hr/types';
+import { HR_INPUT_CLASS, HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
 import { cn } from '@/lib/utils';
 
@@ -112,34 +113,34 @@ export function HrEmployeesPanel() {
             });
           }}
         >
-          <input name="full_name" required placeholder="Full name" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="email" type="email" required placeholder="Email" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="department" defaultValue="Engineering" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="designation" defaultValue="Associate" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <select name="employment_type" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+          <input name="full_name" required placeholder="Full name" className={HR_INPUT_CLASS} />
+          <input name="email" type="email" required placeholder="Email" className={HR_INPUT_CLASS} />
+          <input name="department" defaultValue="Engineering" className={HR_INPUT_CLASS} />
+          <input name="designation" defaultValue="Associate" className={HR_INPUT_CLASS} />
+          <select name="employment_type" className={HR_SELECT_CLASS}>
             <option value="full_time">Full-time FTE</option>
             <option value="contractor">Contractor</option>
             <option value="part_time">Part-time</option>
             <option value="intern">Intern</option>
           </select>
-          <input name="salary_basic_gbp" type="number" required placeholder="Basic £ GBP" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="salary_hra_gbp" type="number" placeholder="Allowance £" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="salary_pension_gbp" type="number" placeholder="Pension £" className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <label className="text-xs">
+          <input name="salary_basic_gbp" type="number" required placeholder="Basic £ GBP" className={HR_INPUT_CLASS} />
+          <input name="salary_hra_gbp" type="number" placeholder="Allowance £" className={HR_INPUT_CLASS} />
+          <input name="salary_pension_gbp" type="number" placeholder="Pension £" className={HR_INPUT_CLASS} />
+          <label className="text-xs text-neutral-300">
             Start
-            <input name="start_date" type="date" className="mt-1 w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+            <input name="start_date" type="date" className={cn('mt-1', HR_INPUT_CLASS)} />
           </label>
-          <label className="text-xs">
+          <label className="text-xs text-neutral-300">
             Birthday
-            <input name="birthday" type="date" className="mt-1 w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+            <input name="birthday" type="date" className={cn('mt-1', HR_INPUT_CLASS)} />
           </label>
-          <label className="text-xs">
+          <label className="text-xs text-neutral-300">
             Probation start
-            <input name="probation_start_date" type="date" className="mt-1 w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+            <input name="probation_start_date" type="date" className={cn('mt-1', HR_INPUT_CLASS)} />
           </label>
-          <label className="text-xs">
+          <label className="text-xs text-neutral-300">
             Probation end (30/60/90)
-            <input name="probation_end_date" type="date" className="mt-1 w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+            <input name="probation_end_date" type="date" className={cn('mt-1', HR_INPUT_CLASS)} />
           </label>
           <button type="submit" disabled={pending} className="rounded-full bg-brand-500 py-2 text-sm font-bold text-white sm:col-span-2">
             Save employee

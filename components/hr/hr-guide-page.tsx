@@ -22,8 +22,10 @@ export function HrGuidePage() {
         <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Playbook</p>
         <h2 className="mt-2 text-3xl font-black text-neutral-950 dark:text-white">HR Studio Guide</h2>
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
-          All 40 enterprise HRMS & ATS features for Oxyile — where to find them, how to use them, and why they
-          matter for UK FinTech regulation and efficiency. Currency throughout is £ GBP.
+          All 40+ enterprise HRMS & ATS features for Oxyile — including how open roles sync to public{' '}
+          <span className="font-semibold text-orange-500">/careers</span>, how the Enterprise Job Editor sets AI
+          Match Keywords and £ GBP bands, and how applications flow straight into the Applied Kanban stage. Currency
+          throughout is £ GBP.
         </p>
       </div>
 

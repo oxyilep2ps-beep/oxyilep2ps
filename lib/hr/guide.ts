@@ -14,18 +14,18 @@ export const HR_GUIDE_FEATURES: HrGuideFeature[] = [
   {
     id: 1,
     name: 'Visual Kanban Hiring Board',
-    purpose: 'Drag or move applicants across Applied → Hired/Rejected.',
+    purpose: 'Drag or move applicants across Applied → Hired/Rejected. Public /careers applications land in Applied automatically.',
     where: 'HR → ATS Recruitment',
-    steps: 'Open a card → change stage via column actions or drag handle.',
+    steps: 'Open a card → change stage via column actions or drag handle. Refresh after a careers apply to see the new candidate.',
     benefit: 'Transparent pipeline visibility for regulated hiring decisions.',
     group: 'ATS & Recruitment',
   },
   {
     id: 2,
     name: 'AI Resume Score & Matcher',
-    purpose: 'Scores resumes 0–100% against job requirements.',
-    where: 'ATS board — score badge on each card',
-    steps: 'Create/post a job with requirements; new applicants auto-score on insert/update.',
+    purpose: 'Scores resumes 0–100% against job requirements and AI Match Keywords from the Enterprise Job Editor.',
+    where: 'ATS board — score badge on each card; keywords set when creating a job',
+    steps: 'In Enterprise Job Editor, add comma-separated AI Match Keywords → publish. New /careers applicants are scored on insert.',
     benefit: 'Faster shortlists without bias toward formatting alone.',
     group: 'ATS & Recruitment',
   },
@@ -370,5 +370,38 @@ export const HR_GUIDE_FEATURES: HrGuideFeature[] = [
     steps: 'Automatic during loads.',
     benefit: 'Premium, trustworthy UX.',
     group: 'Executive Intelligence',
+  },
+  {
+    id: 41,
+    name: 'Public Careers Sync (/careers)',
+    purpose:
+      'Open ATS job postings with publish enabled automatically appear on the public /careers page as glassmorphic role cards (£ GBP salary bands).',
+    where: 'HR Settings → Public careers sync · ATS → Enterprise Job Editor → Publish checkbox',
+    steps:
+      'Create a job in the Enterprise Editor, set £ min–max, tick “Publish to ATS as Open & sync to /careers”, ensure HR Settings sync toggle is on. Visit /careers to confirm the listing.',
+    benefit: 'Single source of truth — no duplicate marketing copy for open roles.',
+    group: 'ATS & Recruitment',
+  },
+  {
+    id: 42,
+    name: 'Enterprise Job Editor',
+    purpose:
+      'Spacious 2-column creator for title, department, employment type, location, £ GBP salary band, description, FCA responsibilities, and AI Match Keywords.',
+    where: 'ATS Recruitment → + Create job (or Quick Create → Post New Job)',
+    steps:
+      'Fill metadata on the left, rich details on the right, add comma-separated AI keywords, then create. Use polished validation messages if fields are missing.',
+    benefit: 'Detail-rich requisitions improve matcher quality and candidate clarity.',
+    group: 'ATS & Recruitment',
+  },
+  {
+    id: 43,
+    name: 'Careers → ATS Application Pipeline',
+    purpose:
+      'Candidates open a job detail drawer on /careers, apply with name, email, LinkedIn, and PDF resume; the record is inserted into job_applicants at Applied with an AI match score.',
+    where: 'Public /careers → View role → Apply Now · HR → ATS Kanban (Applied column)',
+    steps:
+      'After a public apply, open ATS Recruitment — the candidate appears in Applied linked to the job, ready for shortlist / interview.',
+    benefit: 'Zero manual re-entry from careers inbox into the hiring board.',
+    group: 'ATS & Recruitment',
   },
 ];

@@ -30,9 +30,12 @@ export type JobPosting = {
   status: string;
   requirements: string;
   description: string;
+  responsibilities?: string;
+  ai_match_keywords?: string;
   location: string | null;
   employment_type: string;
   budget_approved: boolean;
+  publish_to_careers?: boolean;
   headcount_requested: number;
   source_budget_gbp: number | null;
   created_at: string;

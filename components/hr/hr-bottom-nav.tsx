@@ -9,14 +9,14 @@ import {
   CalendarDays,
   FileSpreadsheet,
   Home,
-  Loader2,
   Plus,
   Settings,
   Users,
   Wallet,
   X,
 } from 'lucide-react';
-import { createExpenseClaim, createJobPosting, createLeaveRequest, listEmployees } from '@/app/actions/hr-suite';
+import { createExpenseClaim, createLeaveRequest, listEmployees } from '@/app/actions/hr-suite';
+import { HR_INPUT_CLASS, HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
 
 const leftItems = [
@@ -63,7 +63,7 @@ function NavLink({
   );
 }
 
-type QuickMode = 'job' | 'leave' | 'expense' | null;
+type QuickMode = 'leave' | 'expense' | null;
 
 export function HrBottomNav() {
   const router = useRouter();
@@ -115,21 +115,24 @@ export function HrBottomNav() {
                   </p>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-semibold hover:bg-brand-500/10"
-                    onClick={() => setMode('job')}
+                    className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-semibold hover:bg-orange-500/20"
+                    onClick={() => {
+                      setOpen(false);
+                      router.push('/hr/recruitment?new=1');
+                    }}
                   >
                     <BriefcaseBusiness size={16} className="text-brand-600" /> Post New Job (£ GBP)
                   </button>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 border-t border-black/5 px-3 py-3 text-left text-sm font-semibold hover:bg-brand-500/10 dark:border-white/10"
+                    className="flex w-full items-center gap-3 border-t border-black/5 px-3 py-3 text-left text-sm font-semibold hover:bg-orange-500/20 dark:border-white/10"
                     onClick={() => setMode('leave')}
                   >
                     <CalendarDays size={16} className="text-brand-600" /> Log Employee Leave
                   </button>
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 border-t border-black/5 px-3 py-3 text-left text-sm font-semibold hover:bg-brand-500/10 dark:border-white/10"
+                    className="flex w-full items-center gap-3 border-t border-black/5 px-3 py-3 text-left text-sm font-semibold hover:bg-orange-500/20 dark:border-white/10"
                     onClick={() => setMode('expense')}
                   >
                     <FileSpreadsheet size={16} className="text-brand-600" /> Add Expense Claim
@@ -191,7 +194,7 @@ function QuickForm({
   onError,
   startTransition,
 }: {
-  mode: 'job' | 'leave' | 'expense';
+  mode: 'leave' | 'expense';
   employees: { id: string; full_name: string }[];
   pending: boolean;
   onBack: () => void;
@@ -199,47 +202,6 @@ function QuickForm({
   onError: (m: string) => void;
   startTransition: (fn: () => void) => void;
 }) {
-  if (mode === 'job') {
-    return (
-      <form
-        className="space-y-2 p-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          startTransition(() => {
-            void createJobPosting({
-              title: String(fd.get('title') || ''),
-              department: String(fd.get('department') || 'Engineering'),
-              salary_range_gbp: String(fd.get('salary') || ''),
-              salary_min_gbp: Number(fd.get('min') || 0) || undefined,
-              salary_max_gbp: Number(fd.get('max') || 0) || undefined,
-              requirements: String(fd.get('requirements') || ''),
-              source_budget_gbp: Number(fd.get('max') || fd.get('min') || 0) || undefined,
-            })
-              .then(() => onDone('/hr/recruitment'))
-              .catch((err) => onError(err instanceof Error ? err.message : 'Failed'));
-          });
-        }}
-      >
-        <button type="button" className="text-xs font-bold text-brand-600" onClick={onBack}>
-          ← Back
-        </button>
-        <input name="title" required placeholder="Job title" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-        <input name="department" placeholder="Department" defaultValue="Engineering" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-        <input name="salary" placeholder="Salary range e.g. £55k–£70k" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-        <div className="flex gap-2">
-          <input name="min" type="number" placeholder="Min £" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="max" type="number" placeholder="Max £" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-        </div>
-        <textarea name="requirements" required placeholder="Requirements (used for AI match)" rows={3} className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-        <button type="submit" disabled={pending} className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-500 py-2 text-sm font-bold text-white disabled:opacity-60">
-          {pending ? <Loader2 size={14} className="animate-spin" /> : null}
-          Create job (pending budget)
-        </button>
-      </form>
-    );
-  }
-
   if (mode === 'leave') {
     return (
       <form
@@ -263,7 +225,7 @@ function QuickForm({
         <button type="button" className="text-xs font-bold text-brand-600" onClick={onBack}>
           ← Back
         </button>
-        <select name="employee_id" required className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+        <select name="employee_id" required className={HR_SELECT_CLASS}>
           <option value="">Select employee</option>
           {employees.map((e) => (
             <option key={e.id} value={e.id}>
@@ -271,15 +233,15 @@ function QuickForm({
             </option>
           ))}
         </select>
-        <select name="leave_type" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+        <select name="leave_type" className={HR_SELECT_CLASS}>
           <option value="annual">Annual</option>
           <option value="sick">Sick</option>
           <option value="casual">Casual</option>
           <option value="unpaid">Unpaid</option>
         </select>
-        <input name="start_date" type="date" required className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-        <input name="end_date" type="date" required className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-        <input name="reason" placeholder="Reason" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+        <input name="start_date" type="date" required className={HR_INPUT_CLASS} />
+        <input name="end_date" type="date" required className={HR_INPUT_CLASS} />
+        <input name="reason" placeholder="Reason" className={HR_INPUT_CLASS} />
         <button type="submit" disabled={pending} className="w-full rounded-full bg-brand-500 py-2 text-sm font-bold text-white disabled:opacity-60">
           Submit leave
         </button>
@@ -308,7 +270,7 @@ function QuickForm({
       <button type="button" className="text-xs font-bold text-brand-600" onClick={onBack}>
         ← Back
       </button>
-      <select name="employee_id" required className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+      <select name="employee_id" required className={HR_SELECT_CLASS}>
         <option value="">Select employee</option>
         {employees.map((e) => (
           <option key={e.id} value={e.id}>
@@ -316,8 +278,8 @@ function QuickForm({
           </option>
         ))}
       </select>
-      <input name="amount_gbp" type="number" step="0.01" required placeholder="Amount £ GBP" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-      <select name="category" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+      <input name="amount_gbp" type="number" step="0.01" required placeholder="Amount £ GBP" className={HR_INPUT_CLASS} />
+      <select name="category" className={HR_SELECT_CLASS}>
         <option value="travel">Travel</option>
         <option value="software">Software</option>
         <option value="meals">Meals</option>
@@ -325,7 +287,7 @@ function QuickForm({
         <option value="training">Training</option>
         <option value="other">Other</option>
       </select>
-      <input name="description" placeholder="Description" className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+      <input name="description" placeholder="Description" className={HR_INPUT_CLASS} />
       <button type="submit" disabled={pending} className="w-full rounded-full bg-brand-500 py-2 text-sm font-bold text-white disabled:opacity-60">
         Submit claim
       </button>

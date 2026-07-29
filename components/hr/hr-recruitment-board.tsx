@@ -16,6 +16,8 @@ import {
 import type { ApplicantStage, BackgroundCheckStatus, JobApplicant, JobPosting } from '@/lib/hr/types';
 import { APPLICANT_STAGES, BACKGROUND_STATUSES, formatGbp } from '@/lib/hr/types';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
+import { HrEnterpriseJobEditor } from '@/components/hr/hr-enterprise-job-editor';
+import { HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
 
 const STAGE_LABELS: Record<ApplicantStage, string> = {
@@ -36,6 +38,7 @@ export function HrRecruitmentBoard() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [jobEditorOpen, setJobEditorOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +59,14 @@ export function HrRecruitmentBoard() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('new') === '1') {
+      setJobEditorOpen(true);
+      window.history.replaceState({}, '', '/hr/recruitment');
+    }
+  }, []);
 
   const sourceStats = useMemo(() => {
     const map = new Map<string, number>();
@@ -96,6 +107,13 @@ export function HrRecruitmentBoard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setJobEditorOpen(true)}
+            className="rounded-full bg-orange-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-orange-600"
+          >
+            + Create job
+          </button>
           {(['board', 'talent', 'jobs'] as const).map((t) => (
             <button
               key={t}
@@ -141,7 +159,7 @@ export function HrRecruitmentBoard() {
       {tab === 'jobs' ? (
         <div className="space-y-3">
           {jobs.length === 0 ? (
-            <p className="text-sm text-neutral-500">No jobs — use Quick Create (+) to post one.</p>
+            <p className="text-sm text-neutral-500">No jobs yet — use + Create job for the Enterprise Editor.</p>
           ) : (
             jobs.map((j) => (
               <article key={j.id} className="glass-card rounded-2xl p-4">
@@ -241,6 +259,15 @@ export function HrRecruitmentBoard() {
           setError={setError}
         />
       ) : null}
+
+      <HrEnterpriseJobEditor
+        open={jobEditorOpen}
+        onClose={() => setJobEditorOpen(false)}
+        onCreated={() => {
+          void load();
+          setTab('jobs');
+        }}
+      />
     </div>
   );
 }
@@ -308,7 +335,7 @@ function ApplicantDrawer({
           <div>
             <p className="text-xs font-bold uppercase text-brand-500">Background / DBS</p>
             <select
-              className="mt-2 w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 dark:bg-white/5"
+              className={cn('mt-2', HR_SELECT_CLASS)}
               value={applicant.background_check_status}
               onChange={(e) =>
                 startTransition(() => {

@@ -36,9 +36,12 @@ function mapJob(row: Record<string, unknown>): JobPosting {
     status: String(row.status),
     requirements: String(row.requirements ?? ''),
     description: String(row.description ?? ''),
+    responsibilities: String(row.responsibilities ?? ''),
+    ai_match_keywords: String(row.ai_match_keywords ?? ''),
     location: (row.location as string | null) ?? null,
     employment_type: String(row.employment_type ?? 'full_time'),
     budget_approved: Boolean(row.budget_approved),
+    publish_to_careers: row.publish_to_careers !== false,
     headcount_requested: Number(row.headcount_requested ?? 1),
     source_budget_gbp: row.source_budget_gbp != null ? Number(row.source_budget_gbp) : null,
     created_at: String(row.created_at),
@@ -124,25 +127,43 @@ export async function createJobPosting(input: {
   salary_max_gbp?: number;
   requirements: string;
   description?: string;
+  responsibilities?: string;
+  ai_match_keywords?: string;
+  location?: string;
   employment_type?: string;
   source_budget_gbp?: number;
+  publish_to_careers?: boolean;
+  status?: 'draft' | 'open';
 }) {
   const user = await assertHrOrAdmin();
   const admin = createAdminClient();
+  const min = input.salary_min_gbp ?? null;
+  const max = input.salary_max_gbp ?? null;
+  const range =
+    input.salary_range_gbp?.trim() ||
+    (min != null || max != null
+      ? `${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''}`
+      : null);
+
+  const status = input.status ?? 'draft';
   const { data, error } = await admin
     .from('job_postings')
     .insert({
       title: input.title.trim(),
       department: input.department.trim() || 'Operations',
-      salary_range_gbp: input.salary_range_gbp ?? null,
-      salary_min_gbp: input.salary_min_gbp ?? null,
-      salary_max_gbp: input.salary_max_gbp ?? null,
+      salary_range_gbp: range,
+      salary_min_gbp: min,
+      salary_max_gbp: max,
       requirements: input.requirements,
       description: input.description ?? '',
+      responsibilities: input.responsibilities ?? '',
+      ai_match_keywords: input.ai_match_keywords ?? '',
+      location: input.location ?? 'United Kingdom (Remote/Hybrid)',
       employment_type: input.employment_type ?? 'full_time',
-      source_budget_gbp: input.source_budget_gbp ?? null,
-      status: 'draft',
-      budget_approved: false,
+      source_budget_gbp: input.source_budget_gbp ?? max ?? min ?? null,
+      status,
+      budget_approved: status === 'open',
+      publish_to_careers: input.publish_to_careers !== false,
       created_by: user.id,
     })
     .select('*')
@@ -153,15 +174,83 @@ export async function createJobPosting(input: {
     job_posting_id: data.id,
     title: input.title.trim(),
     department: input.department.trim() || 'Operations',
-    salary_budget_gbp: input.source_budget_gbp ?? input.salary_max_gbp ?? input.salary_min_gbp ?? 0,
-    justification: 'New requisition from HR portal',
+    salary_budget_gbp: input.source_budget_gbp ?? max ?? min ?? 0,
+    justification: 'New requisition from Enterprise Job Editor',
     requested_by: user.id,
-    status: 'pending',
+    status: status === 'open' ? 'approved' : 'pending',
   });
 
-  await audit('job_posting.create', user.id, { jobId: data.id, title: input.title });
+  await audit('job_posting.create', user.id, { jobId: data.id, title: input.title, status });
   revalidateHr();
+  revalidatePath('/careers');
   return mapJob(data as Record<string, unknown>);
+}
+
+export async function updateJobPosting(
+  id: string,
+  input: Partial<{
+    title: string;
+    department: string;
+    salary_min_gbp: number;
+    salary_max_gbp: number;
+    salary_range_gbp: string;
+    requirements: string;
+    description: string;
+    responsibilities: string;
+    ai_match_keywords: string;
+    location: string;
+    employment_type: string;
+    publish_to_careers: boolean;
+    status: string;
+  }>
+) {
+  const user = await assertHrOrAdmin();
+  const admin = createAdminClient();
+  const { data, error } = await admin.from('job_postings').update(input).eq('id', id).select('*').single();
+  if (error) throw new Error(error.message);
+  await audit('job_posting.update', user.id, { id, ...input });
+  revalidateHr();
+  revalidatePath('/careers');
+  return mapJob(data as Record<string, unknown>);
+}
+
+export type HrPortalSettings = {
+  company_legal_entity: string;
+  default_currency: string;
+  public_careers_sync: boolean;
+  ats_email_notifications: boolean;
+  default_dbs_level: string;
+};
+
+export async function getHrPortalSettings(): Promise<HrPortalSettings> {
+  await assertHrOrAdmin();
+  const admin = createAdminClient();
+  const { data, error } = await admin.from('hr_portal_settings').select('*').eq('id', 'default').maybeSingle();
+  if (error) throw new Error(error.message);
+  return {
+    company_legal_entity: String(data?.company_legal_entity ?? 'Oxyile Ltd (UK FinTech Lender)'),
+    default_currency: String(data?.default_currency ?? 'GBP'),
+    public_careers_sync: data?.public_careers_sync !== false,
+    ats_email_notifications: data?.ats_email_notifications !== false,
+    default_dbs_level: String(data?.default_dbs_level ?? 'standard'),
+  };
+}
+
+export async function updateHrPortalSettings(patch: Partial<HrPortalSettings>) {
+  const user = await assertHrOrAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('hr_portal_settings')
+    .upsert({
+      id: 'default',
+      ...patch,
+      updated_at: new Date().toISOString(),
+      updated_by: user.id,
+    });
+  if (error) throw new Error(error.message);
+  await audit('settings.update', user.id, patch as Record<string, unknown>);
+  revalidateHr();
+  revalidatePath('/careers');
 }
 
 // ─── Applicants / ATS ───────────────────────────────────────────────────────
@@ -202,8 +291,14 @@ export async function createJobApplicant(input: {
 
   let requirements = '';
   if (input.job_id) {
-    const { data: job } = await admin.from('job_postings').select('requirements').eq('id', input.job_id).maybeSingle();
-    requirements = String(job?.requirements ?? '');
+    const { data: job } = await admin
+      .from('job_postings')
+      .select('requirements, ai_match_keywords, description, responsibilities')
+      .eq('id', input.job_id)
+      .maybeSingle();
+    requirements = [job?.requirements, job?.ai_match_keywords, job?.description, job?.responsibilities]
+      .filter(Boolean)
+      .join(' ');
   }
   const score = scoreResumeAgainstRequirements(
     `${input.resume_text ?? ''} ${input.full_name} ${input.email}`,

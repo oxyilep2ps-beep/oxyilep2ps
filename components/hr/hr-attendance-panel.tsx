@@ -10,7 +10,9 @@ import {
   signOffOvertime,
 } from '@/app/actions/hr-suite';
 import { UK_BANK_HOLIDAYS_2026 } from '@/lib/hr/types';
+import { HR_INPUT_CLASS, HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
+import { cn } from '@/lib/utils';
 
 export function HrAttendancePanel() {
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ export function HrAttendancePanel() {
         <select
           value={employeeId}
           onChange={(e) => setEmployeeId(e.target.value)}
-          className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5"
+          className={HR_SELECT_CLASS}
         >
           <option value="">Select employee</option>
           {employees.map((e) => (
@@ -160,16 +162,16 @@ export function HrAttendancePanel() {
             });
           }}
         >
-          <select name="employee_id" required className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5">
+          <select name="employee_id" required className={HR_SELECT_CLASS}>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.full_name}
               </option>
             ))}
           </select>
-          <input name="work_date" type="date" required className="rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="hours" type="number" step="0.25" required placeholder="Hours" className="w-24 rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
-          <input name="notes" placeholder="Notes" className="min-w-[8rem] flex-1 rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5" />
+          <input name="work_date" type="date" required className={HR_INPUT_CLASS} />
+          <input name="hours" type="number" step="0.25" required placeholder="Hours" className={cn('w-24', HR_INPUT_CLASS)} />
+          <input name="notes" placeholder="Notes" className={cn('min-w-[8rem] flex-1', HR_INPUT_CLASS)} />
           <button type="submit" className="rounded-full bg-brand-500 px-3 py-2 text-xs font-bold text-white">
             Log OT
           </button>

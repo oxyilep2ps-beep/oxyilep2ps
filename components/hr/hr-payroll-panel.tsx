@@ -9,6 +9,7 @@ import {
 } from '@/app/actions/hr-suite';
 import type { EmployeeHrProfile, ExpenseClaim } from '@/lib/hr/types';
 import { estimateUkPayeAnnual, formatGbp, formatGbpPrecise } from '@/lib/hr/types';
+import { HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
 
 export function HrPayrollPanel() {
@@ -83,7 +84,7 @@ export function HrPayrollPanel() {
         <select
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
-          className="w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 text-sm dark:bg-white/5"
+          className={HR_SELECT_CLASS}
         >
           {employees.map((e) => (
             <option key={e.id} value={e.id}>
