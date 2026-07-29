@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   deleteBloggerBlog,

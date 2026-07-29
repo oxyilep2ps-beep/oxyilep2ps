@@ -1,11 +1,21 @@
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { HrBottomNav } from '@/components/hr/hr-bottom-nav';
 import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/auth/routing';
 import { isHrStaffEmail } from '@/lib/auth/role-emails';
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
 
-const links = [{ href: '/hr', label: 'Overview' }, { href: '/hr/careers', label: 'Careers' }];
+const links = [
+  { href: '/hr', label: 'Overview' },
+  { href: '/hr/recruitment', label: 'ATS Recruitment' },
+  { href: '/hr/employees', label: 'Employees & Leaves' },
+  { href: '/hr/attendance', label: 'Attendance' },
+  { href: '/hr/payroll', label: 'Payroll £' },
+  { href: '/hr/performance', label: 'Performance' },
+  { href: '/hr/guide', label: 'HR Guide' },
+  { href: '/hr/settings', label: 'Settings' },
+];
 
 export default async function HrLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -22,11 +32,14 @@ export default async function HrLayout({ children }: { children: React.ReactNode
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-7xl px-4 pb-24 pt-8 sm:px-6">
+    <div className="mx-auto min-h-screen max-w-7xl px-4 pb-28 pt-8 sm:px-6">
       <header className="glass-card mb-8 rounded-2xl p-6">
         <Logo size="sm" />
         <p className="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-brand-500">HR Portal</p>
-        <h1 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Careers & Applications</h1>
+        <h1 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">HR Studio</h1>
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+          Enterprise HRMS & ATS for UK FinTech — all money in £ GBP.
+        </p>
         <nav className="mt-6 flex flex-wrap gap-2">
           {links.map((link) => (
             <Link
@@ -40,6 +53,7 @@ export default async function HrLayout({ children }: { children: React.ReactNode
         </nav>
       </header>
       {children}
+      <HrBottomNav />
     </div>
   );
 }

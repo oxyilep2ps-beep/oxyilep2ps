@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   User,
   Users,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +43,7 @@ const items: {
   { href: '/admin-dashboard/blogs', label: 'BlogMgr', icon: Newspaper },
   { href: '/admin-dashboard/oliver', label: 'Oliver', icon: Bot },
   { href: '/admin-dashboard/careers', label: 'Careers', icon: Briefcase },
+  { href: '/admin-dashboard/hr-overview', label: 'HR Exec', icon: Building2 },
   { href: '/admin-dashboard/chat', label: 'Chat', icon: MessageCircle },
   { href: '/admin-dashboard/theme', label: 'Theme', icon: Palette },
   { href: '/admin-dashboard/profile', label: 'Profile', icon: User, exact: true },
