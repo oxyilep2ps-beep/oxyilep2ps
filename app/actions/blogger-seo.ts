@@ -100,6 +100,9 @@ export async function saveSeoBlogPost(input: {
   tags?: string[];
   shareLinkedin?: boolean;
   shareInstagram?: boolean;
+  coverImageAlt?: string | null;
+  socialCaption?: string | null;
+  autoShareSocials?: boolean;
   /** ISO timestamp — historical backdating allowed (writes published_at + created_at). */
   publishAt?: string | null;
 }): Promise<{ ok: true; post: BlogPostRow; metrics: SeoMetricsRow } | { ok: false; error: string }> {
@@ -124,6 +127,11 @@ export async function saveSeoBlogPost(input: {
         ? backdate ?? new Date().toISOString()
         : backdate;
 
+    const autoShare =
+      input.autoShareSocials !== undefined
+        ? Boolean(input.autoShareSocials)
+        : Boolean(input.shareLinkedin || input.shareInstagram);
+
     const updatePayload: Record<string, unknown> = {
       title: input.title,
       slug: input.slug || slugifySeo(input.title),
@@ -131,13 +139,16 @@ export async function saveSeoBlogPost(input: {
       meta_description: input.metaDescription,
       focus_keyword: input.focusKeyword,
       cover_image_url: input.coverImageUrl ?? null,
-      cover_alt_text: input.coverAltText ?? null,
+      cover_alt_text: input.coverAltText ?? input.coverImageAlt ?? null,
+      cover_image_alt: input.coverImageAlt ?? input.coverAltText ?? null,
+      social_caption: input.socialCaption?.trim() || null,
+      auto_share_socials: autoShare,
       status: nextStatus,
       content_type: input.contentType ?? analysis.contentType,
       category: input.category?.trim() || 'FinTech',
       tags: input.tags ?? [],
-      share_linkedin: Boolean(input.shareLinkedin),
-      share_instagram: Boolean(input.shareInstagram),
+      share_linkedin: Boolean(input.shareLinkedin ?? autoShare),
+      share_instagram: Boolean(input.shareInstagram ?? autoShare),
       published_at: publishedAt,
     };
 

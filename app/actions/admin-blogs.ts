@@ -5,6 +5,7 @@ import { assertAdmin } from '@/lib/auth/assert-admin';
 import { slugifyBlogTitle } from '@/lib/blog/slug';
 import type { BlogRow } from '@/lib/blog/types';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { triggerSocialSyndication } from '@/lib/services/socialSyndication';
 import { logAdminAction } from '@/app/actions/admin-audit';
 
 function mapRow(row: Record<string, unknown>): BlogRow {
@@ -19,6 +20,17 @@ function mapRow(row: Record<string, unknown>): BlogRow {
     status: row.status as BlogRow['status'],
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
+    published_at: (row.published_at as string | null) ?? null,
+    category: (row.category as string | null) ?? 'FinTech',
+    tags: Array.isArray(row.tags) ? (row.tags as unknown[]).map(String) : [],
+    share_linkedin: Boolean(row.share_linkedin),
+    share_instagram: Boolean(row.share_instagram),
+    cover_image_alt: (row.cover_image_alt as string | null) ?? null,
+    social_caption: (row.social_caption as string | null) ?? null,
+    auto_share_socials: row.auto_share_socials !== false,
+    social_share_status: (row.social_share_status as string | null) ?? 'pending',
+    meta_description: String(row.meta_description ?? ''),
+    focus_keyword: String(row.focus_keyword ?? ''),
     approved_at: (row.approved_at as string | null) ?? null,
     approved_by: (row.approved_by as string | null) ?? null,
     admin_feedback: (row.admin_feedback as string | null) ?? null,
@@ -98,7 +110,7 @@ export async function approveBlog(
 
   const { data: blog } = await admin
     .from('blogs')
-    .select('title, published_at, created_at')
+    .select('*')
     .eq('id', id)
     .maybeSingle();
 
@@ -107,7 +119,7 @@ export async function approveBlog(
     (blog?.created_at as string | null) ||
     new Date().toISOString();
 
-  const { error } = await admin
+  const { data: published, error } = await admin
     .from('blogs')
     .update({
       ...(updates?.title ? { title: updates.title } : {}),
@@ -120,9 +132,12 @@ export async function approveBlog(
       created_at: chronology,
       admin_feedback: null,
       rejection_reason: null,
+      social_share_status: 'pending',
       updated_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .select('*')
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
 
@@ -130,6 +145,32 @@ export async function approveBlog(
   revalidatePath('/blogs');
   revalidatePath('/admin-dashboard/blogs');
   revalidatePath('/blog');
+
+  const post = published ?? blog;
+  if (post && post.auto_share_socials === true) {
+    // Fire-and-forget — do not block the admin UI response
+    void triggerSocialSyndication(
+      {
+        id: String(post.id),
+        title: String(updates?.title?.trim() || post.title || 'Untitled'),
+        slug: String(post.slug),
+        cover_image: (updates?.cover_image_url ??
+          post.cover_image_url ??
+          post.cover_image) as string | null,
+        cover_image_url: (updates?.cover_image_url ??
+          post.cover_image_url ??
+          post.cover_image) as string | null,
+        cover_image_alt: (post.cover_image_alt as string | null) ?? null,
+        social_caption: (post.social_caption as string | null) ?? null,
+        meta_description: (post.meta_description as string | null) ?? null,
+        auto_share_socials: true,
+      },
+      { table: 'blogs' }
+    ).catch((err) => {
+      console.error('[approveBlog] Social syndication failed', err);
+    });
+  }
+
   return { success: true };
 }
 

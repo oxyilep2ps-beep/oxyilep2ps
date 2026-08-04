@@ -183,6 +183,15 @@ export function AdminBlogCmsTab() {
             initialTitle={reviewBlog.title}
             initialContent={reviewBlog.content}
             initialCoverUrl={blogCoverUrl(reviewBlog)}
+            initialSlug={reviewBlog.slug}
+            initialMetaDescription={reviewBlog.meta_description ?? ''}
+            initialFocusKeyword={reviewBlog.focus_keyword ?? ''}
+            initialCategory={reviewBlog.category ?? 'FinTech'}
+            initialTags={reviewBlog.tags ?? []}
+            initialCoverImageAlt={reviewBlog.cover_image_alt ?? ''}
+            initialSocialCaption={reviewBlog.social_caption ?? ''}
+            initialAutoShareSocials={reviewBlog.auto_share_socials ?? true}
+            initialPublishAt={reviewBlog.published_at ?? reviewBlog.created_at}
             submitLabel={tab === 'pending' ? 'Approve & Publish' : 'Save Live Changes'}
             showDraftButton={false}
             busy={busy}

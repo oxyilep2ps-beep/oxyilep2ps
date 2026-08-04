@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { NavigationLoadingProvider } from '@/components/navigation-loading-provider';
 import { SiteShell } from '@/components/site-shell';
 import { GlobalThemeBackground } from '@/components/site/global-theme-background';
-import { ClickPaperBlast } from '@/components/click-paper-blast';
+import { ClickCrackerBlast } from '@/components/ui/ClickCrackerBlast';
 import { OliverBot } from '@/components/oliver/oliver-bot';
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <NavigationLoadingProvider>
             <GlobalThemeBackground />
-            <ClickPaperBlast />
+            <ClickCrackerBlast />
             <SiteShell>{children}</SiteShell>
             <OliverBot />
           </NavigationLoadingProvider>

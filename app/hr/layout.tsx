@@ -4,18 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/auth/routing';
 import { isHrStaffEmail } from '@/lib/auth/role-emails';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-
-const links = [
-  { href: '/hr', label: 'Overview' },
-  { href: '/hr/recruitment', label: 'ATS Recruitment' },
-  { href: '/hr/employees', label: 'Employees & Leaves' },
-  { href: '/hr/attendance', label: 'Attendance' },
-  { href: '/hr/payroll', label: 'Payroll £' },
-  { href: '/hr/performance', label: 'Performance' },
-  { href: '/hr/guide', label: 'HR Guide' },
-  { href: '/hr/settings', label: 'Settings' },
-];
 
 export default async function HrLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -33,24 +21,13 @@ export default async function HrLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="mx-auto min-h-screen max-w-7xl px-4 pb-28 pt-8 sm:px-6">
-      <header className="glass-card mb-8 rounded-2xl p-6">
+      <header className="mb-8 rounded-2xl border border-neutral-800 bg-neutral-950/70 p-5 backdrop-blur dark:border-neutral-800">
         <Logo size="sm" />
-        <p className="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-brand-500">HR Portal</p>
-        <h1 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">HR Studio</h1>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Enterprise HRMS & ATS for UK FinTech — all money in £ GBP.
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-[#F97316]">HR Portal</p>
+        <h1 className="mt-2 text-2xl font-black text-white">HR Studio</h1>
+        <p className="mt-1 max-w-2xl text-sm text-neutral-400">
+          Enterprise HRMS &amp; ATS for UK FinTech — all money in £ GBP. Use the bottom bar to move between modules.
         </p>
-        <nav className="mt-6 flex flex-wrap gap-2">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="rounded-full border border-white/50 bg-white/50 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-black/30 dark:text-neutral-200"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
       </header>
       {children}
       <HrBottomNav />

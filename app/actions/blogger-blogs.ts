@@ -25,6 +25,10 @@ function mapRow(row: Record<string, unknown>): BlogRow {
     tags: Array.isArray(tags) ? tags.map(String) : [],
     share_linkedin: Boolean(row.share_linkedin),
     share_instagram: Boolean(row.share_instagram),
+    cover_image_alt: (row.cover_image_alt as string | null) ?? null,
+    social_caption: (row.social_caption as string | null) ?? null,
+    auto_share_socials: row.auto_share_socials !== false,
+    social_share_status: (row.social_share_status as string | null) ?? 'pending',
     meta_description: String(row.meta_description ?? ''),
     focus_keyword: String(row.focus_keyword ?? ''),
     approved_at: (row.approved_at as string | null) ?? null,
@@ -47,17 +51,27 @@ function publishingFields(payload: {
   tags?: string[];
   share_linkedin?: boolean;
   share_instagram?: boolean;
+  cover_image_alt?: string | null;
+  social_caption?: string | null;
+  auto_share_socials?: boolean;
   meta_description?: string | null;
   focus_keyword?: string | null;
   publishAt?: string | null;
   forPublish?: boolean;
 }) {
+  const autoShare =
+    payload.auto_share_socials !== undefined
+      ? Boolean(payload.auto_share_socials)
+      : Boolean(payload.share_linkedin || payload.share_instagram);
   const backdate = resolveBackdate(payload.publishAt ?? null);
   const fields: Record<string, unknown> = {
     category: payload.category?.trim() || 'FinTech',
     tags: payload.tags ?? [],
-    share_linkedin: Boolean(payload.share_linkedin),
-    share_instagram: Boolean(payload.share_instagram),
+    share_linkedin: Boolean(payload.share_linkedin ?? autoShare),
+    share_instagram: Boolean(payload.share_instagram ?? autoShare),
+    cover_image_alt: payload.cover_image_alt?.trim() || null,
+    social_caption: payload.social_caption?.trim() || null,
+    auto_share_socials: autoShare,
     meta_description: payload.meta_description?.trim() ?? '',
     focus_keyword: payload.focus_keyword?.trim() ?? '',
   };
@@ -132,6 +146,9 @@ export async function saveBloggerDraft(payload: {
   tags?: string[];
   share_linkedin?: boolean;
   share_instagram?: boolean;
+  cover_image_alt?: string | null;
+  social_caption?: string | null;
+  auto_share_socials?: boolean;
   meta_description?: string | null;
   focus_keyword?: string | null;
   publishAt?: string | null;
@@ -216,6 +233,9 @@ export async function submitBloggerBlog(payload: {
   tags?: string[];
   share_linkedin?: boolean;
   share_instagram?: boolean;
+  cover_image_alt?: string | null;
+  social_caption?: string | null;
+  auto_share_socials?: boolean;
   meta_description?: string | null;
   focus_keyword?: string | null;
   publishAt?: string | null;
@@ -286,6 +306,9 @@ export async function updateBloggerBlog(payload: {
   tags?: string[];
   share_linkedin?: boolean;
   share_instagram?: boolean;
+  cover_image_alt?: string | null;
+  social_caption?: string | null;
+  auto_share_socials?: boolean;
   meta_description?: string | null;
   focus_keyword?: string | null;
   publishAt?: string | null;
@@ -303,6 +326,9 @@ export async function updateBloggerBlog(payload: {
       tags: payload.tags,
       share_linkedin: payload.share_linkedin,
       share_instagram: payload.share_instagram,
+      cover_image_alt: payload.cover_image_alt,
+      social_caption: payload.social_caption,
+      auto_share_socials: payload.auto_share_socials,
       meta_description: payload.meta_description,
       focus_keyword: payload.focus_keyword,
       publishAt: payload.publishAt,

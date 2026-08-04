@@ -27,6 +27,10 @@ export type BlogRow = {
   tags?: string[] | null;
   share_linkedin?: boolean | null;
   share_instagram?: boolean | null;
+  cover_image_alt?: string | null;
+  social_caption?: string | null;
+  auto_share_socials?: boolean | null;
+  social_share_status?: string | null;
   meta_description?: string | null;
   focus_keyword?: string | null;
   approved_at?: string | null;

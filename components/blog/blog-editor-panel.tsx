@@ -31,6 +31,9 @@ export type BlogStudioPayload = {
   tags?: string[];
   share_linkedin?: boolean;
   share_instagram?: boolean;
+  cover_image_alt?: string | null;
+  social_caption?: string | null;
+  auto_share_socials?: boolean;
   meta_description?: string;
   focus_keyword?: string;
   publishAt?: string | null;
@@ -47,6 +50,9 @@ type BlogEditorPanelProps = {
   initialTags?: string[];
   initialShareLinkedin?: boolean;
   initialShareInstagram?: boolean;
+  initialCoverImageAlt?: string;
+  initialSocialCaption?: string;
+  initialAutoShareSocials?: boolean;
   initialPublishAt?: string | null;
   submitLabel?: string;
   saveDraftLabel?: string;
@@ -77,6 +83,9 @@ export function BlogEditorPanel({
   initialTags = [],
   initialShareLinkedin = false,
   initialShareInstagram = false,
+  initialCoverImageAlt = '',
+  initialSocialCaption = '',
+  initialAutoShareSocials,
   initialPublishAt = null,
   submitLabel = 'Approve & Publish',
   saveDraftLabel = 'Save Draft',
@@ -97,8 +106,11 @@ export function BlogEditorPanel({
   const [focusKeyword, setFocusKeyword] = useState(initialFocusKeyword);
   const [category, setCategory] = useState(initialCategory || 'FinTech');
   const [tagsInput, setTagsInput] = useState(initialTags.join(', '));
-  const [shareLinkedin, setShareLinkedin] = useState(initialShareLinkedin);
-  const [shareInstagram, setShareInstagram] = useState(initialShareInstagram);
+  const [coverImageAlt, setCoverImageAlt] = useState(initialCoverImageAlt);
+  const [socialCaption, setSocialCaption] = useState(initialSocialCaption);
+  const [autoShareSocials, setAutoShareSocials] = useState(
+    initialAutoShareSocials ?? true
+  );
   const [publishLocal, setPublishLocal] = useState(
     toDatetimeLocalValue(initialPublishAt) || toDatetimeLocalValue(new Date().toISOString())
   );
@@ -133,8 +145,11 @@ export function BlogEditorPanel({
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean),
-    share_linkedin: shareLinkedin,
-    share_instagram: shareInstagram,
+    share_linkedin: autoShareSocials,
+    share_instagram: autoShareSocials,
+    cover_image_alt: coverImageAlt.trim() || null,
+    social_caption: socialCaption.trim() || null,
+    auto_share_socials: autoShareSocials,
     meta_description: meta,
     focus_keyword: focusKeyword,
     publishAt: fromDatetimeLocalValue(publishLocal),
@@ -432,57 +447,65 @@ export function BlogEditorPanel({
           </span>
         </label>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl sm:p-5">
+          <div className="flex items-center gap-2">
+            <Share2 size={16} className="text-[#F97316]" />
+            <p className="text-sm font-bold text-white">Social media syndication</p>
+          </div>
+          <p className="text-[11px] leading-relaxed text-neutral-500">
+            Bloggers only set metadata here. LinkedIn &amp; Instagram posts are sent via Make.com strictly when an
+            Admin clicks Approve &amp; Publish.
+          </p>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+              Cover image alt text
+            </span>
+            <input
+              value={coverImageAlt}
+              onChange={(e) => setCoverImageAlt(e.target.value)}
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
+              placeholder="e.g., Oxyile UK P2P Lending Co-Applicant Workflow Diagram"
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+              LinkedIn &amp; Instagram Caption (Optional)
+            </span>
+            <textarea
+              value={socialCaption}
+              onChange={(e) => setSocialCaption(e.target.value)}
+              rows={3}
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
+              placeholder="Write a catchy 2-3 sentence hook for social media... (If left blank, Meta Description will be used automatically)"
+            />
+          </label>
+
           <button
             type="button"
-            onClick={() => setShareLinkedin((v) => !v)}
+            onClick={() => setAutoShareSocials((v) => !v)}
             className={cn(
-              'flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition',
-              shareLinkedin
+              'flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3.5 text-left transition',
+              autoShareSocials
                 ? 'border-[#F97316]/50 bg-[#F97316]/10'
-                : 'border-neutral-800 bg-neutral-900/50'
+                : 'border-neutral-800 bg-neutral-950/50'
             )}
           >
-            <span className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Share2 size={16} className="text-[#F97316]" /> Auto-share to LinkedIn
+            <span className="text-sm font-semibold leading-snug text-white">
+              Automatically share to LinkedIn &amp; Instagram when approved by Admin
             </span>
             <span
               className={cn(
-                'relative h-6 w-11 rounded-full transition',
-                shareLinkedin ? 'bg-[#F97316]' : 'bg-neutral-700'
+                'relative h-7 w-12 shrink-0 rounded-full transition',
+                autoShareSocials ? 'bg-[#F97316]' : 'bg-neutral-700'
               )}
+              aria-hidden
             >
               <span
                 className={cn(
-                  'absolute top-0.5 h-5 w-5 rounded-full bg-white transition',
-                  shareLinkedin ? 'left-5' : 'left-0.5'
-                )}
-              />
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShareInstagram((v) => !v)}
-            className={cn(
-              'flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition',
-              shareInstagram
-                ? 'border-[#F97316]/50 bg-[#F97316]/10'
-                : 'border-neutral-800 bg-neutral-900/50'
-            )}
-          >
-            <span className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Share2 size={16} className="text-[#F97316]" /> Auto-share to Instagram
-            </span>
-            <span
-              className={cn(
-                'relative h-6 w-11 rounded-full transition',
-                shareInstagram ? 'bg-[#F97316]' : 'bg-neutral-700'
-              )}
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 h-5 w-5 rounded-full bg-white transition',
-                  shareInstagram ? 'left-5' : 'left-0.5'
+                  'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition',
+                  autoShareSocials ? 'left-5' : 'left-0.5'
                 )}
               />
             </span>

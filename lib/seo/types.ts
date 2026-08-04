@@ -11,6 +11,10 @@ export type BlogPostRow = {
   focus_keyword: string;
   cover_image_url: string | null;
   cover_alt_text: string | null;
+  cover_image_alt?: string | null;
+  social_caption?: string | null;
+  auto_share_socials?: boolean | null;
+  social_share_status?: string | null;
   status: BlogPostStatus;
   content_type: BlogContentType;
   category?: string | null;

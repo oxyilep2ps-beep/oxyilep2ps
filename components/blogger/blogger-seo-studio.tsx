@@ -44,11 +44,15 @@ export function BloggerSeoStudio({ initialPost }: Props) {
   const [focusKeyword, setFocusKeyword] = useState(initialPost.focus_keyword);
   const [content, setContent] = useState(initialPost.content);
   const [coverUrl, setCoverUrl] = useState<string | null>(initialPost.cover_image_url);
-  const [coverAlt, setCoverAlt] = useState(initialPost.cover_alt_text ?? '');
+  const [coverAlt, setCoverAlt] = useState(
+    initialPost.cover_image_alt ?? initialPost.cover_alt_text ?? ''
+  );
+  const [socialCaption, setSocialCaption] = useState(initialPost.social_caption ?? '');
+  const [autoShareSocials, setAutoShareSocials] = useState(
+    initialPost.auto_share_socials ?? true
+  );
   const [category, setCategory] = useState(initialPost.category || 'FinTech');
   const [tagsInput, setTagsInput] = useState((initialPost.tags ?? []).join(', '));
-  const [shareLinkedin, setShareLinkedin] = useState(Boolean(initialPost.share_linkedin));
-  const [shareInstagram, setShareInstagram] = useState(Boolean(initialPost.share_instagram));
   const [publishLocal, setPublishLocal] = useState(
     toDatetimeLocalValue(initialPost.published_at || initialPost.created_at) ||
       toDatetimeLocalValue(new Date().toISOString())
@@ -116,6 +120,9 @@ export function BloggerSeoStudio({ initialPost }: Props) {
         focusKeyword,
         coverImageUrl: coverUrl,
         coverAltText: coverAlt,
+        coverImageAlt: coverAlt,
+        socialCaption,
+        autoShareSocials,
         contentType: analysis.contentType,
         status,
         category,
@@ -123,8 +130,8 @@ export function BloggerSeoStudio({ initialPost }: Props) {
           .split(',')
           .map((t) => t.trim())
           .filter(Boolean),
-        shareLinkedin,
-        shareInstagram,
+        shareLinkedin: autoShareSocials,
+        shareInstagram: autoShareSocials,
         publishAt: fromDatetimeLocalValue(publishLocal),
       });
       if (!result.ok) {
@@ -322,14 +329,6 @@ export function BloggerSeoStudio({ initialPost }: Props) {
             className="w-full rounded-xl border border-neutral-800 bg-neutral-900/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
           />
         </label>
-        <label className="block space-y-1.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Cover alt text</span>
-          <input
-            value={coverAlt}
-            onChange={(e) => setCoverAlt(e.target.value)}
-            className="w-full rounded-xl border border-neutral-800 bg-neutral-900/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
-          />
-        </label>
 
         <div className="rounded-2xl border border-neutral-800 bg-white p-4 text-neutral-900">
           <div className="mb-3 flex items-center justify-between">
@@ -433,43 +432,64 @@ export function BloggerSeoStudio({ initialPost }: Props) {
           </span>
         </label>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl sm:p-5">
+          <div className="flex items-center gap-2">
+            <Share2 size={16} className="text-[#F97316]" />
+            <p className="text-sm font-bold text-white">Social media syndication</p>
+          </div>
+          <p className="text-[11px] leading-relaxed text-neutral-500">
+            Metadata only — LinkedIn &amp; Instagram sharing fires when an Admin approves and publishes.
+          </p>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+              Cover image alt text
+            </span>
+            <input
+              value={coverAlt}
+              onChange={(e) => setCoverAlt(e.target.value)}
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
+              placeholder="e.g., Oxyile UK P2P Lending Co-Applicant Workflow Diagram"
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+              LinkedIn &amp; Instagram Caption (Optional)
+            </span>
+            <textarea
+              value={socialCaption}
+              onChange={(e) => setSocialCaption(e.target.value)}
+              rows={3}
+              className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
+              placeholder="Write a catchy 2-3 sentence hook for social media... (If left blank, Meta Description will be used automatically)"
+            />
+          </label>
+
           <button
             type="button"
-            onClick={() => setShareLinkedin((v) => !v)}
+            onClick={() => setAutoShareSocials((v) => !v)}
             className={cn(
-              'flex items-center justify-between rounded-2xl border px-4 py-3 text-left',
-              shareLinkedin ? 'border-[#F97316]/50 bg-[#F97316]/10' : 'border-neutral-800 bg-neutral-900/50'
+              'flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3.5 text-left transition',
+              autoShareSocials
+                ? 'border-[#F97316]/50 bg-[#F97316]/10'
+                : 'border-neutral-800 bg-neutral-950/50'
             )}
           >
-            <span className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Share2 size={16} className="text-[#F97316]" /> LinkedIn auto-share
+            <span className="text-sm font-semibold leading-snug text-white">
+              Automatically share to LinkedIn &amp; Instagram when approved by Admin
             </span>
-            <span className={cn('relative h-6 w-11 rounded-full', shareLinkedin ? 'bg-[#F97316]' : 'bg-neutral-700')}>
+            <span
+              className={cn(
+                'relative h-7 w-12 shrink-0 rounded-full transition',
+                autoShareSocials ? 'bg-[#F97316]' : 'bg-neutral-700'
+              )}
+              aria-hidden
+            >
               <span
                 className={cn(
-                  'absolute top-0.5 h-5 w-5 rounded-full bg-white transition',
-                  shareLinkedin ? 'left-5' : 'left-0.5'
-                )}
-              />
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setShareInstagram((v) => !v)}
-            className={cn(
-              'flex items-center justify-between rounded-2xl border px-4 py-3 text-left',
-              shareInstagram ? 'border-[#F97316]/50 bg-[#F97316]/10' : 'border-neutral-800 bg-neutral-900/50'
-            )}
-          >
-            <span className="flex items-center gap-2 text-sm font-semibold text-white">
-              <Share2 size={16} className="text-[#F97316]" /> Instagram auto-share
-            </span>
-            <span className={cn('relative h-6 w-11 rounded-full', shareInstagram ? 'bg-[#F97316]' : 'bg-neutral-700')}>
-              <span
-                className={cn(
-                  'absolute top-0.5 h-5 w-5 rounded-full bg-white transition',
-                  shareInstagram ? 'left-5' : 'left-0.5'
+                  'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition',
+                  autoShareSocials ? 'left-5' : 'left-0.5'
                 )}
               />
             </span>
