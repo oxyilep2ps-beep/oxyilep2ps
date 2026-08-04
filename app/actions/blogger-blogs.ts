@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 
 function mapRow(row: Record<string, unknown>): BlogRow {
   const inline = row.inline_images;
+  const tags = row.tags;
   return {
     id: String(row.id),
     title: String(row.title),
@@ -19,12 +20,54 @@ function mapRow(row: Record<string, unknown>): BlogRow {
     status: row.status as BlogStatus,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
+    published_at: (row.published_at as string | null) ?? null,
+    category: (row.category as string | null) ?? 'FinTech',
+    tags: Array.isArray(tags) ? tags.map(String) : [],
+    share_linkedin: Boolean(row.share_linkedin),
+    share_instagram: Boolean(row.share_instagram),
+    meta_description: String(row.meta_description ?? ''),
+    focus_keyword: String(row.focus_keyword ?? ''),
     approved_at: (row.approved_at as string | null) ?? null,
     approved_by: (row.approved_by as string | null) ?? null,
     admin_feedback: (row.admin_feedback as string | null) ?? null,
     rejection_reason: (row.rejection_reason as string | null) ?? null,
     inline_images: Array.isArray(inline) ? inline.map(String) : [],
   };
+}
+
+function resolveBackdate(publishAt?: string | null): string | null {
+  if (!publishAt) return null;
+  const date = new Date(publishAt);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function publishingFields(payload: {
+  category?: string | null;
+  tags?: string[];
+  share_linkedin?: boolean;
+  share_instagram?: boolean;
+  meta_description?: string | null;
+  focus_keyword?: string | null;
+  publishAt?: string | null;
+  forPublish?: boolean;
+}) {
+  const backdate = resolveBackdate(payload.publishAt ?? null);
+  const fields: Record<string, unknown> = {
+    category: payload.category?.trim() || 'FinTech',
+    tags: payload.tags ?? [],
+    share_linkedin: Boolean(payload.share_linkedin),
+    share_instagram: Boolean(payload.share_instagram),
+    meta_description: payload.meta_description?.trim() ?? '',
+    focus_keyword: payload.focus_keyword?.trim() ?? '',
+  };
+  if (backdate) {
+    fields.created_at = backdate;
+    fields.published_at = backdate;
+  } else if (payload.forPublish) {
+    fields.published_at = new Date().toISOString();
+  }
+  return fields;
 }
 
 export async function listBloggerBlogs(filter: 'drafts' | 'pending' | 'published' | 'references') {
@@ -85,9 +128,17 @@ export async function saveBloggerDraft(payload: {
   content: string;
   cover_image_url?: string | null;
   fromReferenceId?: string;
+  category?: string | null;
+  tags?: string[];
+  share_linkedin?: boolean;
+  share_instagram?: boolean;
+  meta_description?: string | null;
+  focus_keyword?: string | null;
+  publishAt?: string | null;
 }) {
   const user = await assertBloggerOrAdmin();
   const admin = createAdminClient();
+  const meta = publishingFields(payload);
 
   if (payload.fromReferenceId) {
     const { data: ref } = await admin.from('blogs').select('*').eq('id', payload.fromReferenceId).maybeSingle();
@@ -102,6 +153,7 @@ export async function saveBloggerDraft(payload: {
         cover_image_url: payload.cover_image_url ?? null,
         author_id: user.id,
         status: 'DRAFT',
+        ...meta,
       })
       .select('*')
       .single();
@@ -122,6 +174,7 @@ export async function saveBloggerDraft(payload: {
         cover_image_url: payload.cover_image_url ?? null,
         status: 'DRAFT',
         updated_at: new Date().toISOString(),
+        ...meta,
       })
       .eq('id', payload.id)
       .select('*')
@@ -142,6 +195,7 @@ export async function saveBloggerDraft(payload: {
       cover_image_url: payload.cover_image_url ?? null,
       author_id: user.id,
       status: 'DRAFT',
+      ...meta,
     })
     .select('*')
     .single();
@@ -158,9 +212,17 @@ export async function submitBloggerBlog(payload: {
   cover_image_url?: string | null;
   inline_images?: string[];
   fromReferenceId?: string;
+  category?: string | null;
+  tags?: string[];
+  share_linkedin?: boolean;
+  share_instagram?: boolean;
+  meta_description?: string | null;
+  focus_keyword?: string | null;
+  publishAt?: string | null;
 }) {
   const user = await assertBloggerOrAdmin();
   const admin = createAdminClient();
+  const meta = publishingFields({ ...payload, forPublish: true });
 
   const upsertPayload = {
     title: payload.title.trim(),
@@ -173,6 +235,7 @@ export async function submitBloggerBlog(payload: {
     admin_feedback: null,
     rejection_reason: null,
     updated_at: new Date().toISOString(),
+    ...meta,
   };
 
   if (payload.id) {
@@ -219,6 +282,13 @@ export async function updateBloggerBlog(payload: {
   content: string;
   cover_image_url?: string | null;
   submitForApproval?: boolean;
+  category?: string | null;
+  tags?: string[];
+  share_linkedin?: boolean;
+  share_instagram?: boolean;
+  meta_description?: string | null;
+  focus_keyword?: string | null;
+  publishAt?: string | null;
 }) {
   const existing = await getBloggerBlog(payload.id);
   if (!existing) throw new Error('Blog not found');
@@ -229,6 +299,13 @@ export async function updateBloggerBlog(payload: {
       title: payload.title,
       content: payload.content,
       cover_image_url: payload.cover_image_url,
+      category: payload.category,
+      tags: payload.tags,
+      share_linkedin: payload.share_linkedin,
+      share_instagram: payload.share_instagram,
+      meta_description: payload.meta_description,
+      focus_keyword: payload.focus_keyword,
+      publishAt: payload.publishAt,
     });
   }
 
@@ -242,6 +319,8 @@ export async function updateBloggerBlog(payload: {
     nextStatus = 'DRAFT';
   }
 
+  const meta = publishingFields(payload);
+
   const { data, error } = await admin
     .from('blogs')
     .update({
@@ -250,6 +329,7 @@ export async function updateBloggerBlog(payload: {
       cover_image_url: payload.cover_image_url ?? null,
       status: nextStatus,
       updated_at: new Date().toISOString(),
+      ...meta,
     })
     .eq('id', payload.id)
     .select('*')

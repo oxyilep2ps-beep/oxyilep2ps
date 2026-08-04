@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "report:corporate": "tsx scripts/generate-corporate-pdf-report.ts"
+    "report:corporate": "tsx scripts/generate-corporate-pdf-report.ts",
+    "report:handover": "tsx scripts/generate-director-handover-doc.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

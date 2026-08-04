@@ -13,6 +13,10 @@ export type BlogPostRow = {
   cover_alt_text: string | null;
   status: BlogPostStatus;
   content_type: BlogContentType;
+  category?: string | null;
+  tags?: string[] | null;
+  share_linkedin?: boolean | null;
+  share_instagram?: boolean | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;

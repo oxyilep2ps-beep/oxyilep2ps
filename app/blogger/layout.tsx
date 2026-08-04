@@ -34,17 +34,20 @@ export default async function BloggerLayout({ children }: { children: React.Reac
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-7xl px-4 pb-28 pt-8 sm:px-6">
-      <header className="glass-card mb-8 rounded-2xl p-6">
+    <div className="mx-auto min-h-screen max-w-7xl px-4 pb-28 pt-6 sm:px-6">
+      <header className="mb-6 rounded-2xl border border-neutral-800 bg-neutral-950/70 p-5 backdrop-blur">
         <Logo size="sm" />
-        <p className="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Blogger Portal</p>
-        <h1 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Editorial Studio</h1>
-        <nav className="mt-6 flex flex-wrap gap-2">
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-[#F97316]">Blogger Portal</p>
+        <h1 className="mt-2 text-2xl font-black text-white">Editorial Studio</h1>
+        <p className="mt-1 text-sm text-neutral-400">
+          Create, optimise, backdate and publish on one scrollable page — no tab hopping mid-draft.
+        </p>
+        <nav className="mt-5 flex flex-wrap gap-2">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-full border border-white/50 bg-white/50 px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-brand-300 hover:text-brand-600 dark:border-white/10 dark:bg-black/30 dark:text-neutral-200"
+              className="rounded-full border border-neutral-800 bg-neutral-900/70 px-4 py-2 text-sm font-semibold text-neutral-300 transition hover:border-[#F97316]/40 hover:text-[#F97316]"
             >
               {link.label}
             </Link>

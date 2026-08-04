@@ -24,7 +24,8 @@ export async function listSeoBlogPosts(): Promise<BlogPostRow[]> {
     .from('blog_posts')
     .select('*')
     .eq('author_id', user.id)
-    .order('updated_at', { ascending: false });
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
   return (data ?? []) as BlogPostRow[];
@@ -95,6 +96,12 @@ export async function saveSeoBlogPost(input: {
   coverAltText?: string | null;
   status?: BlogPostRow['status'];
   contentType?: BlogPostRow['content_type'];
+  category?: string | null;
+  tags?: string[];
+  shareLinkedin?: boolean;
+  shareInstagram?: boolean;
+  /** ISO timestamp — historical backdating allowed (writes published_at + created_at). */
+  publishAt?: string | null;
 }): Promise<{ ok: true; post: BlogPostRow; metrics: SeoMetricsRow } | { ok: false; error: string }> {
   try {
     const user = await assertBloggerOrAdmin();
@@ -107,20 +114,41 @@ export async function saveSeoBlogPost(input: {
       slug: input.slug,
     });
 
+    const nextStatus = input.status ?? 'draft';
+    const backdate =
+      input.publishAt && !Number.isNaN(new Date(input.publishAt).getTime())
+        ? new Date(input.publishAt).toISOString()
+        : null;
+    const publishedAt =
+      nextStatus === 'published' || nextStatus === 'review'
+        ? backdate ?? new Date().toISOString()
+        : backdate;
+
+    const updatePayload: Record<string, unknown> = {
+      title: input.title,
+      slug: input.slug || slugifySeo(input.title),
+      content: input.content,
+      meta_description: input.metaDescription,
+      focus_keyword: input.focusKeyword,
+      cover_image_url: input.coverImageUrl ?? null,
+      cover_alt_text: input.coverAltText ?? null,
+      status: nextStatus,
+      content_type: input.contentType ?? analysis.contentType,
+      category: input.category?.trim() || 'FinTech',
+      tags: input.tags ?? [],
+      share_linkedin: Boolean(input.shareLinkedin),
+      share_instagram: Boolean(input.shareInstagram),
+      published_at: publishedAt,
+    };
+
+    // Historical ordering: when a custom publish date is chosen, also bind created_at.
+    if (backdate) {
+      updatePayload.created_at = backdate;
+    }
+
     const { data: post, error } = await supabase
       .from('blog_posts')
-      .update({
-        title: input.title,
-        slug: input.slug || slugifySeo(input.title),
-        content: input.content,
-        meta_description: input.metaDescription,
-        focus_keyword: input.focusKeyword,
-        cover_image_url: input.coverImageUrl ?? null,
-        cover_alt_text: input.coverAltText ?? null,
-        status: input.status ?? 'draft',
-        content_type: input.contentType ?? analysis.contentType,
-        published_at: input.status === 'published' ? new Date().toISOString() : null,
-      })
+      .update(updatePayload)
       .eq('id', input.id)
       .eq('author_id', user.id)
       .select('*')

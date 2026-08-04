@@ -73,7 +73,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          'min-h-[300px] w-full rounded-b-2xl border border-t-0 border-white/60 bg-white/70 px-4 py-3 text-sm text-neutral-900 outline-none dark:border-white/10 dark:bg-black/40 dark:text-neutral-100 prose prose-sm dark:prose-invert max-w-none',
+          'min-h-[420px] w-full rounded-b-2xl border border-t-0 border-neutral-800 bg-neutral-950/40 px-5 py-6 text-base leading-8 text-neutral-100 outline-none dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-100 prose prose-invert prose-lg max-w-none',
       },
       handleKeyDown: (_view, event) => {
         if (event.key === '/' && !event.metaKey && !event.ctrlKey) {

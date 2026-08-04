@@ -198,13 +198,13 @@ export function BloggerCmsDashboard() {
       </div>
 
       {editorVisible ? (
-        <div className="glass-card rounded-2xl p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="font-bold text-brand-600">
+        <div className="rounded-3xl border border-neutral-800 bg-neutral-950/80 p-4 sm:p-6">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F97316]">
               {editing
-                ? `Editing: ${editing.title}`
+                ? `Editing · ${editing.title}`
                 : fromReference
-                  ? `From prompt: ${fromReference.title}`
+                  ? `From prompt · ${fromReference.title}`
                   : 'New article'}
             </p>
             <button type="button" onClick={closeEditor} className="text-sm font-semibold text-neutral-500">
@@ -216,14 +216,22 @@ export function BloggerCmsDashboard() {
             initialTitle={editing?.title ?? fromReference?.title ?? ''}
             initialContent={editing?.content ?? fromReference?.content ?? '<p></p>'}
             initialCoverUrl={editing ? blogCoverUrl(editing) : null}
+            initialSlug={editing?.slug ?? null}
+            initialMetaDescription={editing?.meta_description ?? ''}
+            initialFocusKeyword={editing?.focus_keyword ?? ''}
+            initialCategory={editing?.category ?? 'FinTech'}
+            initialTags={editing?.tags ?? []}
+            initialShareLinkedin={Boolean(editing?.share_linkedin)}
+            initialShareInstagram={Boolean(editing?.share_instagram)}
+            initialPublishAt={editing?.published_at ?? editing?.created_at ?? null}
             adminFeedback={editing?.status === 'REJECTED' ? editing.admin_feedback : null}
             rejectionReason={editing?.status === 'REJECTED' ? editing.rejection_reason : null}
             submitLabel={
               editing?.status === 'REJECTED'
                 ? 'Resubmit for Approval'
                 : editing?.status === 'PUBLISHED'
-                  ? 'Save & Re-submit for Approval'
-                  : 'Submit for Approval'
+                  ? 'Approve & Publish'
+                  : 'Approve & Publish'
             }
             showDraftButton={!editing || editing.status === 'DRAFT' || editing.status === 'REJECTED'}
             onUploadCover={async (file) => {

@@ -96,7 +96,16 @@ export async function approveBlog(
   const user = await assertAdmin();
   const admin = createAdminClient();
 
-  const { data: blog } = await admin.from('blogs').select('title').eq('id', id).maybeSingle();
+  const { data: blog } = await admin
+    .from('blogs')
+    .select('title, published_at, created_at')
+    .eq('id', id)
+    .maybeSingle();
+
+  const chronology =
+    (blog?.published_at as string | null) ||
+    (blog?.created_at as string | null) ||
+    new Date().toISOString();
 
   const { error } = await admin
     .from('blogs')
@@ -107,6 +116,8 @@ export async function approveBlog(
       status: 'PUBLISHED',
       approved_at: new Date().toISOString(),
       approved_by: user.id,
+      published_at: chronology,
+      created_at: chronology,
       admin_feedback: null,
       rejection_reason: null,
       updated_at: new Date().toISOString(),

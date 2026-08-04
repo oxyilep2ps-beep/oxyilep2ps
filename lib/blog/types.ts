@@ -22,6 +22,13 @@ export type BlogRow = {
   status: BlogStatus;
   created_at: string;
   updated_at: string;
+  published_at?: string | null;
+  category?: string | null;
+  tags?: string[] | null;
+  share_linkedin?: boolean | null;
+  share_instagram?: boolean | null;
+  meta_description?: string | null;
+  focus_keyword?: string | null;
   approved_at?: string | null;
   approved_by?: string | null;
   admin_feedback?: string | null;
