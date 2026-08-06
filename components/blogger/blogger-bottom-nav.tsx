@@ -13,6 +13,7 @@ import {
   Plus,
   Search,
   Settings,
+  Share2,
   Sparkles,
   X,
 } from 'lucide-react';
@@ -31,11 +32,12 @@ const ALL_NAV: NavDef[] = [
   { href: '/blogger', label: 'Overview', icon: Home, exact: true },
   { href: '/blogger/blogs', label: 'Blog Editor', icon: Newspaper },
   { href: '/blogger/seo', label: 'SEO Studio', icon: Search },
+  { href: '/blogger/social-studio', label: 'Social Studio', icon: Share2 },
   { href: '/blogger/seo-guide', label: 'SEO Guide', icon: BookOpen },
   { href: '/blogger/settings', label: 'Settings', icon: Settings },
 ];
 
-/** Mobile bar: 4 most-used + central Create; overflow lives in the More drawer. */
+/** Mobile bar: Overview, Blog Editor, SEO + Create + More */
 const MOBILE_PRIMARY = ALL_NAV.slice(0, 3);
 const MOBILE_OVERFLOW = ALL_NAV.slice(3);
 

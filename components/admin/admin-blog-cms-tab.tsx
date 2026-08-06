@@ -1,13 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Trash2, XCircle } from 'lucide-react';
+import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
+import { GripVertical, Pencil, Trash2, XCircle } from 'lucide-react';
 import {
   approveBlog,
   deleteAdminBlog,
   getAdminBlog,
   listPendingBlogs,
   listPublishedBlogs,
+  persistPublishedBlogOrder,
   rejectBlog,
   updateAdminPublishedBlog,
   type AdminBlogRow,
@@ -17,8 +19,10 @@ import { uploadBloggerInlineImage } from '@/app/actions/blogger-blogs';
 import { blogCoverUrl } from '@/lib/blog/types';
 import { BlogEditorPanel } from '@/components/blog/blog-editor-panel';
 import { RejectBlogModal } from '@/components/admin/reject-blog-modal';
+import { cn } from '@/lib/utils';
 
 type Tab = 'pending' | 'published';
+type SortMode = 'newest' | 'oldest' | 'custom';
 
 function SkeletonCards() {
   return (
@@ -35,6 +39,7 @@ function SkeletonCards() {
 
 export function AdminBlogCmsTab() {
   const [tab, setTab] = useState<Tab>('pending');
+  const [sortMode, setSortMode] = useState<SortMode>('newest');
   const [pendingRows, setPendingRows] = useState<AdminBlogRow[]>([]);
   const [publishedRows, setPublishedRows] = useState<AdminBlogRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,13 +52,16 @@ export function AdminBlogCmsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [pending, published] = await Promise.all([listPendingBlogs(), listPublishedBlogs()]);
+      const [pending, published] = await Promise.all([
+        listPendingBlogs(),
+        listPublishedBlogs(sortMode),
+      ]);
       setPendingRows(pending);
       setPublishedRows(published);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortMode]);
 
   useEffect(() => {
     void load();
@@ -137,6 +145,30 @@ export function AdminBlogCmsTab() {
     }
   };
 
+  const onDragEnd = async (result: DropResult) => {
+    if (!result.destination || sortMode !== 'custom') return;
+    const from = result.source.index;
+    const to = result.destination.index;
+    if (from === to) return;
+
+    const next = [...publishedRows];
+    const [moved] = next.splice(from, 1);
+    if (!moved) return;
+    next.splice(to, 0, moved);
+    setPublishedRows(next);
+
+    setBusy(true);
+    try {
+      await persistPublishedBlogOrder(next.map((row) => row.id));
+      setMessage('Custom order saved.');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Failed to save order');
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const rows = tab === 'pending' ? pendingRows : publishedRows;
 
   return (
@@ -175,6 +207,33 @@ export function AdminBlogCmsTab() {
         </button>
       </div>
 
+      {tab === 'published' && !reviewId ? (
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Order by:</span>
+          {(
+            [
+              ['newest', 'Newest First (Default)'],
+              ['oldest', 'Oldest First'],
+              ['custom', 'Custom Rearranging'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSortMode(value)}
+              className={cn(
+                'rounded-full px-3 py-1.5 text-xs font-bold transition',
+                sortMode === value
+                  ? 'bg-[#F97316] text-white'
+                  : 'border border-neutral-700 bg-neutral-900/60 text-neutral-300'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {reviewBlog && reviewId ? (
         <div className="glass-card rounded-2xl p-5">
           <p className="mb-4 font-bold text-brand-600">Review & Edit — {reviewBlog.title}</p>
@@ -189,8 +248,6 @@ export function AdminBlogCmsTab() {
             initialCategory={reviewBlog.category ?? 'FinTech'}
             initialTags={reviewBlog.tags ?? []}
             initialCoverImageAlt={reviewBlog.cover_image_alt ?? ''}
-            initialSocialCaption={reviewBlog.social_caption ?? ''}
-            initialAutoShareSocials={reviewBlog.auto_share_socials ?? true}
             initialPublishAt={reviewBlog.published_at ?? reviewBlog.created_at}
             submitLabel={tab === 'pending' ? 'Approve & Publish' : 'Save Live Changes'}
             showDraftButton={false}
@@ -229,6 +286,64 @@ export function AdminBlogCmsTab() {
             <SkeletonCards />
           ) : rows.length === 0 ? (
             <p className="text-sm text-neutral-500">No blogs in this tab.</p>
+          ) : tab === 'published' && sortMode === 'custom' ? (
+            <DragDropContext onDragEnd={(result) => void onDragEnd(result)}>
+              <Droppable droppableId="published-blogs">
+                {(provided) => (
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-3">
+                    {publishedRows.map((row, index) => (
+                      <Draggable key={row.id} draggableId={row.id} index={index}>
+                        {(drag) => (
+                          <article
+                            ref={drag.innerRef}
+                            {...drag.draggableProps}
+                            className="glass-card flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4"
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                              <button
+                                type="button"
+                                className="cursor-grab text-neutral-500 active:cursor-grabbing"
+                                {...drag.dragHandleProps}
+                                aria-label="Drag to reorder"
+                              >
+                                <GripVertical size={18} />
+                              </button>
+                              <div>
+                                <p className="font-semibold">{row.title}</p>
+                                <p className="text-xs text-neutral-500">
+                                  Priority {row.priority ?? 0} ·{' '}
+                                  {new Date(row.updated_at).toLocaleString('en-GB')}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void openReview(row.id)}
+                                className="inline-flex items-center gap-1 rounded-full bg-brand-500 px-3 py-1.5 text-xs font-bold text-white"
+                              >
+                                <Pencil size={14} />
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void handleDelete(row.id)}
+                                className="inline-flex items-center gap-1 rounded-full bg-red-600 px-3 py-1.5 text-xs font-bold text-white"
+                              >
+                                <Trash2 size={14} />
+                                Delete
+                              </button>
+                            </div>
+                          </article>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
           ) : (
             <div className="space-y-3">
               {rows.map((row) => (
@@ -265,6 +380,7 @@ export function AdminBlogCmsTab() {
               ))}
             </div>
           )}
+          {message && !reviewId ? <p className="text-sm text-brand-600">{message}</p> : null}
         </>
       )}
 

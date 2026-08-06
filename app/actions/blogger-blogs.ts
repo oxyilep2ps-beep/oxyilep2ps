@@ -3,13 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { assertBloggerOrAdmin } from '@/lib/auth/assert-blogger';
 import { slugifyBlogTitle } from '@/lib/blog/slug';
+import { normalizeTagList } from '@/lib/blog/tags';
 import type { BlogRow, BlogStatus } from '@/lib/blog/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 function mapRow(row: Record<string, unknown>): BlogRow {
   const inline = row.inline_images;
-  const tags = row.tags;
   return {
     id: String(row.id),
     title: String(row.title),
@@ -22,7 +22,7 @@ function mapRow(row: Record<string, unknown>): BlogRow {
     updated_at: String(row.updated_at),
     published_at: (row.published_at as string | null) ?? null,
     category: (row.category as string | null) ?? 'FinTech',
-    tags: Array.isArray(tags) ? tags.map(String) : [],
+    tags: normalizeTagList(row.tags),
     share_linkedin: Boolean(row.share_linkedin),
     share_instagram: Boolean(row.share_instagram),
     cover_image_alt: (row.cover_image_alt as string | null) ?? null,

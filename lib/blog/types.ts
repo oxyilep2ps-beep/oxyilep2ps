@@ -31,6 +31,7 @@ export type BlogRow = {
   social_caption?: string | null;
   auto_share_socials?: boolean | null;
   social_share_status?: string | null;
+  priority?: number | null;
   meta_description?: string | null;
   focus_keyword?: string | null;
   approved_at?: string | null;

@@ -6,19 +6,20 @@ import {
   Check,
   Clock3,
   ImagePlus,
-  Linkedin,
   Loader2,
   Save,
   Sparkles,
 } from 'lucide-react';
 import { BlogQualityChecklist, evaluateBlogQuality } from '@/components/blog/blog-quality-checklist';
 import { RichTextEditor } from '@/components/blog/rich-text-editor';
+import { TagPillInput } from '@/components/blog/tag-pill-input';
 import {
   BLOG_CATEGORIES,
   fromDatetimeLocalValue,
   toDatetimeLocalValue,
 } from '@/lib/blog/datetime';
 import { slugifyBlogTitle } from '@/lib/blog/slug';
+import { normalizeTagList } from '@/lib/blog/tags';
 import { analyzeSeoContent } from '@/lib/seo/engine';
 import { cn } from '@/lib/utils';
 
@@ -29,11 +30,7 @@ export type BlogStudioPayload = {
   inline_images?: string[];
   category?: string;
   tags?: string[];
-  share_linkedin?: boolean;
-  share_instagram?: boolean;
   cover_image_alt?: string | null;
-  social_caption?: string | null;
-  auto_share_socials?: boolean;
   meta_description?: string;
   focus_keyword?: string;
   publishAt?: string | null;
@@ -48,11 +45,7 @@ type BlogEditorPanelProps = {
   initialFocusKeyword?: string;
   initialCategory?: string;
   initialTags?: string[];
-  initialShareLinkedin?: boolean;
-  initialShareInstagram?: boolean;
   initialCoverImageAlt?: string;
-  initialSocialCaption?: string;
-  initialAutoShareSocials?: boolean;
   initialPublishAt?: string | null;
   submitLabel?: string;
   saveDraftLabel?: string;
@@ -81,11 +74,7 @@ export function BlogEditorPanel({
   initialFocusKeyword = '',
   initialCategory = 'FinTech',
   initialTags = [],
-  initialShareLinkedin = false,
-  initialShareInstagram = false,
   initialCoverImageAlt = '',
-  initialSocialCaption = '',
-  initialAutoShareSocials,
   initialPublishAt = null,
   submitLabel = 'Approve & Publish',
   saveDraftLabel = 'Save Draft',
@@ -105,17 +94,8 @@ export function BlogEditorPanel({
   const [meta, setMeta] = useState(initialMetaDescription);
   const [focusKeyword, setFocusKeyword] = useState(initialFocusKeyword);
   const [category, setCategory] = useState(initialCategory || 'FinTech');
-  const [tagsInput, setTagsInput] = useState(initialTags.join(', '));
+  const [tags, setTags] = useState<string[]>(normalizeTagList(initialTags));
   const [coverImageAlt, setCoverImageAlt] = useState(initialCoverImageAlt);
-  const [socialCaption, setSocialCaption] = useState(initialSocialCaption);
-  const [shareLinkedin, setShareLinkedin] = useState(() => {
-    if (initialShareLinkedin || initialShareInstagram) return Boolean(initialShareLinkedin);
-    return initialAutoShareSocials ?? true;
-  });
-  const [shareInstagram, setShareInstagram] = useState(() => {
-    if (initialShareLinkedin || initialShareInstagram) return Boolean(initialShareInstagram);
-    return initialAutoShareSocials ?? true;
-  });
   const [publishLocal, setPublishLocal] = useState(
     toDatetimeLocalValue(initialPublishAt) || toDatetimeLocalValue(new Date().toISOString())
   );
@@ -146,15 +126,8 @@ export function BlogEditorPanel({
     cover_image_url: coverUrl,
     inline_images: inlineImages,
     category,
-    tags: tagsInput
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean),
-    share_linkedin: shareLinkedin,
-    share_instagram: shareInstagram,
+    tags,
     cover_image_alt: coverImageAlt.trim() || null,
-    social_caption: socialCaption.trim() || null,
-    auto_share_socials: shareLinkedin || shareInstagram,
     meta_description: meta,
     focus_keyword: focusKeyword,
     publishAt: fromDatetimeLocalValue(publishLocal),
@@ -406,7 +379,7 @@ export function BlogEditorPanel({
           <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#F97316]">
             Section 3 · Publishing
           </p>
-          <h3 className="mt-1 text-xl font-black text-white">Syndication &amp; chronology</h3>
+          <h3 className="mt-1 text-xl font-black text-white">Category, tags &amp; chronology</h3>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -424,15 +397,10 @@ export function BlogEditorPanel({
               ))}
             </select>
           </label>
-          <label className="block space-y-1.5">
+          <div className="block space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">Tags</span>
-            <input
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-900/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
-              placeholder="lending, EMI, FCA"
-            />
-          </label>
+            <TagPillInput tags={tags} onChange={setTags} />
+          </div>
         </div>
 
         <label className="block space-y-1.5">
@@ -452,126 +420,17 @@ export function BlogEditorPanel({
           </span>
         </label>
 
-        <div className="space-y-4">
-          <label className="block space-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-              Cover image alt text
-            </span>
-            <input
-              value={coverImageAlt}
-              onChange={(e) => setCoverImageAlt(e.target.value)}
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
-              placeholder="e.g., Oxyile UK P2P Lending Co-Applicant Workflow Diagram"
-            />
-          </label>
-
-          <label className="block space-y-1.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-              Social caption (Optional)
-            </span>
-            <textarea
-              value={socialCaption}
-              onChange={(e) => setSocialCaption(e.target.value)}
-              rows={3}
-              className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
-              placeholder="Write a catchy 2-3 sentence hook for social media... (If left blank, Meta Description will be used automatically)"
-            />
-          </label>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* LinkedIn panel */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 backdrop-blur-md">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A66C2]/20 text-[#0A66C2]">
-                    <Linkedin size={20} />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-white">LinkedIn Official Page Syndication</p>
-                    <span
-                      className={cn(
-                        'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                        shareLinkedin
-                          ? 'bg-emerald-500/15 text-emerald-300'
-                          : 'bg-neutral-800 text-neutral-400'
-                      )}
-                    >
-                      {shareLinkedin ? 'Ready for Webhook' : 'Not Connected'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={shareLinkedin}
-                  onClick={() => setShareLinkedin((v) => !v)}
-                  className={cn(
-                    'relative h-7 w-12 shrink-0 rounded-full transition',
-                    shareLinkedin ? 'bg-[#0A66C2]' : 'bg-neutral-700'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition',
-                      shareLinkedin ? 'left-5' : 'left-0.5'
-                    )}
-                  />
-                </button>
-              </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
-                Automatically publishes article title, cover image, and canonical URL to Oxyile&apos;s LinkedIn
-                feed upon Admin approval.
-              </p>
-            </div>
-
-            {/* Instagram panel */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 backdrop-blur-md">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white">
-                    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden>
-                      <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm5 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm6.5-.9a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2zM12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" />
-                    </svg>
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-white">Instagram Feed &amp; Visual Syndication</p>
-                    <span
-                      className={cn(
-                        'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-                        shareInstagram
-                          ? 'bg-emerald-500/15 text-emerald-300'
-                          : 'bg-neutral-800 text-neutral-400'
-                      )}
-                    >
-                      {shareInstagram ? 'Ready for Webhook' : 'Not Connected'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={shareInstagram}
-                  onClick={() => setShareInstagram((v) => !v)}
-                  className={cn(
-                    'relative h-7 w-12 shrink-0 rounded-full transition',
-                    shareInstagram ? 'bg-[#F97316]' : 'bg-neutral-700'
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition',
-                      shareInstagram ? 'left-5' : 'left-0.5'
-                    )}
-                  />
-                </button>
-              </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
-                Publishes 1:1 cover visual and formatted caption to Oxyile&apos;s Instagram Business account upon
-                Admin approval.
-              </p>
-            </div>
-          </div>
-        </div>
+        <label className="block space-y-1.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+            Cover image alt text
+          </span>
+          <input
+            value={coverImageAlt}
+            onChange={(e) => setCoverImageAlt(e.target.value)}
+            className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
+            placeholder="e.g., Oxyile UK P2P Lending Co-Applicant Workflow Diagram"
+          />
+        </label>
       </section>
 
       {message ? <p className="mt-6 text-sm font-semibold text-[#F97316]">{message}</p> : null}

@@ -1,4 +1,4 @@
-import { Syne, Inter } from 'next/font/google';
+import { Syne, Inter, Caveat } from 'next/font/google';
 
 export const syne = Syne({
   subsets: ['latin'],
@@ -14,4 +14,11 @@ export const inter = Inter({
   variable: '--font-inter',
 });
 
-export const fonts = { syne, inter };
+export const caveat = Caveat({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  display: 'swap',
+  variable: '--font-caveat',
+});
+
+export const fonts = { syne, inter, caveat };

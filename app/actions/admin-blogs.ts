@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
 import { slugifyBlogTitle } from '@/lib/blog/slug';
 import type { BlogRow } from '@/lib/blog/types';
+import { normalizeTagList } from '@/lib/blog/tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { triggerSocialSyndication } from '@/lib/services/socialSyndication';
 import { logAdminAction } from '@/app/actions/admin-audit';
@@ -22,13 +23,14 @@ function mapRow(row: Record<string, unknown>): BlogRow {
     updated_at: String(row.updated_at),
     published_at: (row.published_at as string | null) ?? null,
     category: (row.category as string | null) ?? 'FinTech',
-    tags: Array.isArray(row.tags) ? (row.tags as unknown[]).map(String) : [],
+    tags: normalizeTagList(row.tags),
     share_linkedin: Boolean(row.share_linkedin),
     share_instagram: Boolean(row.share_instagram),
     cover_image_alt: (row.cover_image_alt as string | null) ?? null,
     social_caption: (row.social_caption as string | null) ?? null,
     auto_share_socials: row.auto_share_socials !== false,
     social_share_status: (row.social_share_status as string | null) ?? 'pending',
+    priority: Number(row.priority ?? 0),
     meta_description: String(row.meta_description ?? ''),
     focus_keyword: String(row.focus_keyword ?? ''),
     approved_at: (row.approved_at as string | null) ?? null,
@@ -54,15 +56,28 @@ export async function listPendingBlogs(): Promise<AdminBlogRow[]> {
   return (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
 }
 
-export async function listPublishedBlogs(): Promise<AdminBlogRow[]> {
+export async function listPublishedBlogs(
+  sort: 'newest' | 'oldest' | 'custom' = 'newest'
+): Promise<AdminBlogRow[]> {
   await assertAdmin();
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('blogs')
-    .select('*')
-    .eq('status', 'PUBLISHED')
-    .order('created_at', { ascending: false });
+  let query = admin.from('blogs').select('*').eq('status', 'PUBLISHED');
 
+  if (sort === 'oldest') {
+    query = query.order('published_at', { ascending: true, nullsFirst: false }).order('created_at', {
+      ascending: true,
+    });
+  } else if (sort === 'custom') {
+    query = query
+      .order('priority', { ascending: false })
+      .order('published_at', { ascending: false, nullsFirst: false });
+  } else {
+    query = query
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => mapRow(row as Record<string, unknown>));
 }
@@ -254,8 +269,10 @@ export async function listApprovedBlogsPublic() {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('blogs')
-    .select('id, title, slug, content, cover_image_url, cover_image, created_at')
+    .select('id, title, slug, content, cover_image_url, cover_image, created_at, published_at, tags, priority')
     .eq('status', 'PUBLISHED')
+    .order('priority', { ascending: false })
+    .order('published_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false });
 
   if (error) return [];
@@ -266,9 +283,43 @@ export async function getApprovedBlogBySlug(slug: string) {
   const admin = createAdminClient();
   const { data } = await admin
     .from('blogs')
-    .select('id, title, slug, content, cover_image_url, cover_image, created_at')
+    .select(
+      'id, title, slug, content, cover_image_url, cover_image, created_at, published_at, tags, category, priority'
+    )
     .eq('slug', slug)
     .eq('status', 'PUBLISHED')
     .maybeSingle();
   return data;
+}
+
+export async function persistPublishedBlogOrder(orderedIds: string[]) {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const total = orderedIds.length;
+
+  // Highest priority first in the list (index 0 => total)
+  const updates = orderedIds.map((id, index) =>
+    admin.rpc('update_blog_priority', {
+      blog_id: id,
+      new_priority: total - index,
+    })
+  );
+
+  const results = await Promise.all(updates);
+  const firstError = results.find((r) => r.error)?.error;
+  if (firstError) {
+    // Fallback when RPC is not yet migrated — direct updates
+    for (let i = 0; i < orderedIds.length; i += 1) {
+      const { error } = await admin
+        .from('blogs')
+        .update({ priority: total - i, updated_at: new Date().toISOString() })
+        .eq('id', orderedIds[i]!);
+      if (error) throw new Error(error.message);
+    }
+  }
+
+  revalidatePath('/blogs');
+  revalidatePath('/blog');
+  revalidatePath('/admin-dashboard/blogs');
+  return { success: true };
 }

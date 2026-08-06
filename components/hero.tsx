@@ -11,53 +11,52 @@ export function Hero() {
             <h1 className="section-heading leading-tight font-syne text-5xl sm:text-6xl lg:text-7xl">
               Your financial friend
             </h1>
-            <div className="relative z-20 mt-3 inline-block">
-              <motion.span
-                className="relative z-20 text-4xl font-extrabold tracking-wide text-[#F97316] drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] sm:text-5xl"
-                initial={{ y: 0 }}
-                animate={{ y: [0, -6, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <span className="rounded-md bg-black/40 px-1.5 py-0.5 backdrop-blur-[2px]">with benefits!</span>
-              </motion.span>
-
-              {/* Live artist brush stroke + wet paint drips */}
+            <span className="relative z-20 mt-4 inline-block font-[family-name:var(--font-caveat)] text-5xl font-bold tracking-wide text-[#F97316] drop-shadow-[0_4px_12px_rgba(0,0,0,0.55)] sm:text-6xl">
+              with benefits!
               <svg
-                viewBox="0 0 280 72"
-                className="pointer-events-none absolute -bottom-3 left-0 z-10 h-14 w-[min(100%,18rem)] overflow-visible sm:h-16 sm:w-72"
+                className="pointer-events-none absolute -bottom-3 left-0 z-10 h-4 w-full overflow-visible"
+                viewBox="0 0 200 20"
+                fill="none"
                 aria-hidden
               >
-                <defs>
-                  <linearGradient id="brushStrokeGrad" x1="0" x2="1">
-                    <stop offset="0%" stopColor="#FDBA74" />
-                    <stop offset="55%" stopColor="#F97316" />
-                    <stop offset="100%" stopColor="#EA580C" />
-                  </linearGradient>
-                </defs>
                 <motion.path
-                  d="M8 38 C 48 18, 110 54, 148 34 C 186 14, 230 46, 272 28"
-                  fill="none"
-                  stroke="url(#brushStrokeGrad)"
-                  strokeWidth="11"
+                  d="M 5 12 Q 50 3, 100 14 T 195 10"
+                  stroke="#F97316"
+                  strokeWidth="6"
                   strokeLinecap="round"
-                  strokeLinejoin="round"
-                  initial={{ pathLength: 0, opacity: 0.85 }}
+                  initial={{ pathLength: 0, opacity: 0.9 }}
                   animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                  transition={{ duration: 0.8, ease: 'easeInOut' }}
                 />
-                {/* Paint drips — start after brush completes (~1.2s) */}
-                {[
-                  { cx: 72, delay: 1.25 },
-                  { cx: 148, delay: 1.4 },
-                  { cx: 218, delay: 1.55 },
-                ].map((drip) => (
-                  <motion.g key={drip.cx} initial={{ opacity: 0, y: 0 }} animate={{ opacity: [0, 1, 0.8, 0], y: [0, 24, 38] }} transition={{ duration: 0.8, delay: drip.delay, ease: 'easeOut', repeat: Infinity, repeatDelay: 2.4 }}>
-                    <circle cx={drip.cx} cy="42" r="4.5" fill="#F97316" />
-                    <path d={`M${drip.cx - 3.5} 44 Q ${drip.cx} 58 ${drip.cx + 3.5} 44`} fill="#F97316" />
-                  </motion.g>
-                ))}
+                <motion.circle
+                  cx="60"
+                  cy="12"
+                  r="3"
+                  fill="#F97316"
+                  initial={{ y: 0, opacity: 0 }}
+                  animate={{ y: [0, 16, 28], opacity: [0, 1, 0], scaleY: [1, 1.4, 0.8] }}
+                  transition={{ delay: 0.8, duration: 0.7, ease: 'easeIn' }}
+                />
+                <motion.circle
+                  cx="110"
+                  cy="14"
+                  r="2.75"
+                  fill="#FDBA74"
+                  initial={{ y: 0, opacity: 0 }}
+                  animate={{ y: [0, 18, 30], opacity: [0, 1, 0], scaleY: [1, 1.45, 0.75] }}
+                  transition={{ delay: 0.88, duration: 0.68, ease: 'easeIn' }}
+                />
+                <motion.circle
+                  cx="145"
+                  cy="12"
+                  r="2.5"
+                  fill="#F97316"
+                  initial={{ y: 0, opacity: 0 }}
+                  animate={{ y: [0, 20, 34], opacity: [0, 1, 0], scaleY: [1, 1.5, 0.7] }}
+                  transition={{ delay: 0.95, duration: 0.65, ease: 'easeIn' }}
+                />
               </svg>
-            </div>
+            </span>
 
             <p className="section-subtitle mt-6 max-w-xl">
               A digital smart-contract platform connecting verified investors and borrowers directly — typical returns 10% for investors while borrowers access fair, fast funding without bank middlemen.

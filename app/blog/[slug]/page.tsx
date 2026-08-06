@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { CalendarDays } from 'lucide-react';
 import { Footer } from '@/components/footer';
 import { BlogContent } from '@/components/blog/blog-content';
+import { BlogTags } from '@/components/blog/blog-tags';
 import { getApprovedBlogBySlug, listApprovedBlogsPublic } from '@/app/actions/admin-blogs';
 
 export async function generateStaticParams() {
@@ -56,6 +57,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         </p>
       </header>
       <BlogContent html={String(dbPost.content)} />
+      <BlogTags tags={(dbPost as { tags?: unknown }).tags} />
       <Footer />
     </article>
   );

@@ -221,11 +221,7 @@ export function BloggerCmsDashboard() {
             initialFocusKeyword={editing?.focus_keyword ?? ''}
             initialCategory={editing?.category ?? 'FinTech'}
             initialTags={editing?.tags ?? []}
-            initialShareLinkedin={Boolean(editing?.share_linkedin)}
-            initialShareInstagram={Boolean(editing?.share_instagram)}
             initialCoverImageAlt={editing?.cover_image_alt ?? ''}
-            initialSocialCaption={editing?.social_caption ?? ''}
-            initialAutoShareSocials={editing?.auto_share_socials ?? true}
             initialPublishAt={editing?.published_at ?? editing?.created_at ?? null}
             adminFeedback={editing?.status === 'REJECTED' ? editing.admin_feedback : null}
             rejectionReason={editing?.status === 'REJECTED' ? editing.rejection_reason : null}
