@@ -73,3 +73,42 @@ html.dark body {
 .cms-fade-in {
   animation: cmsFadeIn 300ms ease-out;
 }
+
+/* Universal blog typography — reinforces H1–H6 + paragraph gaps for historical HTML */
+.blog-prose h1 {
+  @apply mt-8 mb-4 text-3xl font-bold tracking-tight text-white;
+}
+.blog-prose h2 {
+  @apply mt-6 mb-3 text-2xl font-bold tracking-tight text-white;
+}
+.blog-prose h3 {
+  @apply mt-5 mb-2 text-xl font-bold tracking-tight text-white;
+}
+.blog-prose h4 {
+  @apply mt-4 mb-2 text-lg font-bold tracking-tight text-white;
+}
+.blog-prose h5 {
+  @apply mt-4 mb-2 text-base font-bold tracking-tight text-white;
+}
+.blog-prose h6 {
+  @apply mt-3 mb-2 text-sm font-bold tracking-tight text-white;
+}
+.blog-prose p {
+  @apply my-5 leading-relaxed text-neutral-300;
+}
+.blog-prose ul,
+.blog-prose ol {
+  @apply my-5 text-neutral-300;
+}
+.blog-prose li {
+  @apply my-1.5;
+}
+.blog-prose a {
+  @apply text-[#F97316];
+}
+.blog-prose img {
+  @apply my-6 rounded-2xl;
+}
+.blog-prose blockquote {
+  @apply border-l-4 border-[#F97316]/60 pl-4 italic text-neutral-400;
+}

@@ -3,6 +3,9 @@
 import { motion } from 'framer-motion';
 import type { BlogPost } from '@/lib/blog/posts';
 
+import { BLOG_PROSE_CLASS } from '@/lib/blog/typography';
+import { cn } from '@/lib/utils';
+
 export function BlogPostAnimated({ post }: { post: BlogPost }) {
   return (
     <motion.div
@@ -15,7 +18,7 @@ export function BlogPostAnimated({ post }: { post: BlogPost }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.6 }}
-        className="prose prose-slate mt-10 max-w-none dark:prose-invert"
+        className={cn(BLOG_PROSE_CLASS, 'mt-10')}
       >
         {post.body.map((paragraph, i) => (
           <motion.p

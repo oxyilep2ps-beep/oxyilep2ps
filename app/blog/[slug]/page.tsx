@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CalendarDays } from 'lucide-react';
 import { Footer } from '@/components/footer';
+import { BlogContent } from '@/components/blog/blog-content';
 import { getApprovedBlogBySlug, listApprovedBlogsPublic } from '@/app/actions/admin-blogs';
 
 export async function generateStaticParams() {
@@ -54,10 +55,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           })}
         </p>
       </header>
-      <div
-        className="prose prose-neutral mt-10 max-w-none dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: String(dbPost.content) }}
-      />
+      <BlogContent html={String(dbPost.content)} />
       <Footer />
     </article>
   );

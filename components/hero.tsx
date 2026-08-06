@@ -11,32 +11,52 @@ export function Hero() {
             <h1 className="section-heading leading-tight font-syne text-5xl sm:text-6xl lg:text-7xl">
               Your financial friend
             </h1>
-            <div className="mt-2 relative inline-block">
+            <div className="relative z-20 mt-3 inline-block">
               <motion.span
-                className="text-4xl font-black text-neutral-950 dark:text-white"
+                className="relative z-20 text-4xl font-extrabold tracking-wide text-[#F97316] drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] sm:text-5xl"
                 initial={{ y: 0 }}
-                animate={{ y: [0, -8, 0] }}
+                animate={{ y: [0, -6, 0] }}
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <span className="orange-ring text-amber-600">with </span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF5A1F] to-[#FF814A]">benefits!</span>
+                <span className="rounded-md bg-black/40 px-1.5 py-0.5 backdrop-blur-[2px]">with benefits!</span>
               </motion.span>
 
-              <motion.svg
-                viewBox="0 0 200 80"
-                className="absolute left-0 top-0 -z-10 h-20 w-52 opacity-60"
-                initial={{ scale: 0.96, opacity: 0.4 }}
-                animate={{ scale: [0.96, 1.04, 0.98], opacity: [0.4, 0.9, 0.5] }}
-                transition={{ duration: 4, repeat: Infinity }}
+              {/* Live artist brush stroke + wet paint drips */}
+              <svg
+                viewBox="0 0 280 72"
+                className="pointer-events-none absolute -bottom-3 left-0 z-10 h-14 w-[min(100%,18rem)] overflow-visible sm:h-16 sm:w-72"
+                aria-hidden
               >
                 <defs>
-                  <linearGradient id="g1" x1="0" x2="1">
-                    <stop offset="0%" stopColor="#FF814A" />
-                    <stop offset="100%" stopColor="#FF5A1F" />
+                  <linearGradient id="brushStrokeGrad" x1="0" x2="1">
+                    <stop offset="0%" stopColor="#FDBA74" />
+                    <stop offset="55%" stopColor="#F97316" />
+                    <stop offset="100%" stopColor="#EA580C" />
                   </linearGradient>
                 </defs>
-                <path d="M10 50 C 40 10, 160 10, 190 50" fill="none" stroke="url(#g1)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.95" />
-              </motion.svg>
+                <motion.path
+                  d="M8 38 C 48 18, 110 54, 148 34 C 186 14, 230 46, 272 28"
+                  fill="none"
+                  stroke="url(#brushStrokeGrad)"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  initial={{ pathLength: 0, opacity: 0.85 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                />
+                {/* Paint drips — start after brush completes (~1.2s) */}
+                {[
+                  { cx: 72, delay: 1.25 },
+                  { cx: 148, delay: 1.4 },
+                  { cx: 218, delay: 1.55 },
+                ].map((drip) => (
+                  <motion.g key={drip.cx} initial={{ opacity: 0, y: 0 }} animate={{ opacity: [0, 1, 0.8, 0], y: [0, 24, 38] }} transition={{ duration: 0.8, delay: drip.delay, ease: 'easeOut', repeat: Infinity, repeatDelay: 2.4 }}>
+                    <circle cx={drip.cx} cy="42" r="4.5" fill="#F97316" />
+                    <path d={`M${drip.cx - 3.5} 44 Q ${drip.cx} 58 ${drip.cx + 3.5} 44`} fill="#F97316" />
+                  </motion.g>
+                ))}
+              </svg>
             </div>
 
             <p className="section-subtitle mt-6 max-w-xl">

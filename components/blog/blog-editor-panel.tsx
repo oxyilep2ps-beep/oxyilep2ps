@@ -6,9 +6,9 @@ import {
   Check,
   Clock3,
   ImagePlus,
+  Linkedin,
   Loader2,
   Save,
-  Share2,
   Sparkles,
 } from 'lucide-react';
 import { BlogQualityChecklist, evaluateBlogQuality } from '@/components/blog/blog-quality-checklist';
@@ -108,9 +108,14 @@ export function BlogEditorPanel({
   const [tagsInput, setTagsInput] = useState(initialTags.join(', '));
   const [coverImageAlt, setCoverImageAlt] = useState(initialCoverImageAlt);
   const [socialCaption, setSocialCaption] = useState(initialSocialCaption);
-  const [autoShareSocials, setAutoShareSocials] = useState(
-    initialAutoShareSocials ?? true
-  );
+  const [shareLinkedin, setShareLinkedin] = useState(() => {
+    if (initialShareLinkedin || initialShareInstagram) return Boolean(initialShareLinkedin);
+    return initialAutoShareSocials ?? true;
+  });
+  const [shareInstagram, setShareInstagram] = useState(() => {
+    if (initialShareLinkedin || initialShareInstagram) return Boolean(initialShareInstagram);
+    return initialAutoShareSocials ?? true;
+  });
   const [publishLocal, setPublishLocal] = useState(
     toDatetimeLocalValue(initialPublishAt) || toDatetimeLocalValue(new Date().toISOString())
   );
@@ -145,11 +150,11 @@ export function BlogEditorPanel({
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean),
-    share_linkedin: autoShareSocials,
-    share_instagram: autoShareSocials,
+    share_linkedin: shareLinkedin,
+    share_instagram: shareInstagram,
     cover_image_alt: coverImageAlt.trim() || null,
     social_caption: socialCaption.trim() || null,
-    auto_share_socials: autoShareSocials,
+    auto_share_socials: shareLinkedin || shareInstagram,
     meta_description: meta,
     focus_keyword: focusKeyword,
     publishAt: fromDatetimeLocalValue(publishLocal),
@@ -447,16 +452,7 @@ export function BlogEditorPanel({
           </span>
         </label>
 
-        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl sm:p-5">
-          <div className="flex items-center gap-2">
-            <Share2 size={16} className="text-[#F97316]" />
-            <p className="text-sm font-bold text-white">Social media syndication</p>
-          </div>
-          <p className="text-[11px] leading-relaxed text-neutral-500">
-            Bloggers only set metadata here. LinkedIn &amp; Instagram posts are sent via Make.com strictly when an
-            Admin clicks Approve &amp; Publish.
-          </p>
-
+        <div className="space-y-4">
           <label className="block space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
               Cover image alt text
@@ -471,7 +467,7 @@ export function BlogEditorPanel({
 
           <label className="block space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-              LinkedIn &amp; Instagram Caption (Optional)
+              Social caption (Optional)
             </span>
             <textarea
               value={socialCaption}
@@ -482,34 +478,99 @@ export function BlogEditorPanel({
             />
           </label>
 
-          <button
-            type="button"
-            onClick={() => setAutoShareSocials((v) => !v)}
-            className={cn(
-              'flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3.5 text-left transition',
-              autoShareSocials
-                ? 'border-[#F97316]/50 bg-[#F97316]/10'
-                : 'border-neutral-800 bg-neutral-950/50'
-            )}
-          >
-            <span className="text-sm font-semibold leading-snug text-white">
-              Automatically share to LinkedIn &amp; Instagram when approved by Admin
-            </span>
-            <span
-              className={cn(
-                'relative h-7 w-12 shrink-0 rounded-full transition',
-                autoShareSocials ? 'bg-[#F97316]' : 'bg-neutral-700'
-              )}
-              aria-hidden
-            >
-              <span
-                className={cn(
-                  'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition',
-                  autoShareSocials ? 'left-5' : 'left-0.5'
-                )}
-              />
-            </span>
-          </button>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* LinkedIn panel */}
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 backdrop-blur-md">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A66C2]/20 text-[#0A66C2]">
+                    <Linkedin size={20} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-white">LinkedIn Official Page Syndication</p>
+                    <span
+                      className={cn(
+                        'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                        shareLinkedin
+                          ? 'bg-emerald-500/15 text-emerald-300'
+                          : 'bg-neutral-800 text-neutral-400'
+                      )}
+                    >
+                      {shareLinkedin ? 'Ready for Webhook' : 'Not Connected'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={shareLinkedin}
+                  onClick={() => setShareLinkedin((v) => !v)}
+                  className={cn(
+                    'relative h-7 w-12 shrink-0 rounded-full transition',
+                    shareLinkedin ? 'bg-[#0A66C2]' : 'bg-neutral-700'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition',
+                      shareLinkedin ? 'left-5' : 'left-0.5'
+                    )}
+                  />
+                </button>
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
+                Automatically publishes article title, cover image, and canonical URL to Oxyile&apos;s LinkedIn
+                feed upon Admin approval.
+              </p>
+            </div>
+
+            {/* Instagram panel */}
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5 backdrop-blur-md">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current" aria-hidden>
+                      <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm5 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm6.5-.9a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2zM12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" />
+                    </svg>
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-white">Instagram Feed &amp; Visual Syndication</p>
+                    <span
+                      className={cn(
+                        'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                        shareInstagram
+                          ? 'bg-emerald-500/15 text-emerald-300'
+                          : 'bg-neutral-800 text-neutral-400'
+                      )}
+                    >
+                      {shareInstagram ? 'Ready for Webhook' : 'Not Connected'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={shareInstagram}
+                  onClick={() => setShareInstagram((v) => !v)}
+                  className={cn(
+                    'relative h-7 w-12 shrink-0 rounded-full transition',
+                    shareInstagram ? 'bg-[#F97316]' : 'bg-neutral-700'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition',
+                      shareInstagram ? 'left-5' : 'left-0.5'
+                    )}
+                  />
+                </button>
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
+                Publishes 1:1 cover visual and formatted caption to Oxyile&apos;s Instagram Business account upon
+                Admin approval.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 

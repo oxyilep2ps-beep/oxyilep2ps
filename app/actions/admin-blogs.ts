@@ -147,7 +147,13 @@ export async function approveBlog(
   revalidatePath('/blog');
 
   const post = published ?? blog;
-  if (post && post.auto_share_socials === true) {
+  const shouldSyndicate =
+    post &&
+    (Boolean(post.share_linkedin) ||
+      Boolean(post.share_instagram) ||
+      post.auto_share_socials === true);
+
+  if (shouldSyndicate && post) {
     // Fire-and-forget — do not block the admin UI response
     void triggerSocialSyndication(
       {
@@ -163,7 +169,12 @@ export async function approveBlog(
         cover_image_alt: (post.cover_image_alt as string | null) ?? null,
         social_caption: (post.social_caption as string | null) ?? null,
         meta_description: (post.meta_description as string | null) ?? null,
-        auto_share_socials: true,
+        auto_share_socials:
+          Boolean(post.share_linkedin) ||
+          Boolean(post.share_instagram) ||
+          post.auto_share_socials === true,
+        share_linkedin: Boolean(post.share_linkedin),
+        share_instagram: Boolean(post.share_instagram),
       },
       { table: 'blogs' }
     ).catch((err) => {

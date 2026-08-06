@@ -15,6 +15,8 @@ export type BlogPost = {
   social_caption?: string | null;
   meta_description?: string | null;
   auto_share_socials?: boolean | null;
+  share_linkedin?: boolean | null;
+  share_instagram?: boolean | null;
 };
 
 export type SocialShareStatus = 'pending' | 'shared' | 'failed';
@@ -85,6 +87,15 @@ export async function triggerSocialSyndication(
     return { ok: false, skipped: true, error: 'Webhook URL missing' };
   }
 
+  const channels = {
+    linkedin: Boolean(post.share_linkedin ?? post.auto_share_socials),
+    instagram: Boolean(post.share_instagram ?? post.auto_share_socials),
+  };
+
+  if (!channels.linkedin && !channels.instagram) {
+    return { ok: false, skipped: true, error: 'No social channels enabled' };
+  }
+
   const payload = {
     blogId: post.id,
     title: post.title,
@@ -92,6 +103,9 @@ export async function triggerSocialSyndication(
     altText: resolveAltText(post),
     url: `${publicAppUrl()}/blog/${post.slug}`,
     caption: resolveCaption(post),
+    channels,
+    shareToLinkedin: channels.linkedin,
+    shareToInstagram: channels.instagram,
     publishedAt: new Date().toISOString(),
   };
 
