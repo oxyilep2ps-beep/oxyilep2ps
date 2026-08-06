@@ -74,6 +74,17 @@ html.dark body {
   animation: cmsFadeIn 300ms ease-out;
 }
 
+@keyframes oxyile-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* Universal blog typography — reinforces H1–H6 + paragraph gaps for historical HTML */
 .blog-prose h1 {
   @apply mt-8 mb-4 text-3xl font-bold tracking-tight text-white;
