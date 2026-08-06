@@ -44,13 +44,13 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
           role="status"
           aria-live="polite"
         >
-          <div className="pointer-events-auto rounded-2xl border border-[#F97316]/35 bg-[#0B0F19]/95 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl [animation:oxyile-slide-in_0.35s_ease-out]">
+          <div className="pointer-events-auto rounded-2xl border border-orange-500/35 bg-[#0A0A0A]/95 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.55)] shadow-orange-500/5 backdrop-blur-xl [animation:oxyile-slide-in_0.35s_ease-out]">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F97316]/15 text-[#F97316]">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500/15 text-orange-500">
                 <Bell size={16} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#F97316]">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-500">
                   Verification required
                 </p>
                 <p className="mt-1 text-sm font-bold text-white">{toast.title}</p>
@@ -59,7 +59,7 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
               <button
                 type="button"
                 onClick={dismissToast}
-                className="rounded-lg p-1 text-neutral-500 hover:bg-white/5 hover:text-white"
+                className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-800/60 hover:text-white"
                 aria-label="Dismiss"
               >
                 <X size={14} />
@@ -115,7 +115,7 @@ export function AdminNotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#F97316]/30 bg-[#F97316]/10 text-[#F97316]"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-500"
         aria-label={`${counts.total} pending notifications`}
       >
         <Bell size={16} />
@@ -124,7 +124,7 @@ export function AdminNotificationBell() {
         </span>
       </button>
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 rounded-xl border border-neutral-800 bg-[#0B0F19] p-3 text-xs text-neutral-300 shadow-xl">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 rounded-xl border border-neutral-800 bg-[#0A0A0A] p-3 text-xs text-neutral-300 shadow-xl shadow-black/40">
           <p className="font-bold text-white">Pending verification</p>
           <ul className="mt-2 space-y-1">
             <li>Blogs: {counts.blogs}</li>

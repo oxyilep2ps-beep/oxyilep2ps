@@ -139,9 +139,9 @@ export function AdminSocialReviewsTab() {
         onClose={() => setToast(null)}
       />
 
-      <header className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-neutral-800 bg-[#0B0F19]/80 p-5 backdrop-blur">
+      <header className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-neutral-800/80 bg-neutral-900/60 p-5 shadow-2xl shadow-orange-500/5 backdrop-blur-md">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#F97316]">
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-500">
             Social Reviews
           </p>
           <h1 className="mt-1 text-2xl font-black text-white">Pending social campaigns</h1>
@@ -153,7 +153,7 @@ export function AdminSocialReviewsTab() {
           type="button"
           onClick={() => void load()}
           disabled={loading || pending}
-          className="inline-flex items-center gap-2 rounded-full border border-neutral-700 px-4 py-2 text-xs font-bold text-neutral-200 hover:border-[#F97316]/40"
+          className="inline-flex items-center gap-2 rounded-full border border-neutral-700 px-4 py-2 text-xs font-bold text-neutral-200 transition hover:border-orange-500/50 hover:bg-neutral-800/60"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh
@@ -167,7 +167,7 @@ export function AdminSocialReviewsTab() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl border border-neutral-800 bg-neutral-950/50 px-6 py-16 text-center">
+        <div className="rounded-2xl border border-neutral-800/60 bg-[#0A0A0A] px-6 py-16 text-center text-neutral-400 shadow-2xl shadow-black/40">
           <p className="text-sm font-semibold text-neutral-400">No posts awaiting approval.</p>
         </div>
       ) : (
@@ -178,7 +178,7 @@ export function AdminSocialReviewsTab() {
             return (
               <article
                 key={row.id}
-                className="rounded-2xl border border-neutral-800 bg-[#111827]/80 p-4 backdrop-blur sm:p-5"
+                className="rounded-2xl border border-neutral-800/80 bg-neutral-900/70 p-4 shadow-2xl shadow-black/30 backdrop-blur-md sm:p-5"
               >
                 <div className="grid gap-4 lg:grid-cols-[11rem_1fr]">
                   <div className="overflow-hidden rounded-xl border border-neutral-800 bg-black/40">
@@ -200,7 +200,7 @@ export function AdminSocialReviewsTab() {
                       <input
                         value={d.title}
                         onChange={(e) => patchDraft(row.id, { title: e.target.value })}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-[#F97316]/50"
+                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
                       />
                     </label>
 
@@ -212,7 +212,7 @@ export function AdminSocialReviewsTab() {
                         value={d.caption}
                         onChange={(e) => patchDraft(row.id, { caption: e.target.value })}
                         rows={5}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-[#F97316]/50"
+                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
                       />
                     </label>
 
@@ -223,7 +223,7 @@ export function AdminSocialReviewsTab() {
                       <input
                         value={d.imageUrl}
                         onChange={(e) => patchDraft(row.id, { imageUrl: e.target.value })}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-[#F97316]/50"
+                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
                       />
                     </label>
 
@@ -232,10 +232,10 @@ export function AdminSocialReviewsTab() {
                         type="button"
                         onClick={() => patchDraft(row.id, { linkedin: !d.linkedin })}
                         className={cn(
-                          'rounded-full px-3 py-1.5 text-xs font-bold',
+                          'rounded-full px-3 py-1.5 text-xs font-bold transition hover:border-orange-500/50',
                           d.linkedin
-                            ? 'bg-[#0A66C2]/20 text-[#5B9BD5] ring-1 ring-[#0A66C2]/40'
-                            : 'bg-neutral-900 text-neutral-500 ring-1 ring-neutral-800'
+                            ? 'bg-orange-500/15 text-orange-500 ring-1 ring-orange-500/40'
+                            : 'bg-neutral-900 text-neutral-500 ring-1 ring-neutral-800 hover:bg-neutral-800/60'
                         )}
                       >
                         LinkedIn
@@ -244,10 +244,10 @@ export function AdminSocialReviewsTab() {
                         type="button"
                         onClick={() => patchDraft(row.id, { instagram: !d.instagram })}
                         className={cn(
-                          'rounded-full px-3 py-1.5 text-xs font-bold',
+                          'rounded-full px-3 py-1.5 text-xs font-bold transition hover:border-orange-500/50',
                           d.instagram
-                            ? 'bg-[#F97316]/15 text-[#F97316] ring-1 ring-[#F97316]/40'
-                            : 'bg-neutral-900 text-neutral-500 ring-1 ring-neutral-800'
+                            ? 'bg-orange-500/15 text-orange-500 ring-1 ring-orange-500/40'
+                            : 'bg-neutral-900 text-neutral-500 ring-1 ring-neutral-800 hover:bg-neutral-800/60'
                         )}
                       >
                         Instagram
@@ -259,7 +259,7 @@ export function AdminSocialReviewsTab() {
                         type="button"
                         disabled={pending}
                         onClick={() => onSaveInline(row.id)}
-                        className="rounded-full border border-neutral-700 px-4 py-2 text-xs font-bold text-white"
+                        className="rounded-full border border-neutral-700 px-4 py-2 text-xs font-bold text-white transition hover:border-orange-500/50 hover:bg-neutral-800/60"
                       >
                         Save edits
                       </button>
@@ -267,7 +267,7 @@ export function AdminSocialReviewsTab() {
                         type="button"
                         disabled={pending}
                         onClick={() => onApprove(row.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-[#F97316] px-4 py-2 text-xs font-bold text-white shadow-[0_0_20px_rgba(249,115,22,0.35)]"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-orange-500 px-4 py-2 text-xs font-bold text-white shadow-[0_0_20px_rgba(249,115,22,0.35)]"
                       >
                         {pending ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                         Approve & Publish
@@ -297,7 +297,7 @@ export function AdminSocialReviewsTab() {
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-4 sm:items-center">
           <form
             onSubmit={onReject}
-            className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0B0F19]/95 p-6 shadow-2xl backdrop-blur-xl"
+            className="w-full max-w-lg rounded-2xl border border-neutral-800/80 bg-[#0A0A0A]/95 p-6 shadow-2xl shadow-black/50 backdrop-blur-xl"
           >
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-red-400">
               Reject social post

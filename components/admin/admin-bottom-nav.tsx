@@ -78,7 +78,7 @@ export function AdminBottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 overflow-x-auto border-t border-white/20 bg-white/70 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-md dark:border-white/10 dark:bg-[#0B0F19]/90"
+      className="fixed inset-x-0 bottom-0 z-50 overflow-x-auto border-t border-neutral-800/80 bg-white/70 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-md dark:border-neutral-800/80 dark:bg-[#080808]/95"
       aria-label="Admin navigation"
     >
       <ul className="mx-auto flex min-w-max items-center justify-start gap-1 px-1 sm:justify-center">
@@ -90,8 +90,8 @@ export function AdminBottomNav() {
               <Link
                 href={href}
                 className={cn(
-                  'relative flex min-w-[3.25rem] flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[9px] font-semibold transition',
-                  active ? 'text-[#F97316]' : 'text-neutral-500 dark:text-neutral-400'
+                  'relative flex min-w-[3.25rem] flex-col items-center gap-0.5 rounded-xl px-2 py-1.5 text-[9px] font-semibold transition hover:bg-neutral-800/60',
+                  active ? 'text-orange-500' : 'text-neutral-500 dark:text-neutral-400'
                 )}
               >
                 <span className="relative inline-flex">
