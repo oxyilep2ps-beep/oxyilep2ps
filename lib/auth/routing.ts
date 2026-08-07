@@ -40,6 +40,10 @@ export function getAuthRedirectPath(
     return '/blogger';
   }
 
+  if (profile?.role === 'SOCIAL_MANAGER') {
+    return '/social';
+  }
+
   const status = normalizeProfileStatus(profile?.status as string | undefined);
 
   if (!profile || isPendingStatus(status)) {
@@ -51,6 +55,7 @@ export function getAuthRedirectPath(
     if (profile.role === 'ADMIN') return '/admin-dashboard';
     if (profile.role === 'HR') return '/hr';
     if (profile.role === 'BLOGGER') return '/blogger';
+    if (profile.role === 'SOCIAL_MANAGER') return '/social';
   }
 
   return '/pending-verification';
@@ -60,6 +65,7 @@ export const PROTECTED_PREFIXES = [
   '/admin-dashboard',
   '/hr',
   '/blogger',
+  '/social',
   '/pending-verification',
   '/dashboard',
   '/chats',
@@ -82,12 +88,13 @@ export function canAccessPath(
   profile: Pick<Profile, 'role' | 'status'> | null,
   email: string
 ): boolean {
-  // Admins can access the full staff surface (admin + HR + blogger portals).
+  // Admins can access the full staff surface (admin + HR + blogger + social portals).
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return (
       pathname.startsWith('/admin-dashboard') ||
       pathname.startsWith('/hr') ||
       pathname.startsWith('/blogger') ||
+      pathname.startsWith('/social') ||
       pathname.startsWith('/payments/mandate-complete') ||
       pathname.startsWith('/payments/sandbox')
     );
@@ -101,6 +108,11 @@ export function canAccessPath(
   // Bloggers are scoped to the blogger CMS only (/blogger — existing route).
   if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') {
     return pathname.startsWith('/blogger');
+  }
+
+  // Social Media Managers are scoped to the Social Manager Portal.
+  if (profile?.role === 'SOCIAL_MANAGER') {
+    return pathname.startsWith('/social');
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);

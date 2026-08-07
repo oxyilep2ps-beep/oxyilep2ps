@@ -29,6 +29,7 @@ const ROLE_OPTIONS: { value: PlatformElevatedRole; label: string }[] = [
   { value: 'ADMIN', label: 'Admin' },
   { value: 'HR', label: 'HR' },
   { value: 'BLOGGER', label: 'Blogger' },
+  { value: 'SOCIAL_MANAGER', label: 'Social Media Manager — /social access' },
 ];
 
 type AccessTab = 'employees' | 'borrowers' | 'investors';
@@ -38,9 +39,11 @@ function roleBadgeClass(role: PlatformElevatedRole): string {
     case 'ADMIN':
       return 'bg-brand-500/15 text-brand-700 dark:text-brand-300';
     case 'HR':
-      return 'bg-sky-500/15 text-sky-800 dark:text-sky-300';
+      return 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300';
     case 'BLOGGER':
       return 'bg-violet-500/15 text-violet-800 dark:text-violet-300';
+    case 'SOCIAL_MANAGER':
+      return 'bg-orange-500/15 text-orange-700 dark:text-orange-300';
     default:
       return 'bg-neutral-200 text-neutral-700';
   }
@@ -181,7 +184,7 @@ export function AdminAccessManagementTab() {
   };
 
   const tabs: { id: AccessTab; label: string }[] = [
-    { id: 'employees', label: 'Employees (Admin/HR/Blogger)' },
+    { id: 'employees', label: 'Employees (Admin/HR/Blogger/Social)' },
     { id: 'borrowers', label: 'Borrowers' },
     { id: 'investors', label: 'Investors' },
   ];
@@ -290,7 +293,7 @@ export function AdminAccessManagementTab() {
               <div>
                 <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Elevated Access</h2>
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                  Users with Admin, HR, or Blogger privileges.
+                  Users with Admin, HR, Blogger, or Social Media Manager privileges.
                 </p>
               </div>
             </div>

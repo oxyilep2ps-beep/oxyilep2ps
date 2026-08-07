@@ -3,19 +3,20 @@
 import { FormEvent, useCallback, useEffect, useState, useTransition } from 'react';
 import { CheckCircle2, Loader2, RefreshCw, XCircle } from 'lucide-react';
 import {
-  approveSocialPost,
-  listPendingSocialPosts,
-  rejectSocialPost,
-  updatePendingSocialPost,
-} from '@/app/actions/social-studio';
+  approveSocialCampaign,
+  listPendingSocialCampaigns,
+  rejectSocialCampaign,
+  updatePendingSocialCampaign,
+} from '@/app/actions/social-campaigns';
 import { AdminMarkNotificationsRead } from '@/components/admin/admin-mark-notifications-read';
 import { AuthToast } from '@/components/auth-toast';
-import type { SocialPostRow } from '@/lib/social/types';
+import type { SocialCampaignRow } from '@/lib/social/types';
 import { cn } from '@/lib/utils';
 
 type DraftMap = Record<
   string,
   {
+    campaignName: string;
     title: string;
     caption: string;
     imageUrl: string;
@@ -25,7 +26,7 @@ type DraftMap = Record<
 >;
 
 export function AdminSocialReviewsTab() {
-  const [rows, setRows] = useState<SocialPostRow[]>([]);
+  const [rows, setRows] = useState<SocialCampaignRow[]>([]);
   const [drafts, setDrafts] = useState<DraftMap>({});
   const [loading, setLoading] = useState(true);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -36,11 +37,12 @@ export function AdminSocialReviewsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const pendingRows = await listPendingSocialPosts();
+      const pendingRows = await listPendingSocialCampaigns();
       setRows(pendingRows);
       const next: DraftMap = {};
       for (const row of pendingRows) {
         next[row.id] = {
+          campaignName: row.campaign_name,
           title: row.title,
           caption: row.caption,
           imageUrl: row.image_url,
@@ -52,7 +54,7 @@ export function AdminSocialReviewsTab() {
     } catch (e) {
       setToast({
         tone: 'error',
-        message: e instanceof Error ? e.message : 'Failed to load pending social posts',
+        message: e instanceof Error ? e.message : 'Failed to load pending social campaigns',
       });
     } finally {
       setLoading(false);
@@ -74,7 +76,8 @@ export function AdminSocialReviewsTab() {
     const d = drafts[id];
     if (!d) return;
     startTransition(async () => {
-      const result = await updatePendingSocialPost(id, {
+      const result = await updatePendingSocialCampaign(id, {
+        campaignName: d.campaignName,
         title: d.title,
         caption: d.caption,
         imageUrl: d.imageUrl,
@@ -92,7 +95,8 @@ export function AdminSocialReviewsTab() {
     const d = drafts[id];
     if (!d) return;
     startTransition(async () => {
-      const result = await approveSocialPost(id, {
+      const result = await approveSocialCampaign(id, {
+        campaignName: d.campaignName,
         title: d.title,
         caption: d.caption,
         imageUrl: d.imageUrl,
@@ -117,14 +121,14 @@ export function AdminSocialReviewsTab() {
     e.preventDefault();
     if (!rejectId) return;
     startTransition(async () => {
-      const result = await rejectSocialPost(rejectId, rejectReason);
+      const result = await rejectSocialCampaign(rejectId, rejectReason);
       if (!result.ok) {
         setToast({ tone: 'error', message: result.error });
         return;
       }
       setRejectId(null);
       setRejectReason('');
-      setToast({ tone: 'success', message: 'Post rejected. Writer can revise and re-submit.' });
+      setToast({ tone: 'success', message: 'Campaign rejected. Social Manager can revise and re-submit.' });
       await load();
     });
   };
@@ -195,7 +199,17 @@ export function AdminSocialReviewsTab() {
                   <div className="space-y-3">
                     <label className="block space-y-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                        Title
+                        Campaign name
+                      </span>
+                      <input
+                        value={d.campaignName}
+                        onChange={(e) => patchDraft(row.id, { campaignName: e.target.value })}
+                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
+                      />
+                    </label>
+                    <label className="block space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                        Hook
                       </span>
                       <input
                         value={d.title}
@@ -203,7 +217,6 @@ export function AdminSocialReviewsTab() {
                         className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
                       />
                     </label>
-
                     <label className="block space-y-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                         Caption (inline edit)
@@ -215,7 +228,6 @@ export function AdminSocialReviewsTab() {
                         className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
                       />
                     </label>
-
                     <label className="block space-y-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
                         Image URL
@@ -232,7 +244,7 @@ export function AdminSocialReviewsTab() {
                         type="button"
                         onClick={() => patchDraft(row.id, { linkedin: !d.linkedin })}
                         className={cn(
-                          'rounded-full px-3 py-1.5 text-xs font-bold transition hover:border-orange-500/50',
+                          'rounded-full px-3 py-1.5 text-xs font-bold transition',
                           d.linkedin
                             ? 'bg-orange-500/15 text-orange-500 ring-1 ring-orange-500/40'
                             : 'bg-neutral-900 text-neutral-500 ring-1 ring-neutral-800 hover:bg-neutral-800/60'
@@ -244,7 +256,7 @@ export function AdminSocialReviewsTab() {
                         type="button"
                         onClick={() => patchDraft(row.id, { instagram: !d.instagram })}
                         className={cn(
-                          'rounded-full px-3 py-1.5 text-xs font-bold transition hover:border-orange-500/50',
+                          'rounded-full px-3 py-1.5 text-xs font-bold transition',
                           d.instagram
                             ? 'bg-orange-500/15 text-orange-500 ring-1 ring-orange-500/40'
                             : 'bg-neutral-900 text-neutral-500 ring-1 ring-neutral-800 hover:bg-neutral-800/60'
@@ -300,10 +312,10 @@ export function AdminSocialReviewsTab() {
             className="w-full max-w-lg rounded-2xl border border-neutral-800/80 bg-[#0A0A0A]/95 p-6 shadow-2xl shadow-black/50 backdrop-blur-xl"
           >
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-red-400">
-              Reject social post
+              Reject social campaign
             </p>
             <h3 className="mt-1 text-lg font-black text-white">
-              {drafts[rejectId]?.title || 'Campaign'}
+              {drafts[rejectId]?.campaignName || 'Campaign'}
             </h3>
             <label className="mt-4 block space-y-1">
               <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
@@ -314,7 +326,7 @@ export function AdminSocialReviewsTab() {
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={5}
                 required
-                placeholder="Explain what the writer must fix before re-submitting…"
+                placeholder="Explain what the Social Manager must fix before re-submitting…"
                 className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none focus:border-red-400/40"
               />
             </label>

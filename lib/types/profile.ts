@@ -1,5 +1,11 @@
 /** Matches Supabase `profile_role` enum. */
-export type ProfileRole = 'ADMIN' | 'INVESTOR' | 'BORROWER' | 'HR' | 'BLOGGER';
+export type ProfileRole =
+  | 'ADMIN'
+  | 'INVESTOR'
+  | 'BORROWER'
+  | 'HR'
+  | 'BLOGGER'
+  | 'SOCIAL_MANAGER';
 
 /** Matches Supabase `profile_status` enum. */
 export type ProfileStatus = 'PENDING' | 'APPROVED';

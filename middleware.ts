@@ -11,7 +11,12 @@ import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus, isSuspendedAccount } from '@/lib/auth/profile-status';
 
 function isStaffPortalPath(pathname: string): boolean {
-  return pathname.startsWith('/hr') || pathname.startsWith('/blogger') || pathname.startsWith('/admin-dashboard');
+  return (
+    pathname.startsWith('/hr') ||
+    pathname.startsWith('/blogger') ||
+    pathname.startsWith('/social') ||
+    pathname.startsWith('/admin-dashboard')
+  );
 }
 
 export async function middleware(request: NextRequest) {
@@ -50,7 +55,10 @@ export async function middleware(request: NextRequest) {
   // Revoked employees: if they hit staff portals and are no longer in allowed_employees, destroy session.
   if (user && email && isStaffPortalPath(pathname) && !isAdminEmail(email)) {
     const isElevated =
-      profile?.role === 'ADMIN' || profile?.role === 'HR' || profile?.role === 'BLOGGER';
+      profile?.role === 'ADMIN' ||
+      profile?.role === 'HR' ||
+      profile?.role === 'BLOGGER' ||
+      profile?.role === 'SOCIAL_MANAGER';
 
     if (isElevated) {
       const { data: employeeRow, error: employeeLookupError } = await supabase

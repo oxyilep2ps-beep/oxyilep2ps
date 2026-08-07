@@ -355,29 +355,38 @@ export async function getAdminNotificationCounts(): Promise<AdminNotificationCou
   await assertAdmin();
   const admin = createAdminClient();
 
-  const [blogsPending, socialPending, resumesPending, unreadRows] = await Promise.all([
-    admin
-      .from('blogs')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'PENDING_APPROVAL'),
-    admin
-      .from('social_posts')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending_approval'),
-    admin
-      .from('job_applicants')
-      .select('id', { count: 'exact', head: true })
-      .eq('stage', 'applied'),
-    admin
-      .from('admin_notifications')
-      .select('entity_type')
-      .eq('is_read', false),
-  ]);
+  const [blogsPending, socialCampaignsPending, socialPostsPending, resumesPending, unreadRows] =
+    await Promise.all([
+      admin
+        .from('blogs')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'PENDING_APPROVAL'),
+      admin
+        .from('social_campaigns')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending_approval'),
+      admin
+        .from('social_posts')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending_approval'),
+      admin
+        .from('job_applicants')
+        .select('id', { count: 'exact', head: true })
+        .eq('stage', 'applied'),
+      admin
+        .from('admin_notifications')
+        .select('entity_type')
+        .eq('is_read', false),
+    ]);
+
+  const socialPendingCount =
+    (socialCampaignsPending.error ? 0 : socialCampaignsPending.count ?? 0) +
+    (socialPostsPending.error ? 0 : socialPostsPending.count ?? 0);
 
   // Notifications table missing → fall back to live pending queues.
   if (unreadRows.error) {
     const blogs = blogsPending.count ?? 0;
-    const social = socialPending.count ?? 0;
+    const social = socialPendingCount;
     const resumes = resumesPending.count ?? 0;
     return {
       blogs,
@@ -409,7 +418,7 @@ export async function getAdminNotificationCounts(): Promise<AdminNotificationCou
     const tableEmpty = !anyReadCheck.error && (anyReadCheck.count ?? 0) === 0;
     if (tableEmpty) {
       const pb = blogsPending.count ?? 0;
-      const ps = socialPending.count ?? 0;
+      const ps = socialPendingCount;
       const pr = resumesPending.count ?? 0;
       return {
         blogs: pb,

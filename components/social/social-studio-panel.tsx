@@ -1,0 +1,401 @@
+'use client';
+
+import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { AlertTriangle, ImagePlus, Loader2, Save, Send } from 'lucide-react';
+import {
+  getSocialWebhookHealth,
+  listSocialCampaigns,
+  saveSocialCampaignDraft,
+  submitSocialCampaignForApproval,
+  uploadSocialCampaignAsset,
+} from '@/app/actions/social-campaigns';
+import { AuthToast } from '@/components/auth-toast';
+import type { SocialCampaignRow } from '@/lib/social/types';
+import { cn } from '@/lib/utils';
+
+const HASHTAGS = ['#FinTech', '#UKLending', '#P2P', '#Oxyile'];
+const LINKEDIN_MAX = 3000;
+const INSTAGRAM_MAX = 2200;
+
+export function SocialStudioPanel() {
+  const searchParams = useSearchParams();
+  const [campaigns, setCampaigns] = useState<SocialCampaignRow[]>([]);
+  const [activeId, setActiveId] = useState<string | undefined>();
+  const [campaignName, setCampaignName] = useState('');
+  const [title, setTitle] = useState('');
+  const [caption, setCaption] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [linkedin, setLinkedin] = useState(true);
+  const [instagram, setInstagram] = useState(false);
+  const [status, setStatus] = useState<SocialCampaignRow['status']>('draft');
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [canvaUrl, setCanvaUrl] = useState('https://www.canva.com/');
+  const [dragOver, setDragOver] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [toast, setToast] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const charLimit = Math.min(
+    linkedin ? LINKEDIN_MAX : Infinity,
+    instagram ? INSTAGRAM_MAX : Infinity
+  );
+  const charSafe = Number.isFinite(charLimit) ? charLimit : LINKEDIN_MAX;
+  const preview = useMemo(() => caption || 'Your caption preview appears here…', [caption]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [rows, health] = await Promise.all([listSocialCampaigns(), getSocialWebhookHealth()]);
+        setCampaigns(rows);
+        setCanvaUrl(health.canvaUrl);
+      } catch {
+        setCampaigns([]);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') resetNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const loadCampaign = (row: SocialCampaignRow) => {
+    setActiveId(row.id);
+    setCampaignName(row.campaign_name);
+    setTitle(row.title);
+    setCaption(row.caption);
+    setImageUrl(row.image_url);
+    setLinkedin(Boolean(row.channels.linkedin));
+    setInstagram(Boolean(row.channels.instagram));
+    setStatus(row.status);
+    setRejectionReason(row.rejection_reason);
+  };
+
+  const resetNew = () => {
+    setActiveId(undefined);
+    setCampaignName('');
+    setTitle('');
+    setCaption('');
+    setImageUrl('');
+    setLinkedin(true);
+    setInstagram(false);
+    setStatus('draft');
+    setRejectionReason(null);
+  };
+
+  const upload = async (file: File | null) => {
+    if (!file) return;
+    const fd = new FormData();
+    fd.set('file', file);
+    try {
+      const url = await uploadSocialCampaignAsset(fd);
+      setImageUrl(url);
+    } catch (e) {
+      setToast({ tone: 'error', message: e instanceof Error ? e.message : 'Upload failed' });
+    }
+  };
+
+  const payload = () => ({
+    id: activeId,
+    campaignName,
+    title,
+    caption,
+    imageUrl,
+    channels: { linkedin, instagram },
+  });
+
+  const onSaveDraft = () => {
+    startTransition(async () => {
+      const result = await saveSocialCampaignDraft(payload());
+      if (!result.ok) {
+        setToast({ tone: 'error', message: result.error });
+        return;
+      }
+      setActiveId(result.campaign.id);
+      setStatus(result.campaign.status);
+      setToast({ tone: 'success', message: 'Draft saved.' });
+      setCampaigns(await listSocialCampaigns());
+    });
+  };
+
+  const onSubmit = (e?: FormEvent) => {
+    e?.preventDefault();
+    startTransition(async () => {
+      const result = await submitSocialCampaignForApproval(payload());
+      if (!result.ok) {
+        setToast({ tone: 'error', message: result.error });
+        return;
+      }
+      setActiveId(result.campaign.id);
+      setStatus(result.campaign.status);
+      setRejectionReason(null);
+      setToast({
+        tone: 'success',
+        message: 'Submitted for Admin Approval. Make.com fires only after Admin Approve & Publish.',
+      });
+      setCampaigns(await listSocialCampaigns());
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <AuthToast
+        open={Boolean(toast)}
+        tone={toast?.tone ?? 'error'}
+        message={toast?.message ?? ''}
+        onClose={() => setToast(null)}
+      />
+
+      {status === 'rejected' ? (
+        <div className="rounded-2xl border border-orange-500/40 bg-orange-500/10 p-4 text-orange-100 backdrop-blur">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 shrink-0 text-orange-400" size={18} />
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-orange-300">
+                Campaign rejected by Admin
+              </p>
+              <p className="mt-1 text-sm">
+                Reason: {rejectionReason?.trim() || 'No reason provided. Edit and re-submit.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-[14rem_1fr]">
+        <aside className="space-y-2 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-3">
+          <button
+            type="button"
+            onClick={resetNew}
+            className="w-full rounded-xl bg-orange-500 px-3 py-2 text-xs font-bold text-white"
+          >
+            + New campaign
+          </button>
+          <div className="max-h-[28rem] space-y-1 overflow-y-auto">
+            {campaigns.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => loadCampaign(c)}
+                className={cn(
+                  'w-full rounded-xl px-3 py-2 text-left text-xs transition hover:bg-neutral-800/60',
+                  activeId === c.id ? 'bg-orange-500/15 text-orange-500' : 'text-neutral-300'
+                )}
+              >
+                <p className="truncate font-semibold">{c.campaign_name}</p>
+                <p className="mt-0.5 text-[10px] uppercase tracking-wider text-neutral-500">
+                  {c.status.replace(/_/g, ' ')}
+                </p>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-4 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-5">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                Campaign name
+              </span>
+              <input
+                value={campaignName}
+                onChange={(e) => setCampaignName(e.target.value)}
+                className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
+                placeholder='e.g. "Q3 Lending Rates Announcement"'
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                Hook / headline
+              </span>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
+                placeholder="Short scroll-stopping hook"
+              />
+            </label>
+
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                void upload(e.dataTransfer.files?.[0] ?? null);
+              }}
+              className={cn(
+                'relative overflow-hidden rounded-2xl border border-dashed border-neutral-700 bg-[#0A0A0A]',
+                dragOver && 'border-orange-500/60 bg-orange-500/5'
+              )}
+            >
+              {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imageUrl} alt="" className="max-h-56 w-full object-cover" />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="flex w-full flex-col items-center gap-2 px-6 py-12 text-neutral-400"
+                >
+                  <ImagePlus className="text-orange-500" size={28} />
+                  <span className="text-sm font-semibold">Drop media or click to upload</span>
+                </button>
+              )}
+              <div className="flex flex-wrap gap-2 border-t border-neutral-800 bg-neutral-950/80 p-3">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded-full border border-neutral-700 px-3 py-1.5 text-xs font-bold text-white hover:border-orange-500/50"
+                >
+                  Upload asset
+                </button>
+                <a
+                  href={canvaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-400 hover:border-orange-500/60"
+                >
+                  🎨 Design with Canva Brand Studio
+                </a>
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => void upload(e.target.files?.[0] ?? null)}
+              />
+            </div>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                Or paste Canva / CDN image URL
+              </span>
+              <input
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
+                placeholder="https://…"
+              />
+            </label>
+
+            <label className="block space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                  Caption
+                </span>
+                <span
+                  className={cn(
+                    'text-[11px] font-semibold',
+                    caption.length > charSafe ? 'text-red-400' : 'text-neutral-500'
+                  )}
+                >
+                  {caption.length}/{charSafe}
+                </span>
+              </div>
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value.slice(0, Math.max(charSafe, LINKEDIN_MAX)))}
+                rows={8}
+                required
+                className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
+                placeholder="Write the post body…"
+              />
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              {HASHTAGS.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => setCaption((c) => (c.includes(tag) ? c : `${c.trim()} ${tag}`.trim()))}
+                  className="rounded-full border border-neutral-700 bg-[#0A0A0A] px-3 py-1 text-xs font-bold text-orange-500 hover:border-orange-500/40"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setLinkedin((v) => !v)}
+                className={cn(
+                  'rounded-xl border p-5 text-left transition',
+                  linkedin
+                    ? 'border-orange-500/50 bg-orange-500/10'
+                    : 'border-neutral-800 bg-neutral-900/70 hover:border-orange-500/30'
+                )}
+              >
+                <p className="text-sm font-bold text-white">LinkedIn Official Feed</p>
+                <p className="mt-2 text-[11px] text-neutral-500">
+                  {linkedin ? 'Selected · 3,000 char cap' : 'Tap to include'}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInstagram((v) => !v)}
+                className={cn(
+                  'rounded-xl border p-5 text-left transition',
+                  instagram
+                    ? 'border-orange-500/50 bg-orange-500/10'
+                    : 'border-neutral-800 bg-neutral-900/70 hover:border-orange-500/30'
+                )}
+              >
+                <p className="text-sm font-bold text-white">Instagram Business Feed</p>
+                <p className="mt-2 text-[11px] text-neutral-500">
+                  {instagram ? 'Selected · 2,200 char cap' : 'Tap to include'}
+                </p>
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-800 bg-[#0A0A0A] p-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
+                Live card preview
+              </p>
+              {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imageUrl} alt="" className="mt-3 aspect-square w-full rounded-xl object-cover" />
+              ) : (
+                <div className="mt-3 flex aspect-square items-center justify-center rounded-xl border border-dashed border-neutral-800 text-sm text-neutral-600">
+                  Media preview
+                </div>
+              )}
+              <p className="mt-3 text-sm font-bold text-white">{campaignName || title || 'Untitled'}</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-neutral-300">
+                {preview}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                disabled={pending || !caption.trim()}
+                onClick={onSaveDraft}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-5 py-3 text-sm font-bold text-white hover:border-orange-500/50 disabled:opacity-50"
+              >
+                {pending ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                Save Draft
+              </button>
+              <button
+                type="submit"
+                disabled={pending || (!linkedin && !instagram) || !caption.trim()}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow-[0_0_24px_rgba(249,115,22,0.35)] disabled:opacity-50"
+              >
+                {pending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                Submit for Admin Approval
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

@@ -1,5 +1,6 @@
-import { SocialStudioClient } from '@/components/blogger/social-studio-client';
+import { redirect } from 'next/navigation';
 
-export default function BloggerSocialStudioPage() {
-  return <SocialStudioClient />;
+/** Social Studio has moved out of the Blogger Portal. */
+export default function BloggerSocialStudioRedirect() {
+  redirect('/blogger');
 }

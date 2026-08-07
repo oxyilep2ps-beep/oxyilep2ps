@@ -6,7 +6,7 @@ import { getAdminEmails } from '@/lib/auth/routing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logAdminAction } from '@/app/actions/admin-audit';
 
-export type PlatformElevatedRole = 'ADMIN' | 'HR' | 'BLOGGER';
+export type PlatformElevatedRole = 'ADMIN' | 'HR' | 'BLOGGER' | 'SOCIAL_MANAGER';
 
 export type PlatformAccessRow = {
   id: string;
@@ -16,7 +16,7 @@ export type PlatformAccessRow = {
   has_account: boolean;
 };
 
-const ELEVATED_ROLES: PlatformElevatedRole[] = ['ADMIN', 'HR', 'BLOGGER'];
+const ELEVATED_ROLES: PlatformElevatedRole[] = ['ADMIN', 'HR', 'BLOGGER', 'SOCIAL_MANAGER'];
 
 /** Seeded / env admins that must never lose ADMIN via revoke. */
 function getProtectedAdminEmails(): Set<string> {
@@ -118,7 +118,7 @@ export async function assignPlatformRole(
     return { ok: false, error: 'Enter a valid email address.' };
   }
   if (!role) {
-    return { ok: false, error: 'Select a valid role (Admin, HR, or Blogger).' };
+    return { ok: false, error: 'Select a valid role (Admin, HR, Blogger, or Social Media Manager).' };
   }
 
   const admin = createAdminClient();
@@ -143,7 +143,14 @@ export async function assignPlatformRole(
   }
 
   // Keep strict employee directory in sync
-  const employeeRole = role === 'ADMIN' ? 'admin' : role === 'HR' ? 'hr' : 'blogger';
+  const employeeRole =
+    role === 'ADMIN'
+      ? 'admin'
+      : role === 'HR'
+        ? 'hr'
+        : role === 'BLOGGER'
+          ? 'blogger'
+          : 'social_manager';
   await admin.from('allowed_employees').upsert({ email, role: employeeRole }, { onConflict: 'email' });
 
   // If the user already has a profile, apply the role immediately
@@ -202,7 +209,7 @@ export async function revokePlatformRole(emailInput: string): Promise<{ ok: bool
 
   const existing = await findProfileByEmail(admin, email);
 
-  if (existing?.id && ['ADMIN', 'HR', 'BLOGGER'].includes(String(existing.role))) {
+  if (existing?.id && ['ADMIN', 'HR', 'BLOGGER', 'SOCIAL_MANAGER'].includes(String(existing.role))) {
     // Revert to a standard user role; keep status so they are not stuck pending without KYC context.
     // INVESTOR is the platform default for non-staff accounts.
     const { error: profileError } = await admin
