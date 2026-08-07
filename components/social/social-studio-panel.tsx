@@ -1,16 +1,16 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { FormEvent, useEffect, useMemo, useState, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, ImagePlus, Loader2, Save, Send } from 'lucide-react';
+import { AlertTriangle, Loader2, Save, Send } from 'lucide-react';
 import {
   getSocialWebhookHealth,
   listSocialCampaigns,
   saveSocialCampaignDraft,
   submitSocialCampaignForApproval,
-  uploadSocialCampaignAsset,
 } from '@/app/actions/social-campaigns';
 import { AuthToast } from '@/components/auth-toast';
+import { MediaUploader } from '@/components/social/MediaUploader';
 import type { SocialCampaignRow } from '@/lib/social/types';
 import { cn } from '@/lib/utils';
 
@@ -31,10 +31,9 @@ export function SocialStudioPanel() {
   const [status, setStatus] = useState<SocialCampaignRow['status']>('draft');
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [canvaUrl, setCanvaUrl] = useState('https://www.canva.com/');
-  const [dragOver, setDragOver] = useState(false);
+  const [previewBroken, setPreviewBroken] = useState(false);
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const charLimit = Math.min(
     linkedin ? LINKEDIN_MAX : Infinity,
@@ -49,8 +48,13 @@ export function SocialStudioPanel() {
         const [rows, health] = await Promise.all([listSocialCampaigns(), getSocialWebhookHealth()]);
         setCampaigns(rows);
         setCanvaUrl(health.canvaUrl);
-      } catch {
+      } catch (err) {
+        console.error('[SocialStudioPanel] load failed', err);
         setCampaigns([]);
+        setToast({
+          tone: 'error',
+          message: err instanceof Error ? err.message : 'Failed to load campaigns',
+        });
       }
     })();
   }, []);
@@ -66,6 +70,7 @@ export function SocialStudioPanel() {
     setTitle(row.title);
     setCaption(row.caption);
     setImageUrl(row.image_url);
+    setPreviewBroken(false);
     setLinkedin(Boolean(row.channels.linkedin));
     setInstagram(Boolean(row.channels.instagram));
     setStatus(row.status);
@@ -78,22 +83,11 @@ export function SocialStudioPanel() {
     setTitle('');
     setCaption('');
     setImageUrl('');
+    setPreviewBroken(false);
     setLinkedin(true);
     setInstagram(false);
     setStatus('draft');
     setRejectionReason(null);
-  };
-
-  const upload = async (file: File | null) => {
-    if (!file) return;
-    const fd = new FormData();
-    fd.set('file', file);
-    try {
-      const url = await uploadSocialCampaignAsset(fd);
-      setImageUrl(url);
-    } catch (e) {
-      setToast({ tone: 'error', message: e instanceof Error ? e.message : 'Upload failed' });
-    }
   };
 
   const payload = () => ({
@@ -217,60 +211,14 @@ export function SocialStudioPanel() {
               />
             </label>
 
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
+            <MediaUploader
+              imageUrl={imageUrl}
+              onImageUrlChange={(url) => {
+                setImageUrl(url);
+                setPreviewBroken(false);
               }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                void upload(e.dataTransfer.files?.[0] ?? null);
-              }}
-              className={cn(
-                'relative overflow-hidden rounded-2xl border border-dashed border-neutral-700 bg-[#0A0A0A]',
-                dragOver && 'border-orange-500/60 bg-orange-500/5'
-              )}
-            >
-              {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={imageUrl} alt="" className="max-h-56 w-full object-cover" />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="flex w-full flex-col items-center gap-2 px-6 py-12 text-neutral-400"
-                >
-                  <ImagePlus className="text-orange-500" size={28} />
-                  <span className="text-sm font-semibold">Drop media or click to upload</span>
-                </button>
-              )}
-              <div className="flex flex-wrap gap-2 border-t border-neutral-800 bg-neutral-950/80 p-3">
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="rounded-full border border-neutral-700 px-3 py-1.5 text-xs font-bold text-white hover:border-orange-500/50"
-                >
-                  Upload asset
-                </button>
-                <a
-                  href={canvaUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-xs font-bold text-orange-400 hover:border-orange-500/60"
-                >
-                  🎨 Design with Canva Brand Studio
-                </a>
-              </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => void upload(e.target.files?.[0] ?? null)}
-              />
-            </div>
+              canvaUrl={canvaUrl}
+            />
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
@@ -278,7 +226,10 @@ export function SocialStudioPanel() {
               </span>
               <input
                 value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
+                onChange={(e) => {
+                  setImageUrl(e.target.value);
+                  setPreviewBroken(false);
+                }}
                 className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
                 placeholder="https://…"
               />
@@ -360,9 +311,14 @@ export function SocialStudioPanel() {
               <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
                 Live card preview
               </p>
-              {imageUrl ? (
+              {imageUrl.trim() && !previewBroken ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={imageUrl} alt="" className="mt-3 aspect-square w-full rounded-xl object-cover" />
+                <img
+                  src={imageUrl}
+                  alt=""
+                  className="mt-3 aspect-square w-full rounded-xl object-cover"
+                  onError={() => setPreviewBroken(true)}
+                />
               ) : (
                 <div className="mt-3 flex aspect-square items-center justify-center rounded-xl border border-dashed border-neutral-800 text-sm text-neutral-600">
                   Media preview

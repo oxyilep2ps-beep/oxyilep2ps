@@ -48,38 +48,62 @@ function revalidateSocial() {
   revalidatePath('/admin-dashboard/social-reviews');
 }
 
-export async function uploadSocialCampaignAsset(formData: FormData): Promise<string> {
-  await assertSocialManagerOrAdmin();
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
+export async function uploadSocialCampaignAsset(
+  formData: FormData
+): Promise<{ success: true; url: string } | { success: false; error: string }> {
+  try {
+    await assertSocialManagerOrAdmin();
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'Unauthorized' };
 
-  const file = formData.get('file');
-  if (!(file instanceof File)) throw new Error('No file uploaded');
+    const file = formData.get('file');
+    if (!(file instanceof File)) return { success: false, error: 'No file uploaded' };
 
-  const ext = file.name.split('.').pop() || 'jpg';
-  const path = `social-campaigns/${user.id}/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from('blog-covers').upload(path, file, {
-    upsert: true,
-    contentType: file.type || 'image/jpeg',
-  });
-  if (error) throw new Error(error.message);
+    const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+    const path = `${user.id}/${Date.now()}-${safeName}`;
+    const { error } = await supabase.storage.from('social-media').upload(path, file, {
+      upsert: true,
+      contentType: file.type || 'image/jpeg',
+    });
+    if (error) {
+      console.error('[uploadSocialCampaignAsset]', error);
+      return { success: false, error: error.message };
+    }
 
-  return supabase.storage.from('blog-covers').getPublicUrl(path).data.publicUrl;
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('social-media').getPublicUrl(path);
+
+    if (!publicUrl) return { success: false, error: 'Could not resolve a public URL' };
+    return { success: true, url: publicUrl };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Upload failed';
+    console.error('[uploadSocialCampaignAsset]', e);
+    return { success: false, error: message };
+  }
 }
 
 export async function listSocialCampaigns(): Promise<SocialCampaignRow[]> {
-  await assertSocialManagerOrAdmin();
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('social_campaigns')
-    .select('*')
-    .order('updated_at', { ascending: false })
-    .limit(200);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => mapCampaign(row as Record<string, unknown>));
+  try {
+    await assertSocialManagerOrAdmin();
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('social_campaigns')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(200);
+    if (error) {
+      console.error('[listSocialCampaigns]', error);
+      return [];
+    }
+    return (data ?? []).map((row) => mapCampaign(row as Record<string, unknown>));
+  } catch (e) {
+    console.error('[listSocialCampaigns]', e);
+    return [];
+  }
 }
 
 export async function getSocialCampaign(id: string): Promise<SocialCampaignRow | null> {
@@ -129,19 +153,29 @@ export async function getSocialOverviewMetrics(): Promise<SocialOverviewMetrics>
 }
 
 export async function getSocialWebhookHealth(): Promise<WebhookHealth> {
-  await assertSocialManagerOrAdmin();
-  const syndication = Boolean(
-    process.env.SOCIAL_SYNDICATION_WEBHOOK_URL?.trim() ||
-      process.env.NEXT_PUBLIC_SOCIAL_WEBHOOK_URL?.trim()
-  );
-  const canvaUrl = process.env.CANVA_BRAND_STUDIO_URL?.trim() || 'https://www.canva.com/';
+  try {
+    await assertSocialManagerOrAdmin();
+    const syndication = Boolean(
+      process.env.SOCIAL_SYNDICATION_WEBHOOK_URL?.trim() ||
+        process.env.NEXT_PUBLIC_SOCIAL_WEBHOOK_URL?.trim()
+    );
+    const canvaUrl = process.env.CANVA_BRAND_STUDIO_URL?.trim() || 'https://www.canva.com/';
 
-  return {
-    linkedin: syndication ? 'connected' : 'pending',
-    instagram: syndication ? 'connected' : 'pending',
-    canva: process.env.CANVA_BRAND_STUDIO_URL?.trim() ? 'connected' : 'pending',
-    canvaUrl,
-  };
+    return {
+      linkedin: syndication ? 'connected' : 'pending',
+      instagram: syndication ? 'connected' : 'pending',
+      canva: process.env.CANVA_BRAND_STUDIO_URL?.trim() ? 'connected' : 'pending',
+      canvaUrl,
+    };
+  } catch (e) {
+    console.error('[getSocialWebhookHealth]', e);
+    return {
+      linkedin: 'pending',
+      instagram: 'pending',
+      canva: 'pending',
+      canvaUrl: 'https://www.canva.com/',
+    };
+  }
 }
 
 export async function saveSocialCampaignDraft(input: {
