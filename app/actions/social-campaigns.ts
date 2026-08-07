@@ -5,7 +5,7 @@ import { assertAdmin } from '@/lib/auth/assert-admin';
 import { assertSocialManagerOrAdmin } from '@/lib/auth/assert-social-manager';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { publishSocialPost } from '@/lib/services/socialStudioPublisher';
+import { publishToMakeWebhook } from '@/lib/services/socialStudioPublisher';
 import type {
   SocialCampaignRow,
   SocialOverviewMetrics,
@@ -114,14 +114,11 @@ export async function getSocialOverviewMetrics(): Promise<SocialOverviewMetrics>
       .gte('updated_at', startOfMonth.toISOString()),
   ]);
 
-  const linkedinOk = Boolean(
-    process.env.LINKEDIN_WEBHOOK_URL?.trim() || process.env.SOCIAL_SYNDICATION_WEBHOOK_URL?.trim()
+  const syndication = Boolean(
+    process.env.SOCIAL_SYNDICATION_WEBHOOK_URL?.trim() ||
+      process.env.NEXT_PUBLIC_SOCIAL_WEBHOOK_URL?.trim()
   );
-  const instagramOk = Boolean(
-    process.env.INSTAGRAM_WEBHOOK_URL?.trim() || process.env.SOCIAL_SYNDICATION_WEBHOOK_URL?.trim()
-  );
-  const configured = Number(linkedinOk) + Number(instagramOk);
-  const webhookSuccessRate = configured === 0 ? null : Math.round((configured / 2) * 100);
+  const webhookSuccessRate = syndication ? 100 : null;
 
   return {
     activeCampaigns: active.count ?? 0,
@@ -133,18 +130,15 @@ export async function getSocialOverviewMetrics(): Promise<SocialOverviewMetrics>
 
 export async function getSocialWebhookHealth(): Promise<WebhookHealth> {
   await assertSocialManagerOrAdmin();
-  const linkedin = Boolean(
-    process.env.LINKEDIN_WEBHOOK_URL?.trim() || process.env.SOCIAL_SYNDICATION_WEBHOOK_URL?.trim()
+  const syndication = Boolean(
+    process.env.SOCIAL_SYNDICATION_WEBHOOK_URL?.trim() ||
+      process.env.NEXT_PUBLIC_SOCIAL_WEBHOOK_URL?.trim()
   );
-  const instagram = Boolean(
-    process.env.INSTAGRAM_WEBHOOK_URL?.trim() || process.env.SOCIAL_SYNDICATION_WEBHOOK_URL?.trim()
-  );
-  const canvaUrl =
-    process.env.CANVA_BRAND_STUDIO_URL?.trim() || 'https://www.canva.com/';
+  const canvaUrl = process.env.CANVA_BRAND_STUDIO_URL?.trim() || 'https://www.canva.com/';
 
   return {
-    linkedin: linkedin ? 'connected' : 'pending',
-    instagram: instagram ? 'connected' : 'pending',
+    linkedin: syndication ? 'connected' : 'pending',
+    instagram: syndication ? 'connected' : 'pending',
     canva: process.env.CANVA_BRAND_STUDIO_URL?.trim() ? 'connected' : 'pending',
     canvaUrl,
   };
@@ -313,7 +307,11 @@ export async function approveSocialCampaign(
     imageUrl?: string;
     channels?: SocialPostChannels;
   }
-): Promise<{ ok: true; results: Awaited<ReturnType<typeof publishSocialPost>>['results'] } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; webhookOk: true }
+  | { ok: true; webhookOk: false; webhookError: string }
+  | { ok: false; error: string }
+> {
   try {
     await assertAdmin();
     const admin = createAdminClient();
@@ -326,13 +324,8 @@ export async function approveSocialCampaign(
     if (error || !row) return { ok: false, error: error?.message ?? 'Campaign not found' };
 
     const mapped = mapCampaign(row as Record<string, unknown>);
-    const { results } = await publishSocialPost({
-      title: mapped.campaign_name || mapped.title,
-      caption: mapped.caption,
-      imageUrl: mapped.image_url || null,
-      channels: mapped.channels,
-    });
 
+    // 1) Persist published status first (DB remains source of truth even if webhook fails).
     const { error: statusError } = await admin
       .from('social_campaigns')
       .update({
@@ -349,10 +342,45 @@ export async function approveSocialCampaign(
       .eq('entity_type', 'social_post')
       .eq('entity_id', id);
 
+    // 2) Fire Make.com with standardized payload.
+    const webhook = await publishToMakeWebhook({
+      title: mapped.title || mapped.campaign_name,
+      caption: mapped.caption,
+      image_url: mapped.image_url,
+      channels: mapped.channels,
+    });
+
     revalidateSocial();
-    return { ok: true, results };
+
+    if (!webhook.success) {
+      return { ok: true, webhookOk: false, webhookError: webhook.error };
+    }
+
+    return { ok: true, webhookOk: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Approve failed' };
+  }
+}
+
+export async function sendTestSocialWebhook(): Promise<
+  { ok: true; status: number } | { ok: false; error: string }
+> {
+  try {
+    await assertSocialManagerOrAdmin();
+    const result = await publishToMakeWebhook({
+      title: 'Oxyile Test Post',
+      caption: 'Webhook verification test from Oxyile dashboard.',
+      image_url: 'https://oxyile.com/logo.png',
+      channels: { linkedin: true, instagram: true },
+    });
+
+    if (!result.success) {
+      return { ok: false, error: result.error };
+    }
+
+    return { ok: true, status: result.status };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Test webhook failed' };
   }
 }
 

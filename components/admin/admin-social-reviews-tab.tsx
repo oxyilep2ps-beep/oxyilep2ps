@@ -106,12 +106,17 @@ export function AdminSocialReviewsTab() {
         setToast({ tone: 'error', message: result.error });
         return;
       }
-      const okChannels = result.results.filter((r) => r.ok).map((r) => r.channel).join(', ');
+      if (!result.webhookOk) {
+        setToast({
+          tone: 'error',
+          message: `⚠️ Saved to DB, but failed to reach Webhook: ${result.webhookError}`,
+        });
+        await load();
+        return;
+      }
       setToast({
         tone: 'success',
-        message: okChannels
-          ? `Approved & published via Make.com (${okChannels}).`
-          : 'Approved. Check webhook configuration if channels did not fire.',
+        message: '🚀 Post approved & sent to Make.com Webhook successfully!',
       });
       await load();
     });

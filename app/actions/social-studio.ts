@@ -275,7 +275,11 @@ export async function approveSocialPost(
     imageUrl?: string;
     channels?: SocialPostChannels;
   }
-): Promise<{ ok: true; results: Awaited<ReturnType<typeof publishSocialPost>>['results'] } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; webhookOk: true; results: Awaited<ReturnType<typeof publishSocialPost>>['results'] }
+  | { ok: true; webhookOk: false; webhookError: string; results: Awaited<ReturnType<typeof publishSocialPost>>['results'] }
+  | { ok: false; error: string }
+> {
   try {
     await assertAdmin();
     const admin = createAdminClient();
@@ -288,12 +292,6 @@ export async function approveSocialPost(
     if (error || !post) return { ok: false, error: error?.message ?? 'Post not found' };
 
     const mapped = mapSocialPost(post as Record<string, unknown>);
-    const { results } = await publishSocialPost({
-      title: mapped.title,
-      caption: mapped.caption,
-      imageUrl: mapped.image_url || null,
-      channels: mapped.channels,
-    });
 
     const { error: statusError } = await admin
       .from('social_posts')
@@ -311,9 +309,21 @@ export async function approveSocialPost(
       .eq('entity_type', 'social_post')
       .eq('entity_id', id);
 
+    const { results, webhook } = await publishSocialPost({
+      title: mapped.title,
+      caption: mapped.caption,
+      imageUrl: mapped.image_url || null,
+      channels: mapped.channels,
+    });
+
     revalidatePath('/admin-dashboard/social-reviews');
     revalidatePath('/blogger/social-studio');
-    return { ok: true, results };
+
+    if (!webhook.success) {
+      return { ok: true, webhookOk: false, webhookError: webhook.error, results };
+    }
+
+    return { ok: true, webhookOk: true, results };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Approve failed' };
   }
