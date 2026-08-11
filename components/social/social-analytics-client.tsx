@@ -16,7 +16,7 @@ import type {
 import { cn } from '@/lib/utils';
 
 function mediaLabel(format: TopPerformingContentRow['format']) {
-  if (format === 'video') return 'Reel';
+  if (format === 'reel') return 'Reel';
   if (format === 'story') return 'Story';
   return 'Post';
 }
@@ -179,9 +179,9 @@ export function SocialAnalyticsClient() {
                       <span
                         className={cn(
                           'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase',
-                          row.format === 'video' && 'bg-orange-500/20 text-orange-400',
-                          row.format === 'story' && 'bg-orange-500/10 text-orange-300',
-                          row.format === 'image' && 'bg-neutral-800 text-neutral-300'
+                          row.format === 'reel' && 'bg-purple-500/20 text-purple-300',
+                          row.format === 'story' && 'bg-orange-500/20 text-orange-300',
+                          row.format === 'post' && 'bg-blue-500/20 text-blue-300'
                         )}
                       >
                         {mediaLabel(row.format)}

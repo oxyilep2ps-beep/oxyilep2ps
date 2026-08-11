@@ -4,6 +4,9 @@
  * Fallback:    NEXT_PUBLIC_SOCIAL_WEBHOOK_URL
  */
 
+import { normalizeSocialMediaType } from '@/lib/social/media';
+import type { SocialMediaType } from '@/lib/social/types';
+
 export type MakeWebhookChannels = {
   linkedin: boolean;
   instagram: boolean;
@@ -13,7 +16,7 @@ export type MakeWebhookPostData = {
   title: string;
   caption: string;
   image_url: string;
-  media_type?: 'image' | 'video' | 'story';
+  media_type?: SocialMediaType | 'image' | 'video';
   channels: MakeWebhookChannels;
 };
 
@@ -21,7 +24,7 @@ export type MakeWebhookPayload = {
   title: string;
   caption: string;
   image_url: string;
-  media_type: 'image' | 'video' | 'story';
+  media_type: SocialMediaType;
   channels: MakeWebhookChannels;
   approved_at: string;
   source: 'Oxyile Social Manager Portal';
@@ -37,7 +40,7 @@ export type SocialStudioPostInput = {
   title: string;
   caption: string;
   imageUrl: string | null;
-  mediaType?: 'image' | 'video' | 'story';
+  mediaType?: SocialMediaType | 'image' | 'video';
   channels: SocialStudioChannels;
 };
 
@@ -57,11 +60,12 @@ export function resolveSocialSyndicationWebhookUrl(): string | null {
 }
 
 function buildPayload(postData: MakeWebhookPostData): MakeWebhookPayload {
+  const mediaType = normalizeSocialMediaType(postData.media_type ?? 'post');
   return {
     title: postData.title.trim(),
     caption: postData.caption.trim(),
     image_url: postData.image_url.trim(),
-    media_type: postData.media_type ?? 'image',
+    media_type: mediaType,
     channels: {
       linkedin: Boolean(postData.channels.linkedin),
       instagram: Boolean(postData.channels.instagram),
@@ -73,18 +77,20 @@ function buildPayload(postData: MakeWebhookPostData): MakeWebhookPayload {
 
 /**
  * POST standardized JSON to Make.com.
+ * Stories may send empty title/caption; Posts/Reels require them.
  */
 export async function publishToMakeWebhook(postData: MakeWebhookPostData): Promise<MakeWebhookResult> {
+  const mediaType = normalizeSocialMediaType(postData.media_type ?? 'post');
   const title = postData.title?.trim() ?? '';
   const caption = postData.caption?.trim() ?? '';
   const imageUrl = postData.image_url?.trim() ?? '';
 
-  if (!title) {
+  if (mediaType !== 'story' && !title) {
     const error = 'Webhook payload missing required field: title';
     console.error('[publishToMakeWebhook]', error);
     return { success: false, error };
   }
-  if (!caption) {
+  if (mediaType !== 'story' && !caption) {
     const error = 'Webhook payload missing required field: caption';
     console.error('[publishToMakeWebhook]', error);
     return { success: false, error };
@@ -109,11 +115,11 @@ export async function publishToMakeWebhook(postData: MakeWebhookPostData): Promi
   }
 
   const payload = buildPayload({
-    title,
-    caption,
+    title: mediaType === 'story' ? '' : title,
+    caption: mediaType === 'story' ? '' : caption,
     image_url: imageUrl,
     channels: postData.channels,
-    media_type: postData.media_type ?? 'image',
+    media_type: mediaType,
   });
 
   try {
@@ -147,7 +153,7 @@ export async function publishSocialPost(
     title: input.title,
     caption: input.caption,
     image_url: input.imageUrl?.trim() || '',
-    media_type: input.mediaType ?? 'image',
+    media_type: input.mediaType ?? 'post',
     channels: input.channels,
   });
 

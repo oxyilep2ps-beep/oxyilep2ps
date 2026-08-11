@@ -5,7 +5,7 @@ export type SocialPostStatus =
   | 'rejected'
   | 'published';
 
-export type SocialMediaType = 'image' | 'video' | 'story';
+export type SocialMediaType = 'post' | 'reel' | 'story';
 
 export type SocialPostChannels = {
   linkedin: boolean;

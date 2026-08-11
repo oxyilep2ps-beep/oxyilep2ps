@@ -6,6 +6,7 @@ import { assertSocialManagerOrAdmin } from '@/lib/auth/assert-social-manager';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { publishToMakeWebhook } from '@/lib/services/socialStudioPublisher';
+import { normalizeSocialMediaType } from '@/lib/social/media';
 import type {
   SocialMediaType,
   SocialCampaignRow,
@@ -38,7 +39,7 @@ function mapCampaign(row: Record<string, unknown>): SocialCampaignRow {
     title: String(row.title ?? ''),
     caption: String(row.caption ?? ''),
     image_url: String(row.image_url ?? ''),
-    media_type: (row.media_type as SocialMediaType) ?? 'image',
+    media_type: normalizeSocialMediaType(row.media_type),
     channels: mapChannels(row.channels),
     status: row.status as SocialCampaignRow['status'],
     metrics: {
@@ -53,6 +54,54 @@ function mapCampaign(row: Record<string, unknown>): SocialCampaignRow {
     created_by: (row.created_by as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
+  };
+}
+
+function validateCampaignInput(input: {
+  caption: string;
+  imageUrl: string;
+  mediaType?: SocialMediaType;
+  channels: SocialPostChannels;
+}): string | null {
+  const mediaType = normalizeSocialMediaType(input.mediaType ?? 'post');
+  if (!input.imageUrl?.trim()) return 'Media file / URL is required.';
+  if (!input.channels.linkedin && !input.channels.instagram) {
+    return 'Select LinkedIn, Instagram, or both.';
+  }
+  // Stories only require media; reels/posts require caption.
+  if (mediaType !== 'story' && !input.caption.trim()) {
+    return 'Caption is required for Posts and Reels.';
+  }
+  return null;
+}
+
+function buildCampaignWritePayload(
+  input: {
+    campaignName: string;
+    title: string;
+    caption: string;
+    imageUrl: string;
+    mediaType?: SocialMediaType;
+    channels: SocialPostChannels;
+    scheduledFor?: string | null;
+  },
+  userId: string,
+  status: 'draft' | 'pending_approval'
+) {
+  const mediaType = normalizeSocialMediaType(input.mediaType ?? 'post');
+  const isStory = mediaType === 'story';
+  return {
+    campaign_name: input.campaignName.trim() || (isStory ? 'Untitled story' : 'Untitled campaign'),
+    title: isStory ? '' : input.title.trim() || input.campaignName.trim() || '',
+    caption: isStory ? '' : input.caption.trim(),
+    image_url: input.imageUrl?.trim() || '',
+    media_type: mediaType,
+    channels: input.channels,
+    status,
+    rejection_reason: null,
+    scheduled_for: input.scheduledFor || null,
+    created_by: userId,
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -273,7 +322,7 @@ export async function getTopPerformingContent(): Promise<TopPerformingContentRow
     return {
       id: String(r.id),
       campaign: String(r.campaign_name ?? ''),
-      format: (r.media_type as SocialMediaType) ?? 'image',
+      format: normalizeSocialMediaType(r.media_type),
       likes: Number(metrics.likes ?? 0),
       comments: Number(metrics.comments ?? 0),
       clicks: Number(metrics.clicks ?? 0),
@@ -325,25 +374,11 @@ export async function saveSocialCampaignDraft(input: {
 }): Promise<{ ok: true; campaign: SocialCampaignRow } | { ok: false; error: string }> {
   try {
     const user = await assertSocialManagerOrAdmin();
-    if (!input.caption.trim()) return { ok: false, error: 'Caption is required.' };
-    if (!input.channels.linkedin && !input.channels.instagram) {
-      return { ok: false, error: 'Select LinkedIn, Instagram, or both.' };
-    }
+    const validationError = validateCampaignInput(input);
+    if (validationError) return { ok: false, error: validationError };
 
     const admin = createAdminClient();
-    const payload = {
-      campaign_name: input.campaignName.trim() || 'Untitled campaign',
-      title: input.title.trim() || input.campaignName.trim() || 'Untitled',
-      caption: input.caption.trim(),
-      image_url: input.imageUrl?.trim() || '',
-      media_type: input.mediaType ?? 'image',
-      channels: input.channels,
-      status: 'draft' as const,
-      rejection_reason: null,
-      scheduled_for: input.scheduledFor || null,
-      created_by: user.id,
-      updated_at: new Date().toISOString(),
-    };
+    const payload = buildCampaignWritePayload(input, user.id, 'draft');
 
     if (input.id) {
       const { data, error } = await admin
@@ -378,25 +413,11 @@ export async function submitSocialCampaignForApproval(input: {
 }): Promise<{ ok: true; campaign: SocialCampaignRow } | { ok: false; error: string }> {
   try {
     const user = await assertSocialManagerOrAdmin();
-    if (!input.caption.trim()) return { ok: false, error: 'Caption is required.' };
-    if (!input.channels.linkedin && !input.channels.instagram) {
-      return { ok: false, error: 'Select LinkedIn, Instagram, or both.' };
-    }
+    const validationError = validateCampaignInput(input);
+    if (validationError) return { ok: false, error: validationError };
 
     const admin = createAdminClient();
-    const payload = {
-      campaign_name: input.campaignName.trim() || 'Untitled campaign',
-      title: input.title.trim() || input.campaignName.trim() || 'Untitled',
-      caption: input.caption.trim(),
-      image_url: input.imageUrl?.trim() || '',
-      media_type: input.mediaType ?? 'image',
-      channels: input.channels,
-      status: 'pending_approval' as const,
-      rejection_reason: null,
-      scheduled_for: input.scheduledFor || null,
-      created_by: user.id,
-      updated_at: new Date().toISOString(),
-    };
+    const payload = buildCampaignWritePayload(input, user.id, 'pending_approval');
 
     let data;
     if (input.id) {
@@ -451,14 +472,35 @@ export async function updatePendingSocialCampaign(
   try {
     await assertAdmin();
     const admin = createAdminClient();
+
+    // Preserve media_type when not provided so story empty-field rules still apply.
+    let mediaType = updates.mediaType ? normalizeSocialMediaType(updates.mediaType) : null;
+    if (!mediaType) {
+      const { data: existing } = await admin
+        .from('social_campaigns')
+        .select('media_type')
+        .eq('id', id)
+        .maybeSingle();
+      mediaType = normalizeSocialMediaType(existing?.media_type);
+    }
+    const isStory = mediaType === 'story';
+
     const { data, error } = await admin
       .from('social_campaigns')
       .update({
         ...(updates.campaignName !== undefined ? { campaign_name: updates.campaignName.trim() } : {}),
-        ...(updates.title !== undefined ? { title: updates.title.trim() } : {}),
-        ...(updates.caption !== undefined ? { caption: updates.caption.trim() } : {}),
+        ...(updates.title !== undefined
+          ? { title: isStory ? '' : updates.title.trim() }
+          : isStory
+            ? { title: '' }
+            : {}),
+        ...(updates.caption !== undefined
+          ? { caption: isStory ? '' : updates.caption.trim() }
+          : isStory
+            ? { caption: '' }
+            : {}),
         ...(updates.imageUrl !== undefined ? { image_url: updates.imageUrl.trim() } : {}),
-        ...(updates.mediaType !== undefined ? { media_type: updates.mediaType } : {}),
+        ...(updates.mediaType !== undefined ? { media_type: mediaType } : {}),
         ...(updates.channels !== undefined ? { channels: updates.channels } : {}),
         updated_at: new Date().toISOString(),
       })
@@ -518,10 +560,10 @@ export async function approveSocialCampaign(
       .eq('entity_type', 'social_post')
       .eq('entity_id', id);
 
-    // 2) Fire Make.com with standardized payload.
+    // 2) Fire Make.com with standardized payload (empty title/caption allowed for stories).
     const webhook = await publishToMakeWebhook({
-      title: mapped.title || mapped.campaign_name,
-      caption: mapped.caption,
+      title: mapped.media_type === 'story' ? '' : mapped.title || mapped.campaign_name,
+      caption: mapped.media_type === 'story' ? '' : mapped.caption,
       image_url: mapped.image_url,
       media_type: mapped.media_type,
       channels: mapped.channels,

@@ -10,7 +10,13 @@ import {
 } from '@/app/actions/social-campaigns';
 import { AdminMarkNotificationsRead } from '@/components/admin/admin-mark-notifications-read';
 import { AuthToast } from '@/components/auth-toast';
-import type { SocialCampaignRow } from '@/lib/social/types';
+import {
+  isVideoSocialMedia,
+  mediaTypeBadgeClass,
+  mediaTypeLabel,
+  normalizeSocialMediaType,
+} from '@/lib/social/media';
+import type { SocialCampaignRow, SocialMediaType } from '@/lib/social/types';
 import { cn } from '@/lib/utils';
 
 type DraftMap = Record<
@@ -20,6 +26,7 @@ type DraftMap = Record<
     title: string;
     caption: string;
     imageUrl: string;
+    mediaType: SocialMediaType;
     linkedin: boolean;
     instagram: boolean;
   }
@@ -41,11 +48,13 @@ export function AdminSocialReviewsTab() {
       setRows(pendingRows);
       const next: DraftMap = {};
       for (const row of pendingRows) {
+        const mediaType = normalizeSocialMediaType(row.media_type);
         next[row.id] = {
           campaignName: row.campaign_name,
           title: row.title,
           caption: row.caption,
           imageUrl: row.image_url,
+          mediaType,
           linkedin: Boolean(row.channels.linkedin),
           instagram: Boolean(row.channels.instagram),
         };
@@ -72,17 +81,25 @@ export function AdminSocialReviewsTab() {
     }));
   };
 
+  const buildUpdates = (d: DraftMap[string]) => {
+    const isStory = d.mediaType === 'story';
+    const showTitle = d.mediaType === 'post';
+    const showCaption = d.mediaType === 'post' || d.mediaType === 'reel';
+    return {
+      campaignName: d.campaignName,
+      title: isStory || !showTitle ? '' : d.title,
+      caption: isStory || !showCaption ? '' : d.caption,
+      imageUrl: d.imageUrl,
+      mediaType: d.mediaType,
+      channels: { linkedin: d.linkedin, instagram: d.instagram },
+    };
+  };
+
   const onSaveInline = (id: string) => {
     const d = drafts[id];
     if (!d) return;
     startTransition(async () => {
-      const result = await updatePendingSocialCampaign(id, {
-        campaignName: d.campaignName,
-        title: d.title,
-        caption: d.caption,
-        imageUrl: d.imageUrl,
-        channels: { linkedin: d.linkedin, instagram: d.instagram },
-      });
+      const result = await updatePendingSocialCampaign(id, buildUpdates(d));
       if (!result.ok) {
         setToast({ tone: 'error', message: result.error });
         return;
@@ -95,13 +112,7 @@ export function AdminSocialReviewsTab() {
     const d = drafts[id];
     if (!d) return;
     startTransition(async () => {
-      const result = await approveSocialCampaign(id, {
-        campaignName: d.campaignName,
-        title: d.title,
-        caption: d.caption,
-        imageUrl: d.imageUrl,
-        channels: { linkedin: d.linkedin, instagram: d.instagram },
-      });
+      const result = await approveSocialCampaign(id, buildUpdates(d));
       if (!result.ok) {
         setToast({ tone: 'error', message: result.error });
         return;
@@ -184,6 +195,11 @@ export function AdminSocialReviewsTab() {
           {rows.map((row) => {
             const d = drafts[row.id];
             if (!d) return null;
+            const mediaType = d.mediaType;
+            const showTitle = mediaType === 'post';
+            const showCaption = mediaType === 'post' || mediaType === 'reel';
+            const showVideo = isVideoSocialMedia(mediaType, d.imageUrl);
+
             return (
               <article
                 key={row.id}
@@ -192,8 +208,20 @@ export function AdminSocialReviewsTab() {
                 <div className="grid gap-4 lg:grid-cols-[11rem_1fr]">
                   <div className="overflow-hidden rounded-xl border border-neutral-800 bg-black/40">
                     {d.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={d.imageUrl} alt="" className="aspect-square w-full object-cover" />
+                      showVideo ? (
+                        <video
+                          src={d.imageUrl}
+                          controls
+                          className="aspect-square w-full rounded-md object-cover"
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={d.imageUrl}
+                          alt=""
+                          className="aspect-square w-full rounded-md object-cover"
+                        />
+                      )
                     ) : (
                       <div className="flex aspect-square items-center justify-center text-xs text-neutral-600">
                         No media
@@ -202,40 +230,61 @@ export function AdminSocialReviewsTab() {
                   </div>
 
                   <div className="space-y-3">
-                    <label className="block space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                        Campaign name
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="block min-w-0 flex-1 space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Campaign name
+                        </span>
+                        <input
+                          value={d.campaignName}
+                          onChange={(e) => patchDraft(row.id, { campaignName: e.target.value })}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
+                        />
+                      </label>
+                      <span
+                        className={cn(
+                          'mt-5 shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide',
+                          mediaTypeBadgeClass(mediaType)
+                        )}
+                      >
+                        {mediaTypeLabel(mediaType)}
                       </span>
-                      <input
-                        value={d.campaignName}
-                        onChange={(e) => patchDraft(row.id, { campaignName: e.target.value })}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
-                      />
-                    </label>
+                    </div>
+
+                    {showTitle ? (
+                      <label className="block space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Hook
+                        </span>
+                        <input
+                          value={d.title}
+                          onChange={(e) => patchDraft(row.id, { title: e.target.value })}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
+                        />
+                      </label>
+                    ) : null}
+
+                    {showCaption ? (
+                      <label className="block space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Caption (inline edit)
+                        </span>
+                        <textarea
+                          value={d.caption}
+                          onChange={(e) => patchDraft(row.id, { caption: e.target.value })}
+                          rows={5}
+                          className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
+                        />
+                      </label>
+                    ) : (
+                      <p className="rounded-xl border border-neutral-800/80 bg-neutral-950/40 px-3 py-2 text-xs text-neutral-500">
+                        Story · media only (no title or caption)
+                      </p>
+                    )}
+
                     <label className="block space-y-1">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                        Hook
-                      </span>
-                      <input
-                        value={d.title}
-                        onChange={(e) => patchDraft(row.id, { title: e.target.value })}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
-                      />
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                        Caption (inline edit)
-                      </span>
-                      <textarea
-                        value={d.caption}
-                        onChange={(e) => patchDraft(row.id, { caption: e.target.value })}
-                        rows={5}
-                        className="w-full rounded-xl border border-neutral-800 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none focus:border-orange-500/50"
-                      />
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                        Image URL
+                        Media URL
                       </span>
                       <input
                         value={d.imageUrl}

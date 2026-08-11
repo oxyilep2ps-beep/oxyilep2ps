@@ -4,18 +4,11 @@ import { useRef, useState } from 'react';
 import { ImagePlus, Loader2, Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { AuthToast } from '@/components/auth-toast';
-import { cn } from '@/lib/utils';
+import { isVideoSocialMedia, mediaTypeAccept, mediaTypeAllowedMime } from '@/lib/social/media';
 import type { SocialMediaType } from '@/lib/social/types';
+import { cn } from '@/lib/utils';
 
 const SOCIAL_MEDIA_BUCKET = 'social-media';
-const ALLOWED_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'video/mp4',
-  'video/quicktime',
-]);
 
 type MediaUploaderProps = {
   imageUrl: string;
@@ -27,12 +20,12 @@ type MediaUploaderProps = {
 
 /**
  * Client-only Social Manager media uploader.
- * Uploads to the public `social-media` bucket; never throws into the RSC tree.
+ * Accept MIME types depend on mediaType (post / reel / story).
  */
 export function MediaUploader({
   imageUrl,
   onImageUrlChange,
-  mediaType = 'image',
+  mediaType = 'post',
   canvaUrl = 'https://www.canva.com/',
   className,
 }: MediaUploaderProps) {
@@ -46,17 +39,20 @@ export function MediaUploader({
     if (!file) return;
 
     try {
-      if (!ALLOWED_TYPES.has(file.type)) {
-        setToast({
-          tone: 'error',
-          message: '❌ Image Upload Failed: Use JPEG, PNG, WebP, GIF, MP4, or MOV (max 10MB).',
-        });
+      if (!mediaTypeAllowedMime(mediaType, file.type)) {
+        const hint =
+          mediaType === 'post'
+            ? 'Images only (JPEG, PNG, WebP, GIF).'
+            : mediaType === 'reel'
+              ? 'Videos only (MP4, MOV).'
+              : 'Images or videos (JPEG/PNG/WebP/GIF/MP4/MOV).';
+        setToast({ tone: 'error', message: `❌ Upload Failed: ${hint}` });
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
+      if (file.size > 50 * 1024 * 1024) {
         setToast({
           tone: 'error',
-          message: '❌ Image Upload Failed: File exceeds the 10MB limit.',
+          message: '❌ Upload Failed: File exceeds the 50MB limit.',
         });
         return;
       }
@@ -73,7 +69,7 @@ export function MediaUploader({
       if (authError || !user) {
         const message = authError?.message || 'You must be signed in to upload.';
         console.error('[MediaUploader] auth', authError);
-        setToast({ tone: 'error', message: `❌ Image Upload Failed: ${message}` });
+        setToast({ tone: 'error', message: `❌ Upload Failed: ${message}` });
         return;
       }
 
@@ -89,7 +85,7 @@ export function MediaUploader({
         console.error('[MediaUploader] storage upload', error);
         setToast({
           tone: 'error',
-          message: `❌ Image Upload Failed: ${error.message}`,
+          message: `❌ Upload Failed: ${error.message}`,
         });
         return;
       }
@@ -101,7 +97,7 @@ export function MediaUploader({
       if (!publicUrl) {
         setToast({
           tone: 'error',
-          message: '❌ Image Upload Failed: Could not resolve a public URL.',
+          message: '❌ Upload Failed: Could not resolve a public URL.',
         });
         return;
       }
@@ -111,7 +107,7 @@ export function MediaUploader({
     } catch (err) {
       console.error('[MediaUploader] unexpected', err);
       const message = err instanceof Error ? err.message : 'Unexpected upload failure';
-      setToast({ tone: 'error', message: `❌ Image Upload Failed: ${message}` });
+      setToast({ tone: 'error', message: `❌ Upload Failed: ${message}` });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -119,6 +115,7 @@ export function MediaUploader({
   };
 
   const showPreview = Boolean(imageUrl?.trim()) && !previewBroken;
+  const showVideo = isVideoSocialMedia(mediaType, imageUrl);
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -146,18 +143,21 @@ export function MediaUploader({
         )}
       >
         {showPreview ? (
-          mediaType === 'image' ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+          showVideo ? (
+            <video
               src={imageUrl}
-              alt="Campaign media preview"
+              autoPlay
+              loop
+              muted
+              playsInline
               className="max-h-56 w-full object-cover"
               onError={() => setPreviewBroken(true)}
             />
           ) : (
-            <video
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               src={imageUrl}
-              controls
+              alt="Campaign media preview"
               className="max-h-56 w-full object-cover"
               onError={() => setPreviewBroken(true)}
             />
@@ -171,13 +171,19 @@ export function MediaUploader({
           >
             {uploading ? (
               <Loader2 className="animate-spin text-orange-500" size={28} />
+            ) : mediaType === 'reel' ? (
+              <Video className="text-orange-500" size={28} />
             ) : (
-              (mediaType === 'image' ? <ImagePlus className="text-orange-500" size={28} /> : <Video className="text-orange-500" size={28} />)
+              <ImagePlus className="text-orange-500" size={28} />
             )}
             <span className="text-sm font-semibold">
               {uploading ? 'Uploading…' : 'Drop media or click to upload'}
             </span>
-            <span className="text-[11px] text-neutral-600">JPEG · PNG · WebP · GIF · MP4 · MOV · max 10MB</span>
+            <span className="text-[11px] text-neutral-600">
+              {mediaType === 'post' && 'Images · max 50MB'}
+              {mediaType === 'reel' && 'MP4 / MOV · max 50MB'}
+              {mediaType === 'story' && 'Images or MP4/MOV · max 50MB'}
+            </span>
           </button>
         )}
 
@@ -204,7 +210,7 @@ export function MediaUploader({
         <input
           ref={fileRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,.mov,.mp4"
+          accept={mediaTypeAccept(mediaType)}
           className="hidden"
           onChange={(e) => void uploadFile(e.target.files?.[0])}
         />

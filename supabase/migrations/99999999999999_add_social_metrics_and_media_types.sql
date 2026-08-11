@@ -4,12 +4,12 @@
 begin;
 
 alter table public.social_campaigns
-  add column if not exists media_type varchar not null default 'image'
-    check (media_type in ('image', 'video', 'story')),
+  add column if not exists media_type varchar not null default 'post'
+    check (media_type in ('post', 'reel', 'story')),
   add column if not exists metrics jsonb not null default '{}'::jsonb;
 
 comment on column public.social_campaigns.media_type is
-  'Social media format: image post, video reel, or story.';
+  'Social media format: post, reel, or story.';
 comment on column public.social_campaigns.metrics is
   'Aggregated social performance metrics from Make.com polling.';
 

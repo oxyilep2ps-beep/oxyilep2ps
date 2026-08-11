@@ -11,6 +11,7 @@ import {
 } from '@/app/actions/social-campaigns';
 import { AuthToast } from '@/components/auth-toast';
 import { MediaUploader } from '@/components/social/MediaUploader';
+import { isVideoSocialMedia, normalizeSocialMediaType } from '@/lib/social/media';
 import type { SocialCampaignRow, SocialMediaType } from '@/lib/social/types';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +27,7 @@ export function SocialStudioPanel() {
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [mediaType, setMediaType] = useState<SocialMediaType>('image');
+  const [mediaType, setMediaType] = useState<SocialMediaType>('post');
   const [linkedin, setLinkedin] = useState(true);
   const [instagram, setInstagram] = useState(false);
   const [status, setStatus] = useState<SocialCampaignRow['status']>('draft');
@@ -42,6 +43,12 @@ export function SocialStudioPanel() {
   );
   const charSafe = Number.isFinite(charLimit) ? charLimit : LINKEDIN_MAX;
   const preview = useMemo(() => caption || 'Your caption preview appears here…', [caption]);
+  const showTitle = mediaType === 'post';
+  const showCaption = mediaType === 'post' || mediaType === 'reel';
+  const canSubmit =
+    Boolean(imageUrl.trim()) &&
+    (linkedin || instagram) &&
+    (mediaType === 'story' || Boolean(caption.trim()));
 
   useEffect(() => {
     void (async () => {
@@ -66,12 +73,13 @@ export function SocialStudioPanel() {
   }, [searchParams]);
 
   const loadCampaign = (row: SocialCampaignRow) => {
+    const type = normalizeSocialMediaType(row.media_type);
     setActiveId(row.id);
     setCampaignName(row.campaign_name);
     setTitle(row.title);
     setCaption(row.caption);
     setImageUrl(row.image_url);
-    setMediaType(row.media_type ?? 'image');
+    setMediaType(type);
     setPreviewBroken(false);
     setLinkedin(Boolean(row.channels.linkedin));
     setInstagram(Boolean(row.channels.instagram));
@@ -85,7 +93,7 @@ export function SocialStudioPanel() {
     setTitle('');
     setCaption('');
     setImageUrl('');
-    setMediaType('image');
+    setMediaType('post');
     setPreviewBroken(false);
     setLinkedin(true);
     setInstagram(false);
@@ -93,11 +101,21 @@ export function SocialStudioPanel() {
     setRejectionReason(null);
   };
 
+  const onMediaTypeChange = (next: SocialMediaType) => {
+    setMediaType(next);
+    if (next === 'story') {
+      setTitle('');
+      setCaption('');
+    } else if (next === 'reel') {
+      setTitle('');
+    }
+  };
+
   const payload = () => ({
     id: activeId,
     campaignName,
-    title,
-    caption,
+    title: showTitle ? title : '',
+    caption: showCaption ? caption : '',
     imageUrl,
     mediaType,
     channels: { linkedin, instagram },
@@ -137,8 +155,8 @@ export function SocialStudioPanel() {
   };
 
   const mediaTypeOptions: { id: SocialMediaType; label: string }[] = [
-    { id: 'image', label: 'Post (Image)' },
-    { id: 'video', label: 'Reel (Video)' },
+    { id: 'post', label: 'Post (Image)' },
+    { id: 'reel', label: 'Reel (Video)' },
     { id: 'story', label: 'Story' },
   ];
 
@@ -189,7 +207,7 @@ export function SocialStudioPanel() {
               >
                 <p className="truncate font-semibold">{c.campaign_name}</p>
                 <p className="mt-0.5 text-[10px] uppercase tracking-wider text-neutral-500">
-                  {c.status.replace(/_/g, ' ')}
+                  {normalizeSocialMediaType(c.media_type)} · {c.status.replace(/_/g, ' ')}
                 </p>
               </button>
             ))}
@@ -209,17 +227,6 @@ export function SocialStudioPanel() {
                 placeholder='e.g. "Q3 Lending Rates Announcement"'
               />
             </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                Hook / headline
-              </span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
-                placeholder="Short scroll-stopping hook"
-              />
-            </label>
 
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Media Format</p>
@@ -228,7 +235,7 @@ export function SocialStudioPanel() {
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => setMediaType(opt.id)}
+                    onClick={() => onMediaTypeChange(opt.id)}
                     className={cn(
                       'rounded-full border px-3 py-1.5 text-xs font-bold transition',
                       mediaType === opt.id
@@ -240,7 +247,26 @@ export function SocialStudioPanel() {
                   </button>
                 ))}
               </div>
+              {mediaType === 'story' ? (
+                <p className="mt-2 text-[11px] text-neutral-500">
+                  Stories only need a media file — title and caption are hidden.
+                </p>
+              ) : null}
             </div>
+
+            {showTitle ? (
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                  Hook / headline
+                </span>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
+                  placeholder="Short scroll-stopping hook"
+                />
+              </label>
+            ) : null}
 
             <MediaUploader
               imageUrl={imageUrl}
@@ -254,7 +280,7 @@ export function SocialStudioPanel() {
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                Or paste Canva / CDN image URL
+                Or paste Canva / CDN media URL
               </span>
               <input
                 value={imageUrl}
@@ -267,42 +293,50 @@ export function SocialStudioPanel() {
               />
             </label>
 
-            <label className="block space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                  Caption
-                </span>
-                <span
-                  className={cn(
-                    'text-[11px] font-semibold',
-                    caption.length > charSafe ? 'text-red-400' : 'text-neutral-500'
-                  )}
-                >
-                  {caption.length}/{charSafe}
-                </span>
-              </div>
-              <textarea
-                value={caption}
-                onChange={(e) => setCaption(e.target.value.slice(0, Math.max(charSafe, LINKEDIN_MAX)))}
-                rows={8}
-                required
-                className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
-                placeholder="Write the post body…"
-              />
-            </label>
+            {showCaption ? (
+              <>
+                <label className="block space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                      Caption
+                    </span>
+                    <span
+                      className={cn(
+                        'text-[11px] font-semibold',
+                        caption.length > charSafe ? 'text-red-400' : 'text-neutral-500'
+                      )}
+                    >
+                      {caption.length}/{charSafe}
+                    </span>
+                  </div>
+                  <textarea
+                    value={caption}
+                    onChange={(e) =>
+                      setCaption(e.target.value.slice(0, Math.max(charSafe, LINKEDIN_MAX)))
+                    }
+                    rows={8}
+                    required={mediaType !== 'story'}
+                    className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
+                    placeholder="Write the post body…"
+                  />
+                </label>
 
-            <div className="flex flex-wrap gap-2">
-              {HASHTAGS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => setCaption((c) => (c.includes(tag) ? c : `${c.trim()} ${tag}`.trim()))}
-                  className="rounded-full border border-neutral-700 bg-[#0A0A0A] px-3 py-1 text-xs font-bold text-orange-500 hover:border-orange-500/40"
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  {HASHTAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() =>
+                        setCaption((c) => (c.includes(tag) ? c : `${c.trim()} ${tag}`.trim()))
+                      }
+                      className="rounded-full border border-neutral-700 bg-[#0A0A0A] px-3 py-1 text-xs font-bold text-orange-500 hover:border-orange-500/40"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
           </div>
 
           <div className="space-y-4">
@@ -344,18 +378,21 @@ export function SocialStudioPanel() {
                 Live card preview
               </p>
               {imageUrl.trim() && !previewBroken ? (
-                mediaType === 'image' ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                isVideoSocialMedia(mediaType, imageUrl) ? (
+                  <video
                     src={imageUrl}
-                    alt=""
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
                     className="mt-3 aspect-square w-full rounded-xl object-cover"
                     onError={() => setPreviewBroken(true)}
                   />
                 ) : (
-                  <video
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={imageUrl}
-                    controls
+                    alt=""
                     className="mt-3 aspect-square w-full rounded-xl object-cover"
                     onError={() => setPreviewBroken(true)}
                   />
@@ -365,16 +402,26 @@ export function SocialStudioPanel() {
                   Media preview
                 </div>
               )}
-              <p className="mt-3 text-sm font-bold text-white">{campaignName || title || 'Untitled'}</p>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-neutral-300">
-                {preview}
-              </p>
+              {showTitle || campaignName ? (
+                <p className="mt-3 text-sm font-bold text-white">
+                  {campaignName || title || 'Untitled'}
+                </p>
+              ) : null}
+              {showCaption ? (
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-neutral-300">
+                  {preview}
+                </p>
+              ) : (
+                <p className="mt-2 text-xs uppercase tracking-wider text-neutral-500">
+                  Story · media only
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 type="button"
-                disabled={pending || !caption.trim()}
+                disabled={pending || !canSubmit}
                 onClick={onSaveDraft}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-neutral-700 bg-neutral-900 px-5 py-3 text-sm font-bold text-white hover:border-orange-500/50 disabled:opacity-50"
               >
@@ -383,7 +430,7 @@ export function SocialStudioPanel() {
               </button>
               <button
                 type="submit"
-                disabled={pending || (!linkedin && !instagram) || !caption.trim()}
+                disabled={pending || !canSubmit}
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow-[0_0_24px_rgba(249,115,22,0.35)] disabled:opacity-50"
               >
                 {pending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
