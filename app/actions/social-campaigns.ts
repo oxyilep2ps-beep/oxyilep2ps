@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
 import { assertSocialManagerOrAdmin } from '@/lib/auth/assert-social-manager';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 import { publishToMakeWebhook } from '@/lib/services/socialStudioPublisher';
 import { normalizeSocialMediaType } from '@/lib/social/media';
 import type {
@@ -115,50 +114,13 @@ function revalidateSocial() {
 export async function uploadSocialCampaignAsset(
   formData: FormData
 ): Promise<{ success: true; url: string } | { success: false; error: string }> {
-  try {
-    await assertSocialManagerOrAdmin();
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: 'Unauthorized' };
-
-    const file = formData.get('file');
-    if (!(file instanceof File)) return { success: false, error: 'No file uploaded' };
-    const allowedTypes = new Set([
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'image/gif',
-      'video/mp4',
-      'video/quicktime',
-    ]);
-    if (!allowedTypes.has(file.type)) {
-      return { success: false, error: 'Unsupported media type. Use JPG, PNG, WebP, GIF, MP4, or MOV.' };
-    }
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-    const path = `${user.id}/${Date.now()}-${safeName}`;
-    const { error } = await supabase.storage.from('social-media').upload(path, file, {
-      upsert: true,
-      contentType: file.type || 'image/jpeg',
-    });
-    if (error) {
-      console.error('[uploadSocialCampaignAsset]', error);
-      return { success: false, error: error.message };
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('social-media').getPublicUrl(path);
-
-    if (!publicUrl) return { success: false, error: 'Could not resolve a public URL' };
-    return { success: true, url: publicUrl };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : 'Upload failed';
-    console.error('[uploadSocialCampaignAsset]', e);
-    return { success: false, error: message };
-  }
+  // Ghost Storage rule: never stream large blobs through Vercel Server Actions.
+  // MediaUploader uploads directly to Supabase from the browser.
+  return {
+    success: false,
+    error:
+      'Direct Server Action uploads are disabled. Use the Studio MediaUploader (client → Supabase Storage).',
+  };
 }
 
 export async function listSocialCampaigns(): Promise<SocialCampaignRow[]> {
@@ -560,13 +522,15 @@ export async function approveSocialCampaign(
       .eq('entity_type', 'social_post')
       .eq('entity_id', id);
 
-    // 2) Fire Make.com with standardized payload (empty title/caption allowed for stories).
+    // 2) Fire Make.com with standardized payload + Ghost Storage cleanup callback.
+    //    Make.com should call cleanup_callback_url after platforms download the media.
     const webhook = await publishToMakeWebhook({
       title: mapped.media_type === 'story' ? '' : mapped.title || mapped.campaign_name,
       caption: mapped.media_type === 'story' ? '' : mapped.caption,
       image_url: mapped.image_url,
       media_type: mapped.media_type,
       channels: mapped.channels,
+      campaign_id: mapped.id,
     });
 
     revalidateSocial();

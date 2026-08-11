@@ -11,9 +11,10 @@ import {
 } from '@/app/actions/social-campaigns';
 import { AuthToast } from '@/components/auth-toast';
 import { MediaUploader } from '@/components/social/MediaUploader';
-import { isVideoSocialMedia, normalizeSocialMediaType } from '@/lib/social/media';
+import { normalizeSocialMediaType } from '@/lib/social/media';
 import type { SocialCampaignRow, SocialMediaType } from '@/lib/social/types';
 import { cn } from '@/lib/utils';
+import { SocialMediaPreview } from '@/components/social/social-media-preview';
 
 const HASHTAGS = ['#FinTech', '#UKLending', '#P2P', '#Oxyile'];
 const LINKEDIN_MAX = 3000;
@@ -33,7 +34,6 @@ export function SocialStudioPanel() {
   const [status, setStatus] = useState<SocialCampaignRow['status']>('draft');
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [canvaUrl, setCanvaUrl] = useState('https://www.canva.com/');
-  const [previewBroken, setPreviewBroken] = useState(false);
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
 
@@ -80,7 +80,6 @@ export function SocialStudioPanel() {
     setCaption(row.caption);
     setImageUrl(row.image_url);
     setMediaType(type);
-    setPreviewBroken(false);
     setLinkedin(Boolean(row.channels.linkedin));
     setInstagram(Boolean(row.channels.instagram));
     setStatus(row.status);
@@ -94,7 +93,6 @@ export function SocialStudioPanel() {
     setCaption('');
     setImageUrl('');
     setMediaType('post');
-    setPreviewBroken(false);
     setLinkedin(true);
     setInstagram(false);
     setStatus('draft');
@@ -272,7 +270,6 @@ export function SocialStudioPanel() {
               imageUrl={imageUrl}
               onImageUrlChange={(url) => {
                 setImageUrl(url);
-                setPreviewBroken(false);
               }}
               canvaUrl={canvaUrl}
               mediaType={mediaType}
@@ -286,7 +283,6 @@ export function SocialStudioPanel() {
                 value={imageUrl}
                 onChange={(e) => {
                   setImageUrl(e.target.value);
-                  setPreviewBroken(false);
                 }}
                 className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
                 placeholder="https://…"
@@ -377,31 +373,9 @@ export function SocialStudioPanel() {
               <p className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
                 Live card preview
               </p>
-              {imageUrl.trim() && !previewBroken ? (
-                isVideoSocialMedia(mediaType, imageUrl) ? (
-                  <video
-                    src={imageUrl}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="mt-3 aspect-square w-full rounded-xl object-cover"
-                    onError={() => setPreviewBroken(true)}
-                  />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={imageUrl}
-                    alt=""
-                    className="mt-3 aspect-square w-full rounded-xl object-cover"
-                    onError={() => setPreviewBroken(true)}
-                  />
-                )
-              ) : (
-                <div className="mt-3 flex aspect-square items-center justify-center rounded-xl border border-dashed border-neutral-800 text-sm text-neutral-600">
-                  Media preview
-                </div>
-              )}
+              <div className="mt-3 overflow-hidden rounded-xl border border-neutral-800">
+                <SocialMediaPreview url={imageUrl} mediaType={mediaType} mode="studio" />
+              </div>
               {showTitle || campaignName ? (
                 <p className="mt-3 text-sm font-bold text-white">
                   {campaignName || title || 'Untitled'}

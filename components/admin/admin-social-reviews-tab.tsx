@@ -10,8 +10,8 @@ import {
 } from '@/app/actions/social-campaigns';
 import { AdminMarkNotificationsRead } from '@/components/admin/admin-mark-notifications-read';
 import { AuthToast } from '@/components/auth-toast';
+import { SocialMediaPreview } from '@/components/social/social-media-preview';
 import {
-  isVideoSocialMedia,
   mediaTypeBadgeClass,
   mediaTypeLabel,
   normalizeSocialMediaType,
@@ -198,7 +198,6 @@ export function AdminSocialReviewsTab() {
             const mediaType = d.mediaType;
             const showTitle = mediaType === 'post';
             const showCaption = mediaType === 'post' || mediaType === 'reel';
-            const showVideo = isVideoSocialMedia(mediaType, d.imageUrl);
 
             return (
               <article
@@ -207,26 +206,7 @@ export function AdminSocialReviewsTab() {
               >
                 <div className="grid gap-4 lg:grid-cols-[11rem_1fr]">
                   <div className="overflow-hidden rounded-xl border border-neutral-800 bg-black/40">
-                    {d.imageUrl ? (
-                      showVideo ? (
-                        <video
-                          src={d.imageUrl}
-                          controls
-                          className="aspect-square w-full rounded-md object-cover"
-                        />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={d.imageUrl}
-                          alt=""
-                          className="aspect-square w-full rounded-md object-cover"
-                        />
-                      )
-                    ) : (
-                      <div className="flex aspect-square items-center justify-center text-xs text-neutral-600">
-                        No media
-                      </div>
-                    )}
+                    <SocialMediaPreview url={d.imageUrl} mediaType={mediaType} mode="admin" />
                   </div>
 
                   <div className="space-y-3">

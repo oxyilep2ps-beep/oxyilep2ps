@@ -22,13 +22,14 @@ export function isVideoSocialMedia(mediaType: SocialMediaType, mediaUrl?: string
 
 export function mediaTypeAccept(mediaType: SocialMediaType): string {
   if (mediaType === 'post') return 'image/*';
-  if (mediaType === 'reel') return 'video/mp4,video/quicktime,.mp4,.mov';
-  return 'image/*,video/mp4,video/quicktime,.mp4,.mov';
+  if (mediaType === 'reel') return 'video/mp4,video/quicktime,video/x-m4v,.mp4,.mov,.m4v';
+  return 'image/*,video/mp4,video/quicktime,video/x-m4v,.mp4,.mov,.m4v';
 }
 
 export function mediaTypeAllowedMime(mediaType: SocialMediaType, mime: string): boolean {
   const isImage = mime.startsWith('image/');
-  const isVideo = mime === 'video/mp4' || mime === 'video/quicktime';
+  const isVideo =
+    mime === 'video/mp4' || mime === 'video/quicktime' || mime === 'video/x-m4v';
   if (mediaType === 'post') return isImage;
   if (mediaType === 'reel') return isVideo;
   return isImage || isVideo;
