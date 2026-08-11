@@ -315,7 +315,7 @@ export function SocialStudioPanel() {
                       setCaption(e.target.value.slice(0, Math.max(charSafe, LINKEDIN_MAX)))
                     }
                     rows={8}
-                    required={mediaType !== 'story'}
+                    required
                     className="w-full rounded-xl border border-neutral-800 bg-[#0A0A0A] px-3 py-2.5 text-sm text-white outline-none focus:border-orange-500/50"
                     placeholder="Write the post body…"
                   />
