@@ -13,6 +13,7 @@ export type MakeWebhookPostData = {
   title: string;
   caption: string;
   image_url: string;
+  media_type?: 'image' | 'video' | 'story';
   channels: MakeWebhookChannels;
 };
 
@@ -20,6 +21,7 @@ export type MakeWebhookPayload = {
   title: string;
   caption: string;
   image_url: string;
+  media_type: 'image' | 'video' | 'story';
   channels: MakeWebhookChannels;
   approved_at: string;
   source: 'Oxyile Social Manager Portal';
@@ -35,6 +37,7 @@ export type SocialStudioPostInput = {
   title: string;
   caption: string;
   imageUrl: string | null;
+  mediaType?: 'image' | 'video' | 'story';
   channels: SocialStudioChannels;
 };
 
@@ -58,6 +61,7 @@ function buildPayload(postData: MakeWebhookPostData): MakeWebhookPayload {
     title: postData.title.trim(),
     caption: postData.caption.trim(),
     image_url: postData.image_url.trim(),
+    media_type: postData.media_type ?? 'image',
     channels: {
       linkedin: Boolean(postData.channels.linkedin),
       instagram: Boolean(postData.channels.instagram),
@@ -109,6 +113,7 @@ export async function publishToMakeWebhook(postData: MakeWebhookPostData): Promi
     caption,
     image_url: imageUrl,
     channels: postData.channels,
+    media_type: postData.media_type ?? 'image',
   });
 
   try {
@@ -142,6 +147,7 @@ export async function publishSocialPost(
     title: input.title,
     caption: input.caption,
     image_url: input.imageUrl?.trim() || '',
+    media_type: input.mediaType ?? 'image',
     channels: input.channels,
   });
 

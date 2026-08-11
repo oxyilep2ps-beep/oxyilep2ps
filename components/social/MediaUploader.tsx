@@ -1,17 +1,26 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ImagePlus, Loader2 } from 'lucide-react';
+import { ImagePlus, Loader2, Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { AuthToast } from '@/components/auth-toast';
 import { cn } from '@/lib/utils';
+import type { SocialMediaType } from '@/lib/social/types';
 
 const SOCIAL_MEDIA_BUCKET = 'social-media';
-const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const ALLOWED_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/quicktime',
+]);
 
 type MediaUploaderProps = {
   imageUrl: string;
   onImageUrlChange: (url: string) => void;
+  mediaType?: SocialMediaType;
   canvaUrl?: string;
   className?: string;
 };
@@ -23,6 +32,7 @@ type MediaUploaderProps = {
 export function MediaUploader({
   imageUrl,
   onImageUrlChange,
+  mediaType = 'image',
   canvaUrl = 'https://www.canva.com/',
   className,
 }: MediaUploaderProps) {
@@ -39,7 +49,7 @@ export function MediaUploader({
       if (!ALLOWED_TYPES.has(file.type)) {
         setToast({
           tone: 'error',
-          message: '❌ Image Upload Failed: Use JPEG, PNG, WebP, or GIF (max 10MB).',
+          message: '❌ Image Upload Failed: Use JPEG, PNG, WebP, GIF, MP4, or MOV (max 10MB).',
         });
         return;
       }
@@ -97,7 +107,7 @@ export function MediaUploader({
       }
 
       onImageUrlChange(publicUrl);
-      setToast({ tone: 'success', message: 'Image uploaded to social-media bucket.' });
+      setToast({ tone: 'success', message: 'Media uploaded to social-media bucket.' });
     } catch (err) {
       console.error('[MediaUploader] unexpected', err);
       const message = err instanceof Error ? err.message : 'Unexpected upload failure';
@@ -136,13 +146,22 @@ export function MediaUploader({
         )}
       >
         {showPreview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt="Campaign media preview"
-            className="max-h-56 w-full object-cover"
-            onError={() => setPreviewBroken(true)}
-          />
+          mediaType === 'image' ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt="Campaign media preview"
+              className="max-h-56 w-full object-cover"
+              onError={() => setPreviewBroken(true)}
+            />
+          ) : (
+            <video
+              src={imageUrl}
+              controls
+              className="max-h-56 w-full object-cover"
+              onError={() => setPreviewBroken(true)}
+            />
+          )
         ) : (
           <button
             type="button"
@@ -153,12 +172,12 @@ export function MediaUploader({
             {uploading ? (
               <Loader2 className="animate-spin text-orange-500" size={28} />
             ) : (
-              <ImagePlus className="text-orange-500" size={28} />
+              (mediaType === 'image' ? <ImagePlus className="text-orange-500" size={28} /> : <Video className="text-orange-500" size={28} />)
             )}
             <span className="text-sm font-semibold">
               {uploading ? 'Uploading…' : 'Drop media or click to upload'}
             </span>
-            <span className="text-[11px] text-neutral-600">JPEG · PNG · WebP · GIF · max 10MB</span>
+            <span className="text-[11px] text-neutral-600">JPEG · PNG · WebP · GIF · MP4 · MOV · max 10MB</span>
           </button>
         )}
 
@@ -185,7 +204,7 @@ export function MediaUploader({
         <input
           ref={fileRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
+          accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,.mov,.mp4"
           className="hidden"
           onChange={(e) => void uploadFile(e.target.files?.[0])}
         />

@@ -11,7 +11,7 @@ import {
 } from '@/app/actions/social-campaigns';
 import { AuthToast } from '@/components/auth-toast';
 import { MediaUploader } from '@/components/social/MediaUploader';
-import type { SocialCampaignRow } from '@/lib/social/types';
+import type { SocialCampaignRow, SocialMediaType } from '@/lib/social/types';
 import { cn } from '@/lib/utils';
 
 const HASHTAGS = ['#FinTech', '#UKLending', '#P2P', '#Oxyile'];
@@ -26,6 +26,7 @@ export function SocialStudioPanel() {
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [mediaType, setMediaType] = useState<SocialMediaType>('image');
   const [linkedin, setLinkedin] = useState(true);
   const [instagram, setInstagram] = useState(false);
   const [status, setStatus] = useState<SocialCampaignRow['status']>('draft');
@@ -70,6 +71,7 @@ export function SocialStudioPanel() {
     setTitle(row.title);
     setCaption(row.caption);
     setImageUrl(row.image_url);
+    setMediaType(row.media_type ?? 'image');
     setPreviewBroken(false);
     setLinkedin(Boolean(row.channels.linkedin));
     setInstagram(Boolean(row.channels.instagram));
@@ -83,6 +85,7 @@ export function SocialStudioPanel() {
     setTitle('');
     setCaption('');
     setImageUrl('');
+    setMediaType('image');
     setPreviewBroken(false);
     setLinkedin(true);
     setInstagram(false);
@@ -96,6 +99,7 @@ export function SocialStudioPanel() {
     title,
     caption,
     imageUrl,
+    mediaType,
     channels: { linkedin, instagram },
   });
 
@@ -131,6 +135,12 @@ export function SocialStudioPanel() {
       setCampaigns(await listSocialCampaigns());
     });
   };
+
+  const mediaTypeOptions: { id: SocialMediaType; label: string }[] = [
+    { id: 'image', label: 'Post (Image)' },
+    { id: 'video', label: 'Reel (Video)' },
+    { id: 'story', label: 'Story' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -211,6 +221,27 @@ export function SocialStudioPanel() {
               />
             </label>
 
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-neutral-500">Media Format</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {mediaTypeOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setMediaType(opt.id)}
+                    className={cn(
+                      'rounded-full border px-3 py-1.5 text-xs font-bold transition',
+                      mediaType === opt.id
+                        ? 'border-orange-500/50 bg-orange-500/15 text-orange-500'
+                        : 'border-neutral-700 text-neutral-400 hover:border-orange-500/40 hover:bg-neutral-800/60'
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <MediaUploader
               imageUrl={imageUrl}
               onImageUrlChange={(url) => {
@@ -218,6 +249,7 @@ export function SocialStudioPanel() {
                 setPreviewBroken(false);
               }}
               canvaUrl={canvaUrl}
+              mediaType={mediaType}
             />
 
             <label className="block space-y-1.5">
@@ -312,13 +344,22 @@ export function SocialStudioPanel() {
                 Live card preview
               </p>
               {imageUrl.trim() && !previewBroken ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imageUrl}
-                  alt=""
-                  className="mt-3 aspect-square w-full rounded-xl object-cover"
-                  onError={() => setPreviewBroken(true)}
-                />
+                mediaType === 'image' ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="mt-3 aspect-square w-full rounded-xl object-cover"
+                    onError={() => setPreviewBroken(true)}
+                  />
+                ) : (
+                  <video
+                    src={imageUrl}
+                    controls
+                    className="mt-3 aspect-square w-full rounded-xl object-cover"
+                    onError={() => setPreviewBroken(true)}
+                  />
+                )
               ) : (
                 <div className="mt-3 flex aspect-square items-center justify-center rounded-xl border border-dashed border-neutral-800 text-sm text-neutral-600">
                   Media preview

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  Activity,
   BookOpen,
   CalendarDays,
   Home,
@@ -24,6 +25,7 @@ type NavDef = {
 
 const ALL_NAV: NavDef[] = [
   { href: '/social', label: 'Overview', icon: Home, exact: true },
+  { href: '/social/analytics', label: 'Analytics', icon: Activity },
   { href: '/social/studio', label: 'Social Studio', icon: Share2 },
   { href: '/social/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/social/guide', label: 'Social Guide', icon: BookOpen },

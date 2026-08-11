@@ -5,6 +5,8 @@ export type SocialPostStatus =
   | 'rejected'
   | 'published';
 
+export type SocialMediaType = 'image' | 'video' | 'story';
+
 export type SocialPostChannels = {
   linkedin: boolean;
   instagram: boolean;
@@ -29,8 +31,16 @@ export type SocialCampaignRow = {
   title: string;
   caption: string;
   image_url: string;
+  media_type: SocialMediaType;
   channels: SocialPostChannels;
   status: SocialPostStatus;
+  metrics: {
+    likes: number;
+    comments: number;
+    impressions: number;
+    ctr: number;
+    clicks: number;
+  };
   scheduled_for: string | null;
   rejection_reason: string | null;
   created_by: string | null;
@@ -39,10 +49,29 @@ export type SocialCampaignRow = {
 };
 
 export type SocialOverviewMetrics = {
-  activeCampaigns: number;
+  totalAudienceReach: number;
+  platformTrafficLast30Days: number;
+  averageEngagementRate: number;
   pendingApproval: number;
-  publishedThisMonth: number;
+  activeCampaigns: number;
   webhookSuccessRate: number | null;
+};
+
+export type SocialTrendPoint = {
+  date: string;
+  reach: number;
+  websiteClicks: number;
+};
+
+export type TopPerformingContentRow = {
+  id: string;
+  campaign: string;
+  format: SocialMediaType;
+  likes: number;
+  comments: number;
+  clicks: number;
+  impressions: number;
+  publishDate: string;
 };
 
 export type WebhookHealth = {

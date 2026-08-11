@@ -31,19 +31,16 @@ export function SocialOverviewClient() {
   }, [load]);
 
   const cards = [
-    { label: 'Active Campaigns', value: metrics?.activeCampaigns ?? '—' },
+    { label: 'Total Audience Reach', value: metrics?.totalAudienceReach ?? '—' },
+    { label: 'Platform Traffic (30d)', value: metrics?.platformTrafficLast30Days ?? '—' },
+    { label: 'Average Engagement Rate', value: `${metrics?.averageEngagementRate ?? 0}%` },
     { label: 'Pending Admin Approval', value: metrics?.pendingApproval ?? '—' },
-    { label: 'Published This Month', value: metrics?.publishedThisMonth ?? '—' },
-    {
-      label: 'Webhook Syndication Ready',
-      value:
-        metrics?.webhookSuccessRate == null ? 'Pending Setup' : `${metrics.webhookSuccessRate}%`,
-    },
+    { label: 'Active Campaigns', value: metrics?.activeCampaigns ?? '—' },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => (
           <div
             key={card.label}
@@ -70,6 +67,12 @@ export function SocialOverviewClient() {
             className="rounded-full bg-orange-500 px-4 py-2 text-xs font-bold text-white hover:bg-orange-600"
           >
             + Create Campaign
+          </Link>
+          <Link
+            href="/social/analytics"
+            className="rounded-full border border-neutral-700 bg-[#0A0A0A] px-4 py-2 text-xs font-bold text-orange-500 hover:border-orange-500/40"
+          >
+            Open Analytics
           </Link>
         </div>
 

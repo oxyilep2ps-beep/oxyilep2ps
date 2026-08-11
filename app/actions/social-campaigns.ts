@@ -7,9 +7,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { publishToMakeWebhook } from '@/lib/services/socialStudioPublisher';
 import type {
+  SocialMediaType,
   SocialCampaignRow,
   SocialOverviewMetrics,
   SocialPostChannels,
+  SocialTrendPoint,
+  TopPerformingContentRow,
   WebhookHealth,
 } from '@/lib/social/types';
 
@@ -25,14 +28,26 @@ function mapChannels(value: unknown): SocialPostChannels {
 }
 
 function mapCampaign(row: Record<string, unknown>): SocialCampaignRow {
+  const rawMetrics =
+    row.metrics && typeof row.metrics === 'object' && !Array.isArray(row.metrics)
+      ? (row.metrics as Record<string, unknown>)
+      : {};
   return {
     id: String(row.id),
     campaign_name: String(row.campaign_name ?? ''),
     title: String(row.title ?? ''),
     caption: String(row.caption ?? ''),
     image_url: String(row.image_url ?? ''),
+    media_type: (row.media_type as SocialMediaType) ?? 'image',
     channels: mapChannels(row.channels),
     status: row.status as SocialCampaignRow['status'],
+    metrics: {
+      likes: Number(rawMetrics.likes ?? 0),
+      comments: Number(rawMetrics.comments ?? 0),
+      impressions: Number(rawMetrics.impressions ?? 0),
+      ctr: Number(rawMetrics.ctr ?? 0),
+      clicks: Number(rawMetrics.clicks ?? 0),
+    },
     scheduled_for: (row.scheduled_for as string | null) ?? null,
     rejection_reason: (row.rejection_reason as string | null) ?? null,
     created_by: (row.created_by as string | null) ?? null,
@@ -61,6 +76,17 @@ export async function uploadSocialCampaignAsset(
 
     const file = formData.get('file');
     if (!(file instanceof File)) return { success: false, error: 'No file uploaded' };
+    const allowedTypes = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'video/mp4',
+      'video/quicktime',
+    ]);
+    if (!allowedTypes.has(file.type)) {
+      return { success: false, error: 'Unsupported media type. Use JPG, PNG, WebP, GIF, MP4, or MOV.' };
+    }
 
     const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
     const path = `${user.id}/${Date.now()}-${safeName}`;
@@ -118,11 +144,13 @@ export async function getSocialCampaign(id: string): Promise<SocialCampaignRow |
 export async function getSocialOverviewMetrics(): Promise<SocialOverviewMetrics> {
   await assertSocialManagerOrAdmin();
   const admin = createAdminClient();
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
 
-  const [active, pending, published] = await Promise.all([
+  const since30Days = new Date();
+  since30Days.setDate(since30Days.getDate() - 30);
+  const since7Days = new Date();
+  since7Days.setDate(since7Days.getDate() - 7);
+
+  const [active, pending, analyticsRows, publishedRows] = await Promise.all([
     admin
       .from('social_campaigns')
       .select('id', { count: 'exact', head: true })
@@ -132,10 +160,14 @@ export async function getSocialOverviewMetrics(): Promise<SocialOverviewMetrics>
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending_approval'),
     admin
+      .from('platform_analytics')
+      .select('total_visitors,total_blog_reads')
+      .gte('date', since30Days.toISOString().slice(0, 10)),
+    admin
       .from('social_campaigns')
-      .select('id', { count: 'exact', head: true })
+      .select('metrics')
       .eq('status', 'published')
-      .gte('updated_at', startOfMonth.toISOString()),
+      .gte('updated_at', since7Days.toISOString()),
   ]);
 
   const syndication = Boolean(
@@ -144,12 +176,115 @@ export async function getSocialOverviewMetrics(): Promise<SocialOverviewMetrics>
   );
   const webhookSuccessRate = syndication ? 100 : null;
 
+  const platformTrafficLast30Days = (analyticsRows.data ?? []).reduce((sum, row) => {
+    const r = row as Record<string, unknown>;
+    return sum + Number(r.total_visitors ?? 0) + Number(r.total_blog_reads ?? 0);
+  }, 0);
+
+  let engagementRateTotal = 0;
+  let engagementRateRows = 0;
+  for (const row of publishedRows.data ?? []) {
+    const metrics = ((row as Record<string, unknown>).metrics ?? {}) as Record<string, unknown>;
+    const likes = Number(metrics.likes ?? 0);
+    const comments = Number(metrics.comments ?? 0);
+    const impressions = Number(metrics.impressions ?? 0);
+    if (impressions > 0) {
+      engagementRateTotal += ((likes + comments) / impressions) * 100;
+      engagementRateRows += 1;
+    }
+  }
+  const averageEngagementRate =
+    engagementRateRows > 0 ? Number((engagementRateTotal / engagementRateRows).toFixed(2)) : 0;
+  const totalAudienceReach = (publishedRows.data ?? []).reduce((sum, row) => {
+    const metrics = ((row as Record<string, unknown>).metrics ?? {}) as Record<string, unknown>;
+    return sum + Number(metrics.impressions ?? 0);
+  }, 0);
+
   return {
-    activeCampaigns: active.count ?? 0,
+    totalAudienceReach,
+    platformTrafficLast30Days,
+    averageEngagementRate,
     pendingApproval: pending.count ?? 0,
-    publishedThisMonth: published.count ?? 0,
+    activeCampaigns: active.count ?? 0,
     webhookSuccessRate,
   };
+}
+
+export async function getSocialAnalyticsTrend(): Promise<SocialTrendPoint[]> {
+  await assertSocialManagerOrAdmin();
+  const admin = createAdminClient();
+  const since7Days = new Date();
+  since7Days.setDate(since7Days.getDate() - 6);
+
+  const [publishedRows, analyticsRows] = await Promise.all([
+    admin
+      .from('social_campaigns')
+      .select('updated_at,metrics')
+      .eq('status', 'published')
+      .gte('updated_at', since7Days.toISOString()),
+    admin
+      .from('platform_analytics')
+      .select('date,total_visitors,total_blog_reads')
+      .gte('date', since7Days.toISOString().slice(0, 10)),
+  ]);
+
+  const seed: Record<string, SocialTrendPoint> = {};
+  for (let i = 0; i < 7; i += 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const key = d.toISOString().slice(0, 10);
+    seed[key] = { date: key.slice(5), reach: 0, websiteClicks: 0 };
+  }
+
+  for (const row of publishedRows.data ?? []) {
+    const r = row as Record<string, unknown>;
+    const key = String(r.updated_at ?? '').slice(0, 10);
+    if (!seed[key]) continue;
+    const metrics = ((r.metrics ?? {}) as Record<string, unknown>) ?? {};
+    seed[key].reach += Number(metrics.impressions ?? 0);
+  }
+
+  for (const row of analyticsRows.data ?? []) {
+    const r = row as Record<string, unknown>;
+    const key = String(r.date ?? '');
+    if (!seed[key]) continue;
+    seed[key].websiteClicks += Number(r.total_visitors ?? 0) + Number(r.total_blog_reads ?? 0);
+  }
+
+  return Object.keys(seed)
+    .sort()
+    .map((k) => seed[k]);
+}
+
+export async function getTopPerformingContent(): Promise<TopPerformingContentRow[]> {
+  await assertSocialManagerOrAdmin();
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('social_campaigns')
+    .select('id,campaign_name,media_type,metrics,updated_at,status')
+    .eq('status', 'published')
+    .order('updated_at', { ascending: false })
+    .limit(200);
+  if (error) return [];
+
+  const mapped: TopPerformingContentRow[] = (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    const metrics = ((r.metrics ?? {}) as Record<string, unknown>) ?? {};
+    return {
+      id: String(r.id),
+      campaign: String(r.campaign_name ?? ''),
+      format: (r.media_type as SocialMediaType) ?? 'image',
+      likes: Number(metrics.likes ?? 0),
+      comments: Number(metrics.comments ?? 0),
+      clicks: Number(metrics.clicks ?? 0),
+      impressions: Number(metrics.impressions ?? 0),
+      publishDate: String(r.updated_at ?? ''),
+    };
+  });
+
+  return mapped
+    .sort((a, b) => b.likes + b.impressions - (a.likes + a.impressions))
+    .slice(0, 10);
 }
 
 export async function getSocialWebhookHealth(): Promise<WebhookHealth> {
@@ -184,6 +319,7 @@ export async function saveSocialCampaignDraft(input: {
   title: string;
   caption: string;
   imageUrl: string;
+  mediaType?: SocialMediaType;
   channels: SocialPostChannels;
   scheduledFor?: string | null;
 }): Promise<{ ok: true; campaign: SocialCampaignRow } | { ok: false; error: string }> {
@@ -200,6 +336,7 @@ export async function saveSocialCampaignDraft(input: {
       title: input.title.trim() || input.campaignName.trim() || 'Untitled',
       caption: input.caption.trim(),
       image_url: input.imageUrl?.trim() || '',
+      media_type: input.mediaType ?? 'image',
       channels: input.channels,
       status: 'draft' as const,
       rejection_reason: null,
@@ -235,6 +372,7 @@ export async function submitSocialCampaignForApproval(input: {
   title: string;
   caption: string;
   imageUrl: string;
+  mediaType?: SocialMediaType;
   channels: SocialPostChannels;
   scheduledFor?: string | null;
 }): Promise<{ ok: true; campaign: SocialCampaignRow } | { ok: false; error: string }> {
@@ -251,6 +389,7 @@ export async function submitSocialCampaignForApproval(input: {
       title: input.title.trim() || input.campaignName.trim() || 'Untitled',
       caption: input.caption.trim(),
       image_url: input.imageUrl?.trim() || '',
+      media_type: input.mediaType ?? 'image',
       channels: input.channels,
       status: 'pending_approval' as const,
       rejection_reason: null,
@@ -305,6 +444,7 @@ export async function updatePendingSocialCampaign(
     title?: string;
     caption?: string;
     imageUrl?: string;
+    mediaType?: SocialMediaType;
     channels?: SocialPostChannels;
   }
 ): Promise<{ ok: true; campaign: SocialCampaignRow } | { ok: false; error: string }> {
@@ -318,6 +458,7 @@ export async function updatePendingSocialCampaign(
         ...(updates.title !== undefined ? { title: updates.title.trim() } : {}),
         ...(updates.caption !== undefined ? { caption: updates.caption.trim() } : {}),
         ...(updates.imageUrl !== undefined ? { image_url: updates.imageUrl.trim() } : {}),
+        ...(updates.mediaType !== undefined ? { media_type: updates.mediaType } : {}),
         ...(updates.channels !== undefined ? { channels: updates.channels } : {}),
         updated_at: new Date().toISOString(),
       })
@@ -339,6 +480,7 @@ export async function approveSocialCampaign(
     title?: string;
     caption?: string;
     imageUrl?: string;
+    mediaType?: SocialMediaType;
     channels?: SocialPostChannels;
   }
 ): Promise<
@@ -381,6 +523,7 @@ export async function approveSocialCampaign(
       title: mapped.title || mapped.campaign_name,
       caption: mapped.caption,
       image_url: mapped.image_url,
+      media_type: mapped.media_type,
       channels: mapped.channels,
     });
 
