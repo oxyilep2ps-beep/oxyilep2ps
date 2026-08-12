@@ -30,6 +30,7 @@ const ROLE_OPTIONS: { value: PlatformElevatedRole; label: string }[] = [
   { value: 'HR', label: 'HR' },
   { value: 'BLOGGER', label: 'Blogger' },
   { value: 'SOCIAL_MANAGER', label: 'Social Media Manager — /social access' },
+  { value: 'EMPLOYEE', label: 'Employee — /employee portal access' },
 ];
 
 type AccessTab = 'employees' | 'borrowers' | 'investors';
@@ -44,6 +45,8 @@ function roleBadgeClass(role: PlatformElevatedRole): string {
       return 'bg-violet-500/15 text-violet-800 dark:text-violet-300';
     case 'SOCIAL_MANAGER':
       return 'bg-orange-500/15 text-orange-700 dark:text-orange-300';
+    case 'EMPLOYEE':
+      return 'bg-sky-500/15 text-sky-800 dark:text-sky-300';
     default:
       return 'bg-neutral-200 text-neutral-700';
   }

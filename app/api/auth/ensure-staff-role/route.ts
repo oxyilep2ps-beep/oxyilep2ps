@@ -41,5 +41,10 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  if (elevatedRole === 'EMPLOYEE') {
+    const { ensureEmployeePortalRows } = await import('@/app/actions/employee-portal');
+    await ensureEmployeePortalRows(user.id);
+  }
+
   return NextResponse.json({ ok: true, role: elevatedRole });
 }

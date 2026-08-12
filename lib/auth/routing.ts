@@ -44,6 +44,10 @@ export function getAuthRedirectPath(
     return '/social';
   }
 
+  if (profile?.role === 'EMPLOYEE') {
+    return '/employee/dashboard';
+  }
+
   const status = normalizeProfileStatus(profile?.status as string | undefined);
 
   if (!profile || isPendingStatus(status)) {
@@ -56,6 +60,7 @@ export function getAuthRedirectPath(
     if (profile.role === 'HR') return '/hr';
     if (profile.role === 'BLOGGER') return '/blogger';
     if (profile.role === 'SOCIAL_MANAGER') return '/social';
+    if (profile.role === 'EMPLOYEE') return '/employee/dashboard';
   }
 
   return '/pending-verification';
@@ -66,6 +71,7 @@ export const PROTECTED_PREFIXES = [
   '/hr',
   '/blogger',
   '/social',
+  '/employee/dashboard',
   '/pending-verification',
   '/dashboard',
   '/chats',
@@ -88,13 +94,14 @@ export function canAccessPath(
   profile: Pick<Profile, 'role' | 'status'> | null,
   email: string
 ): boolean {
-  // Admins can access the full staff surface (admin + HR + blogger + social portals).
+  // Admins can access the full staff surface (admin + HR + blogger + social + employee portals).
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return (
       pathname.startsWith('/admin-dashboard') ||
       pathname.startsWith('/hr') ||
       pathname.startsWith('/blogger') ||
       pathname.startsWith('/social') ||
+      pathname.startsWith('/employee/dashboard') ||
       pathname.startsWith('/payments/mandate-complete') ||
       pathname.startsWith('/payments/sandbox')
     );
@@ -113,6 +120,11 @@ export function canAccessPath(
   // Social Media Managers are scoped to the Social Manager Portal.
   if (profile?.role === 'SOCIAL_MANAGER') {
     return pathname.startsWith('/social');
+  }
+
+  // Standard employees are scoped to the Employee Portal.
+  if (profile?.role === 'EMPLOYEE') {
+    return pathname.startsWith('/employee/dashboard');
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);

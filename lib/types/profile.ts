@@ -5,7 +5,8 @@ export type ProfileRole =
   | 'BORROWER'
   | 'HR'
   | 'BLOGGER'
-  | 'SOCIAL_MANAGER';
+  | 'SOCIAL_MANAGER'
+  | 'EMPLOYEE';
 
 /** Matches Supabase `profile_status` enum. */
 export type ProfileStatus = 'PENDING' | 'APPROVED';

@@ -53,6 +53,7 @@ const items: {
   { href: '/admin-dashboard/oliver', label: 'Oliver', icon: Bot },
   { href: '/admin-dashboard/careers', label: 'Careers', icon: Briefcase, badgeKey: 'resumes' },
   { href: '/admin-dashboard/hr-overview', label: 'HR Exec', icon: Building2 },
+  { href: '/admin-dashboard/employees', label: 'Employees', icon: Users },
   { href: '/admin-dashboard/chat', label: 'Chat', icon: MessageCircle },
   { href: '/admin-dashboard/theme', label: 'Theme', icon: Palette },
   { href: '/admin-dashboard/profile', label: 'Profile', icon: User, exact: true },

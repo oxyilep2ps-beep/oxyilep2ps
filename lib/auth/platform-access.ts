@@ -3,7 +3,7 @@ import type { ProfileRole } from '@/lib/types/profile';
 import { isAdminEmail } from '@/lib/auth/routing';
 import { isBloggerStaffEmail, isHrStaffEmail, type StaffRole } from '@/lib/auth/role-emails';
 
-export type ElevatedPlatformRole = 'ADMIN' | 'HR' | 'BLOGGER' | 'SOCIAL_MANAGER';
+export type ElevatedPlatformRole = 'ADMIN' | 'HR' | 'BLOGGER' | 'SOCIAL_MANAGER' | 'EMPLOYEE';
 
 /** Resolve elevated role from hardcoded staff emails + ADMIN_EMAIL env (no DB). */
 export function elevatedRoleFromHardcodedEmail(email: string | undefined | null): ElevatedPlatformRole | null {
@@ -38,6 +38,7 @@ export async function getPlatformAccessRole(email: string | undefined | null): P
       if (mapped === 'hr') return 'HR';
       if (mapped === 'blogger') return 'BLOGGER';
       if (mapped === 'social_manager') return 'SOCIAL_MANAGER';
+      if (mapped === 'employee') return 'EMPLOYEE';
     }
 
     const { data } = await admin
@@ -47,7 +48,13 @@ export async function getPlatformAccessRole(email: string | undefined | null): P
       .maybeSingle();
 
     const role = data?.role as string | undefined;
-    if (role === 'ADMIN' || role === 'HR' || role === 'BLOGGER' || role === 'SOCIAL_MANAGER') {
+    if (
+      role === 'ADMIN' ||
+      role === 'HR' ||
+      role === 'BLOGGER' ||
+      role === 'SOCIAL_MANAGER' ||
+      role === 'EMPLOYEE'
+    ) {
       return role;
     }
   } catch {
@@ -63,5 +70,11 @@ export function staffRoleFromElevated(role: ElevatedPlatformRole | null): StaffR
 }
 
 export function isElevatedProfileRole(role: ProfileRole | string | null | undefined): boolean {
-  return role === 'ADMIN' || role === 'HR' || role === 'BLOGGER' || role === 'SOCIAL_MANAGER';
+  return (
+    role === 'ADMIN' ||
+    role === 'HR' ||
+    role === 'BLOGGER' ||
+    role === 'SOCIAL_MANAGER' ||
+    role === 'EMPLOYEE'
+  );
 }

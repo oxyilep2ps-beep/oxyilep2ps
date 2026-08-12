@@ -15,7 +15,8 @@ function isStaffPortalPath(pathname: string): boolean {
     pathname.startsWith('/hr') ||
     pathname.startsWith('/blogger') ||
     pathname.startsWith('/social') ||
-    pathname.startsWith('/admin-dashboard')
+    pathname.startsWith('/admin-dashboard') ||
+    pathname.startsWith('/employee/dashboard')
   );
 }
 
@@ -27,7 +28,10 @@ export async function middleware(request: NextRequest) {
 
   if (
     pathname.startsWith('/auth/callback') ||
-    pathname.startsWith('/employee/') ||
+    pathname === '/employee/login' ||
+    pathname === '/employee/signup' ||
+    pathname.startsWith('/employee/login/') ||
+    pathname.startsWith('/employee/signup/') ||
     pathname === '/suspended'
   ) {
     return supabaseResponse;
@@ -58,7 +62,8 @@ export async function middleware(request: NextRequest) {
       profile?.role === 'ADMIN' ||
       profile?.role === 'HR' ||
       profile?.role === 'BLOGGER' ||
-      profile?.role === 'SOCIAL_MANAGER';
+      profile?.role === 'SOCIAL_MANAGER' ||
+      profile?.role === 'EMPLOYEE';
 
     if (isElevated) {
       const { data: employeeRow, error: employeeLookupError } = await supabase

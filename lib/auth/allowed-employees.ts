@@ -2,7 +2,7 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export type EmployeeRole = 'admin' | 'hr' | 'blogger' | 'social_manager';
+export type EmployeeRole = 'admin' | 'hr' | 'blogger' | 'social_manager' | 'employee';
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -18,7 +18,15 @@ export async function getAllowedEmployeeRole(email: string): Promise<EmployeeRol
 
   if (error || !data?.role) return null;
   const role = String(data.role).toLowerCase();
-  if (role === 'admin' || role === 'hr' || role === 'blogger' || role === 'social_manager') return role;
+  if (
+    role === 'admin' ||
+    role === 'hr' ||
+    role === 'blogger' ||
+    role === 'social_manager' ||
+    role === 'employee'
+  ) {
+    return role;
+  }
   return null;
 }
 
@@ -32,7 +40,7 @@ export async function assertEmailAllowedForEmployeeSignup(email: string): Promis
 
 export function employeeRoleToProfileRole(
   role: EmployeeRole
-): 'ADMIN' | 'HR' | 'BLOGGER' | 'SOCIAL_MANAGER' {
+): 'ADMIN' | 'HR' | 'BLOGGER' | 'SOCIAL_MANAGER' | 'EMPLOYEE' {
   switch (role) {
     case 'admin':
       return 'ADMIN';
@@ -42,6 +50,8 @@ export function employeeRoleToProfileRole(
       return 'BLOGGER';
     case 'social_manager':
       return 'SOCIAL_MANAGER';
+    case 'employee':
+      return 'EMPLOYEE';
   }
 }
 
@@ -55,6 +65,8 @@ export function profileRoleToEmployeeRole(role: string): EmployeeRole | null {
       return 'blogger';
     case 'SOCIAL_MANAGER':
       return 'social_manager';
+    case 'EMPLOYEE':
+      return 'employee';
     default:
       return null;
   }
