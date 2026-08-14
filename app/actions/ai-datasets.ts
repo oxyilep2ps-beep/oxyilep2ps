@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { assertAdmin } from '@/lib/auth/assert-admin';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, tryCreateAdminClient } from '@/lib/supabase/admin';
 import {
   buildRegistryFromManifest,
   type DatasetManifestFile,
@@ -11,14 +11,18 @@ import {
 } from '@/lib/simulation/dataset-registry';
 
 const MANIFEST_PATH = path.join(process.cwd(), 'DATASETS', 'dataset_manifest.json');
+const FALLBACK_MANIFEST_PATH = path.join(process.cwd(), 'lib', 'simulation', 'dataset-manifest.fallback.json');
 
 function loadManifestFromDisk(): DatasetManifestFile | null {
-  try {
-    if (!fs.existsSync(MANIFEST_PATH)) return null;
-    return JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8')) as DatasetManifestFile;
-  } catch {
-    return null;
+  for (const candidate of [MANIFEST_PATH, FALLBACK_MANIFEST_PATH]) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      return JSON.parse(fs.readFileSync(candidate, 'utf-8')) as DatasetManifestFile;
+    } catch {
+      /* try next */
+    }
   }
+  return null;
 }
 
 export async function listAiTrainingDatasets(): Promise<{
@@ -27,29 +31,31 @@ export async function listAiTrainingDatasets(): Promise<{
   source: 'supabase' | 'manifest';
 }> {
   await assertAdmin();
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
 
-  const { data, error } = await admin
-    .from('ai_dataset_registry')
-    .select('*')
-    .order('display_name', { ascending: true });
+  if (admin) {
+    const { data, error } = await admin
+      .from('ai_dataset_registry')
+      .select('*')
+      .order('display_name', { ascending: true });
 
-  if (!error && data && data.length > 0) {
-    return {
-      source: 'supabase',
-      generatedAt: null,
-      datasets: data.map((row) => ({
-        slug: String(row.slug),
-        displayName: String(row.display_name),
-        rowCount: Number(row.row_count ?? 0),
-        status: row.simulation_status as DatasetRegistryEntry['status'],
-        featureMapping: String(row.feature_mapping ?? ''),
-        supabaseTable: (row.supabase_table as string | null) ?? null,
-        excelFile: (row.excel_file as string | null) ?? null,
-        sourceFile: String(row.source_file ?? ''),
-        truncated: Boolean(row.truncated),
-      })),
-    };
+    if (!error && data && data.length > 0) {
+      return {
+        source: 'supabase',
+        generatedAt: null,
+        datasets: data.map((row) => ({
+          slug: String(row.slug),
+          displayName: String(row.display_name),
+          rowCount: Number(row.row_count ?? 0),
+          status: row.simulation_status as DatasetRegistryEntry['status'],
+          featureMapping: String(row.feature_mapping ?? ''),
+          supabaseTable: (row.supabase_table as string | null) ?? null,
+          excelFile: (row.excel_file as string | null) ?? null,
+          sourceFile: String(row.source_file ?? ''),
+          truncated: Boolean(row.truncated),
+        })),
+      };
+    }
   }
 
   const manifest = loadManifestFromDisk();

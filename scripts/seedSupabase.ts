@@ -16,6 +16,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { chain } from 'stream-chain';
 import { parser } from 'stream-json';
 import { streamArray } from 'stream-json/streamers/StreamArray';
+import { buildRegistryFromManifest, type DatasetManifestFile } from '../lib/simulation/dataset-registry';
 
 function loadLocalEnv() {
   const envPath = path.resolve(__dirname, '..', '.env.local');
@@ -309,6 +310,36 @@ async function seedFraudFlags(supabase: SupabaseClient, batchSize: number, maxRo
   );
 }
 
+async function seedRegistry(supabase: SupabaseClient) {
+  const candidates = [
+    path.join(DATASETS_DIR, 'dataset_manifest.json'),
+    path.join(ROOT, 'lib', 'simulation', 'dataset-manifest.fallback.json'),
+  ];
+  const file = candidates.find((p) => fs.existsSync(p));
+  if (!file) {
+    log('No dataset_manifest.json — skip ai_dataset_registry');
+    return;
+  }
+  const manifest = JSON.parse(fs.readFileSync(file, 'utf-8')) as DatasetManifestFile;
+  const registry = buildRegistryFromManifest(manifest);
+  const rows = registry.map((entry) => ({
+    slug: entry.slug,
+    display_name: entry.displayName,
+    source_file: entry.sourceFile,
+    row_count: entry.rowCount,
+    excel_file: entry.excelFile,
+    simulation_status: entry.status,
+    feature_mapping: entry.featureMapping,
+    supabase_table: entry.supabaseTable,
+    truncated: Boolean(entry.truncated),
+    last_ingested_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+  const { error } = await supabase.from('ai_dataset_registry').upsert(rows as never, { onConflict: 'slug' });
+  if (error) throw new Error(`ai_dataset_registry: ${error.message}`);
+  log(`ai_dataset_registry upserted ${rows.length} datasets from ${path.basename(file)}`);
+}
+
 async function seedMacroIndex(supabase: SupabaseClient, batchSize: number) {
   const file = path.join(DATASETS_DIR, 'us_commercial_industrial_loans.json');
   if (!fs.existsSync(file)) return;
@@ -336,6 +367,12 @@ async function main() {
     console.error('Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
     process.exit(1);
   }
+  if (key.split('.').length !== 3) {
+    console.error(
+      'SUPABASE_SERVICE_ROLE_KEY is truncated (JWT must have 3 dot-separated parts). Paste the full service_role secret from Supabase → Project Settings → API as one line in .env.local.'
+    );
+    process.exit(1);
+  }
 
   if (!fs.existsSync(DATASETS_DIR)) {
     console.error(`Missing DATASETS dir: ${DATASETS_DIR}`);
@@ -347,6 +384,7 @@ async function main() {
 
   const run = (name: string) => !only || only.includes(name);
 
+  if (run('registry')) await seedRegistry(supabase);
   if (run('esg')) await seedEsgBusinessEntities(supabase, batch);
   if (run('individuals')) await seedIndividualEntities(supabase, batch);
   if (run('sme_loans')) await seedSmeLoans(supabase, batch);
