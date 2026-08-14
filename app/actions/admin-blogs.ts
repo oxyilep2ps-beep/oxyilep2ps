@@ -5,7 +5,7 @@ import { assertAdmin } from '@/lib/auth/assert-admin';
 import { slugifyBlogTitle } from '@/lib/blog/slug';
 import type { BlogRow } from '@/lib/blog/types';
 import { normalizeTagList } from '@/lib/blog/tags';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, tryCreateAdminClient } from '@/lib/supabase/admin';
 import { triggerSocialSyndication } from '@/lib/services/socialSyndication';
 import { logAdminAction } from '@/app/actions/admin-audit';
 
@@ -266,7 +266,9 @@ export async function deleteAdminBlog(id: string) {
 }
 
 export async function listApprovedBlogsPublic() {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return [];
+
   const { data, error } = await admin
     .from('blogs')
     .select('id, title, slug, content, cover_image_url, cover_image, created_at, published_at, tags, priority')
@@ -280,7 +282,9 @@ export async function listApprovedBlogsPublic() {
 }
 
 export async function getApprovedBlogBySlug(slug: string) {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return null;
+
   const { data } = await admin
     .from('blogs')
     .select(

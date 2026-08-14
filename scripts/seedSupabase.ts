@@ -55,11 +55,11 @@ async function upsertBatches<T extends Record<string, unknown>>(
   for (let i = 0; i < rows.length; i += batchSize) {
     const batch = rows.slice(i, i + batchSize);
     const batchNum = Math.floor(i / batchSize) + 1;
-    const { error } = await supabase.from(table).upsert(batch, { onConflict: 'external_key' });
+    const { error } = await supabase.from(table).upsert(batch as never, { onConflict: 'external_key' });
     if (error) {
       log(`WARN ${label} batch ${batchNum}/${totalBatches}: ${error.message} — retrying row-by-row`);
       for (const row of batch) {
-        const { error: rowErr } = await supabase.from(table).upsert(row, { onConflict: 'external_key' });
+        const { error: rowErr } = await supabase.from(table).upsert(row as never, { onConflict: 'external_key' });
         if (rowErr) {
           errors += 1;
           if (errors <= 5) log(`  skip row: ${rowErr.message}`);

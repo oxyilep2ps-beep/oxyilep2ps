@@ -2,11 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { assertAdmin } from '@/lib/auth/assert-admin';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, tryCreateAdminClient } from '@/lib/supabase/admin';
 import type { SiteAnimationTheme } from '@/lib/site/animation-theme';
 
 export async function getSiteAnimationSetting(): Promise<SiteAnimationTheme> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return 'auto';
+
   const { data } = await admin.from('site_settings').select('current_animation').eq('id', 1).maybeSingle();
   return (data?.current_animation as SiteAnimationTheme) ?? 'auto';
 }
