@@ -14,6 +14,11 @@ function isStandaloneDisplay(): boolean {
   return media || iosStandalone;
 }
 
+function isIosDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
 /**
  * Captures the browser install prompt without showing it on load,
  * so it never clashes with the waitlist modal.
@@ -21,8 +26,10 @@ function isStandaloneDisplay(): boolean {
 export function usePWAInstall() {
   const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [ios, setIos] = useState(false);
 
   useEffect(() => {
+    setIos(isIosDevice());
     if (isStandaloneDisplay()) {
       setInstalled(true);
       return;
@@ -47,21 +54,24 @@ export function usePWAInstall() {
     };
   }, []);
 
-  const install = useCallback(async () => {
-    if (!promptEvent) return false;
+  const install = useCallback(async (): Promise<'accepted' | 'dismissed' | 'unavailable' | 'ios'> => {
+    if (isStandaloneDisplay()) return 'accepted';
+    if (isIosDevice()) return 'ios';
+    if (!promptEvent) return 'unavailable';
     await promptEvent.prompt();
     const { outcome } = await promptEvent.userChoice;
     setPromptEvent(null);
     if (outcome === 'accepted') {
       setInstalled(true);
-      return true;
+      return 'accepted';
     }
-    return false;
+    return 'dismissed';
   }, [promptEvent]);
 
   return {
-    canInstall: Boolean(promptEvent) && !installed,
+    canInstallNative: Boolean(promptEvent) && !installed,
     installed,
+    ios,
     install,
   };
 }

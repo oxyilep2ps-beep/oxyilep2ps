@@ -10,6 +10,7 @@ import { OliverBot } from '@/components/oliver/oliver-bot';
 import { PwaRegister } from '@/components/pwa/PwaRegister';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://oxyile.com'),
   title: 'Oxyile — P2P Lending & Investment',
   description: 'A polished peer-to-peer lending and investment platform for verified borrowers and investors.',
   manifest: '/manifest.json',

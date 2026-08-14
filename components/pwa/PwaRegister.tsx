@@ -2,15 +2,14 @@
 
 import { useEffect } from 'react';
 
-/** Registers a pass-through service worker in production only (required for installability). */
+/** Registers the PWA service worker so Chrome/Edge can offer installation. */
 export function PwaRegister() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') return;
+    if (typeof window === 'undefined') return;
     if (!('serviceWorker' in navigator)) return;
+    if (window.location.hostname === 'localhost') return;
 
-    void navigator.serviceWorker.register('/sw.js').catch(() => {
-      /* installability still works without SW in some browsers */
-    });
+    void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined);
   }, []);
 
   return null;
