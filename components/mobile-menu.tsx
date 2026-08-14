@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { NavbarAuthActions } from '@/components/navbar-auth-actions';
+import { InstallAppButton } from '@/components/pwa/InstallAppButton';
 
 type MobileMenuProps = {
   open: boolean;
@@ -66,6 +67,9 @@ export function MobileMenu({
                   {link.label}
                 </Link>
               ))}
+            </div>
+            <div className="mt-6">
+              <InstallAppButton layout="menu" />
             </div>
             <NavbarAuthActions
               authenticated={authenticated}

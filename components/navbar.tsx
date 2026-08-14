@@ -8,6 +8,7 @@ import { navLinks } from '@/lib/content';
 import { Logo } from '@/components/logo';
 import { MobileMenu } from '@/components/mobile-menu';
 import { NavbarAuthActions } from '@/components/navbar-auth-actions';
+import { InstallAppButton } from '@/components/pwa/InstallAppButton';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useNavbarAuth } from '@/lib/hooks/use-navbar-auth';
 import { cn } from '@/lib/utils';
@@ -60,6 +61,7 @@ export function Navbar() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <InstallAppButton />
             <ThemeToggle />
             <NavbarAuthActions
               authenticated={Boolean(user)}
