@@ -184,7 +184,7 @@ function ResetPasswordForm() {
           onClose={() => setToast(null)}
         />
         <div className="mb-6 flex justify-center">
-          <Logo size="lg" />
+          <Logo size="lg" className="h-24 w-24" />
         </div>
         <div className="glass-card rounded-[2rem] p-7 text-center">
           <h1 className="text-2xl font-black text-neutral-950 dark:text-white">Reset link unavailable</h1>
@@ -216,7 +216,7 @@ function ResetPasswordForm() {
       />
 
       <div className="mb-6 flex justify-center">
-        <Logo size="lg" />
+        <Logo size="lg" className="h-24 w-24" />
       </div>
 
       <div className="glass-card rounded-[2rem] p-7 shadow-glass">

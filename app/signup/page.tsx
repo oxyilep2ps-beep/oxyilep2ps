@@ -245,7 +245,7 @@ export default function SignUpPage() {
         className="mb-10 text-center"
       >
         <div className="mb-6 flex justify-center">
-          <Logo size="lg" priority />
+          <Logo size="lg" className="h-24 w-24" priority />
         </div>
         <p className="text-sm uppercase tracking-[0.3em] text-brand-500">Onboarding</p>
         <h1 className="mt-3 text-4xl font-black text-neutral-950 dark:text-white sm:text-5xl">

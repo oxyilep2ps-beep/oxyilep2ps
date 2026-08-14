@@ -10,7 +10,7 @@ export default function SuspendedAccountPage() {
       />
       <div className="relative z-10 w-full max-w-lg text-center">
         <div className="mb-8 flex justify-center">
-          <Logo className="h-10 w-auto text-white" />
+          <Logo className="h-10 w-10" />
         </div>
         <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#ff5a1f]">Account suspended</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Access temporarily revoked</h1>

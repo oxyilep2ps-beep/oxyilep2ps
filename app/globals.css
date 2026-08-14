@@ -85,6 +85,31 @@ html.dark body {
   }
 }
 
+@keyframes oxyile-logo-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+
+.oxyile-animated-logo {
+  animation: oxyile-logo-breathe 5.5s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oxyile-animated-logo {
+    animation: none;
+  }
+  .oxyile-animated-logo animate {
+    display: none;
+  }
+}
+
 /* Universal blog typography — reinforces H1–H6 + paragraph gaps for historical HTML */
 .blog-prose h1 {
   @apply mt-8 mb-4 text-3xl font-bold tracking-tight text-white;

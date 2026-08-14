@@ -33,7 +33,7 @@ export function Navbar() {
       <header className="sticky top-0 z-40 border-b border-white/60 bg-white/70 backdrop-blur-md dark:border-white/10 dark:bg-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <Logo priority href={logoHref} />
+            <Logo size="sm" priority href={logoHref} />
             <p className="hidden text-xs font-medium uppercase tracking-[0.32em] text-neutral-500 dark:text-neutral-300 sm:block">
               P2P lending & investment
             </p>

@@ -10,7 +10,7 @@ export default function VerifyEmailPage() {
   return (
     <section className="mx-auto max-w-lg px-4 py-20 sm:px-6">
       <div className="mb-6 flex justify-center">
-        <Logo size="lg" />
+        <Logo size="lg" className="h-24 w-24" />
       </div>
       <div className="glass-card rounded-[2rem] p-8 text-center shadow-glow">
         <Mail className="mx-auto text-brand-500" size={48} />

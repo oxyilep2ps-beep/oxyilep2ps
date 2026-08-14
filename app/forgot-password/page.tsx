@@ -78,7 +78,7 @@ function ForgotPasswordForm() {
       />
 
       <div className="mb-6 flex justify-center">
-        <Logo size="lg" />
+        <Logo size="lg" className="h-24 w-24" />
       </div>
 
       <div className="glass-card rounded-[2rem] p-7 shadow-glass">

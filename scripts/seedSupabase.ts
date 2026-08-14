@@ -17,6 +17,26 @@ import { chain } from 'stream-chain';
 import { parser } from 'stream-json';
 import { streamArray } from 'stream-json/streamers/StreamArray';
 
+function loadLocalEnv() {
+  const envPath = path.resolve(__dirname, '..', '.env.local');
+  if (!fs.existsSync(envPath)) return;
+  const text = fs.readFileSync(envPath, 'utf8');
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
+
+loadLocalEnv();
+
 const ROOT = path.resolve(__dirname, '..');
 const DATASETS_DIR = path.join(ROOT, 'DATASETS');
 
@@ -57,6 +77,12 @@ async function upsertBatches<T extends Record<string, unknown>>(
     const batchNum = Math.floor(i / batchSize) + 1;
     const { error } = await supabase.from(table).upsert(batch as never, { onConflict: 'external_key' });
     if (error) {
+      const fatal = /invalid api key|jwt|unauthorized|not a valid/i.test(error.message);
+      if (fatal) {
+        throw new Error(
+          `${label} auth failed: ${error.message}. Check SUPABASE_SERVICE_ROLE_KEY in .env.local (must be a single-line JWT with 3 dot-separated parts).`
+        );
+      }
       log(`WARN ${label} batch ${batchNum}/${totalBatches}: ${error.message} — retrying row-by-row`);
       for (const row of batch) {
         const { error: rowErr } = await supabase.from(table).upsert(row as never, { onConflict: 'external_key' });

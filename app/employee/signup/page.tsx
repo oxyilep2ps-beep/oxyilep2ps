@@ -50,7 +50,7 @@ export default function EmployeeSignupPage() {
       />
 
       <div className="mb-8 flex justify-center">
-        <Logo size="lg" />
+        <Logo size="lg" className="h-24 w-24" />
       </div>
       <div className="glass-card rounded-[2rem] p-6 sm:p-8">
         <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Staff</p>
