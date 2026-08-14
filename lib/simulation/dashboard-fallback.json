@@ -1,0 +1,255 @@
+{
+  "source": "local-json-fallback",
+  "generated_at": "2026-08-14T12:49:12.053Z",
+  "metrics": {
+    "totalBots": 55646,
+    "totalActiveLoans": 2439,
+    "fraudDetectionActive": 492,
+    "macroIndexPoints": 886,
+    "averageLoanAmount": 17816
+  },
+  "entities": [
+    {
+      "id": "ind-fb-0",
+      "name": "June Humphreys",
+      "entity_type": "individual",
+      "esg_score": 8.16,
+      "credit_rating": "BB",
+      "geography": "Northern Ireland"
+    },
+    {
+      "id": "ind-fb-1",
+      "name": "Martyn Hawkins",
+      "entity_type": "individual",
+      "esg_score": 8.26,
+      "credit_rating": "B",
+      "geography": "South East"
+    },
+    {
+      "id": "ind-fb-2",
+      "name": "Reece O'Donnell",
+      "entity_type": "individual",
+      "esg_score": 9,
+      "credit_rating": "BB",
+      "geography": "London"
+    },
+    {
+      "id": "ind-fb-3",
+      "name": "Lee Newman",
+      "entity_type": "individual",
+      "esg_score": 7.91,
+      "credit_rating": "BB",
+      "geography": "Wales"
+    },
+    {
+      "id": "ind-fb-4",
+      "name": "Lynn Morgan",
+      "entity_type": "individual",
+      "esg_score": 9.66,
+      "credit_rating": "B",
+      "geography": "South East"
+    },
+    {
+      "id": "ind-fb-5",
+      "name": "Kathleen Morrison",
+      "entity_type": "individual",
+      "esg_score": 9.07,
+      "credit_rating": "B",
+      "geography": "South East"
+    },
+    {
+      "id": "ind-fb-6",
+      "name": "Carolyn Pritchard",
+      "entity_type": "individual",
+      "esg_score": 7.78,
+      "credit_rating": "BB",
+      "geography": "North West"
+    },
+    {
+      "id": "ind-fb-7",
+      "name": "Tina Nash",
+      "entity_type": "individual",
+      "esg_score": 9.69,
+      "credit_rating": "BB",
+      "geography": "East"
+    },
+    {
+      "id": "ind-fb-8",
+      "name": "Ian Young",
+      "entity_type": "individual",
+      "esg_score": 8.94,
+      "credit_rating": "BB",
+      "geography": "Wales"
+    },
+    {
+      "id": "ind-fb-9",
+      "name": "Richard Griffiths",
+      "entity_type": "individual",
+      "esg_score": 9.61,
+      "credit_rating": "B",
+      "geography": "Northern Ireland"
+    },
+    {
+      "id": "ind-fb-10",
+      "name": "Trevor Green",
+      "entity_type": "individual",
+      "esg_score": 8.77,
+      "credit_rating": "BB",
+      "geography": "South East"
+    },
+    {
+      "id": "ind-fb-11",
+      "name": "Stephen Booth",
+      "entity_type": "individual",
+      "esg_score": 8.73,
+      "credit_rating": "BB",
+      "geography": "London"
+    },
+    {
+      "id": "ind-fb-12",
+      "name": "Francesca Craig",
+      "entity_type": "individual",
+      "esg_score": 9.01,
+      "credit_rating": "BB",
+      "geography": "London"
+    },
+    {
+      "id": "ind-fb-13",
+      "name": "Philip Murphy",
+      "entity_type": "individual",
+      "esg_score": 9.7,
+      "credit_rating": "BB",
+      "geography": "West Midlands"
+    },
+    {
+      "id": "ind-fb-14",
+      "name": "Aimee Chan",
+      "entity_type": "individual",
+      "esg_score": 8.97,
+      "credit_rating": "BB",
+      "geography": "East"
+    }
+  ],
+  "loans": [
+    {
+      "id": "loan-fb-0",
+      "loan_amount": 3289,
+      "interest_rate": 12.85,
+      "default_risk": 48,
+      "loan_status": "Paid",
+      "entity_name": "Fleming-Gutierrez"
+    },
+    {
+      "id": "loan-fb-1",
+      "loan_amount": 4338,
+      "interest_rate": 11.58,
+      "default_risk": 50.5,
+      "loan_status": "Ongoing",
+      "entity_name": "Miller-Jones"
+    },
+    {
+      "id": "loan-fb-2",
+      "loan_amount": 5809,
+      "interest_rate": 12.84,
+      "default_risk": 45.5,
+      "loan_status": "Ongoing",
+      "entity_name": "Martinez-Paul"
+    },
+    {
+      "id": "loan-fb-3",
+      "loan_amount": 18760,
+      "interest_rate": 6.06,
+      "default_risk": 54.5,
+      "loan_status": "Ongoing",
+      "entity_name": "Wood-Jones"
+    },
+    {
+      "id": "loan-fb-4",
+      "loan_amount": 35145,
+      "interest_rate": 8.94,
+      "default_risk": 54,
+      "loan_status": "Ongoing",
+      "entity_name": "Frank Inc"
+    },
+    {
+      "id": "loan-fb-5",
+      "loan_amount": 12737,
+      "interest_rate": 8.36,
+      "default_risk": 53.5,
+      "loan_status": "Paid",
+      "entity_name": "Martinez-Pollard"
+    },
+    {
+      "id": "loan-fb-6",
+      "loan_amount": 36620,
+      "interest_rate": 14.15,
+      "default_risk": 52,
+      "loan_status": "Ongoing",
+      "entity_name": "Rowe  Luna and Henderson"
+    },
+    {
+      "id": "loan-fb-7",
+      "loan_amount": 4233,
+      "interest_rate": 11.62,
+      "default_risk": 48,
+      "loan_status": "Paid",
+      "entity_name": "Thompson  Jones and Knight"
+    },
+    {
+      "id": "loan-fb-8",
+      "loan_amount": 12961,
+      "interest_rate": 10.71,
+      "default_risk": 54,
+      "loan_status": "Ongoing",
+      "entity_name": "Austin  Austin and Martin"
+    },
+    {
+      "id": "loan-fb-9",
+      "loan_amount": 26404,
+      "interest_rate": 12.63,
+      "default_risk": 54.5,
+      "loan_status": "Ongoing",
+      "entity_name": "Spence PLC"
+    },
+    {
+      "id": "loan-fb-10",
+      "loan_amount": 31212,
+      "interest_rate": 5.07,
+      "default_risk": 56.5,
+      "loan_status": "Ongoing",
+      "entity_name": "Watson-Castillo"
+    },
+    {
+      "id": "loan-fb-11",
+      "loan_amount": 31127,
+      "interest_rate": 7.78,
+      "default_risk": 59,
+      "loan_status": "Ongoing",
+      "entity_name": "Weber and Sons"
+    },
+    {
+      "id": "loan-fb-12",
+      "loan_amount": 38226,
+      "interest_rate": 10.26,
+      "default_risk": 62,
+      "loan_status": "Ongoing",
+      "entity_name": "Hernandez-Jennings"
+    },
+    {
+      "id": "loan-fb-13",
+      "loan_amount": 11870,
+      "interest_rate": 7.51,
+      "default_risk": 57,
+      "loan_status": "Ongoing",
+      "entity_name": "Jones-King"
+    },
+    {
+      "id": "loan-fb-14",
+      "loan_amount": 22816,
+      "interest_rate": 19.5,
+      "default_risk": 54,
+      "loan_status": "Ongoing",
+      "entity_name": "Miller  Golden and Lloyd"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Activity, Bot, ShieldAlert, TrendingUp } from 'lucide-react';
+import { Activity, Bot, PoundSterling, ShieldAlert, TrendingUp } from 'lucide-react';
 import {
   getSimulationEntitySamples,
   getSimulationLoanSamples,
@@ -42,7 +42,13 @@ function MetricCard({
 }
 
 export function AdminDatasetsOverview() {
-  const [metrics, setMetrics] = useState({ totalBots: 0, totalActiveLoans: 0, fraudDetectionActive: 0 });
+  const [metrics, setMetrics] = useState({
+    totalBots: 0,
+    totalActiveLoans: 0,
+    fraudDetectionActive: 0,
+    averageLoanAmount: 0,
+    source: 'local-json' as 'supabase' | 'local-json',
+  });
   const [entities, setEntities] = useState<SimulationEntitySample[]>([]);
   const [loans, setLoans] = useState<SimulationLoanSample[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,10 +98,7 @@ export function AdminDatasetsOverview() {
             </div>
             <div className="flex flex-wrap gap-2 lg:justify-end">
               <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400">
-                Ingestion pipeline active
-              </span>
-              <span className="rounded-full border border-neutral-700 px-3 py-1.5 text-xs font-semibold text-neutral-400">
-                npm run seed:supabase
+                {metrics.source === 'supabase' ? 'Live Supabase' : 'Local JSON fallback'}
               </span>
             </div>
           </div>
@@ -113,7 +116,7 @@ export function AdminDatasetsOverview() {
           </div>
         ) : null}
 
-        <section className="grid gap-4 sm:grid-cols-3">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Total Bots Ingested"
             value={loading ? 0 : metrics.totalBots}
@@ -125,6 +128,12 @@ export function AdminDatasetsOverview() {
             value={loading ? 0 : metrics.totalActiveLoans}
             icon={TrendingUp}
             glow="shadow-[0_0_40px_rgba(249,115,22,0.12)]"
+          />
+          <MetricCard
+            label="Average Loan Amount"
+            value={loading ? 0 : metrics.averageLoanAmount}
+            icon={PoundSterling}
+            glow="shadow-[0_0_40px_rgba(249,115,22,0.1)]"
           />
           <MetricCard
             label="Fraud Detection Active"
