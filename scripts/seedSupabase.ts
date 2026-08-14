@@ -61,22 +61,34 @@ function log(msg: string) {
   console.log(`[seedSupabase] ${msg}`);
 }
 
+function dedupeByKey<T extends Record<string, unknown>>(rows: T[], conflictKey: string): T[] {
+  const map = new Map<string, T>();
+  for (const row of rows) {
+    const key = String(row[conflictKey] ?? '');
+    if (!key) continue;
+    map.set(key, row);
+  }
+  return [...map.values()];
+}
+
 async function upsertBatches<T extends Record<string, unknown>>(
   supabase: SupabaseClient,
   table: string,
   rows: T[],
   batchSize: number,
-  label: string
+  label: string,
+  conflictKey = 'external_key'
 ): Promise<{ inserted: number; errors: number }> {
-  if (rows.length === 0) return { inserted: 0, errors: 0 };
-  const totalBatches = Math.ceil(rows.length / batchSize);
+  const uniqueRows = dedupeByKey(rows, conflictKey);
+  if (uniqueRows.length === 0) return { inserted: 0, errors: 0 };
+  const totalBatches = Math.ceil(uniqueRows.length / batchSize);
   let inserted = 0;
   let errors = 0;
 
-  for (let i = 0; i < rows.length; i += batchSize) {
-    const batch = rows.slice(i, i + batchSize);
+  for (let i = 0; i < uniqueRows.length; i += batchSize) {
+    const batch = uniqueRows.slice(i, i + batchSize);
     const batchNum = Math.floor(i / batchSize) + 1;
-    const { error } = await supabase.from(table).upsert(batch as never, { onConflict: 'external_key' });
+    const { error } = await supabase.from(table).upsert(batch as never, { onConflict: conflictKey });
     if (error) {
       const fatal = /invalid api key|jwt|unauthorized|not a valid/i.test(error.message);
       if (fatal) {
@@ -86,7 +98,7 @@ async function upsertBatches<T extends Record<string, unknown>>(
       }
       log(`WARN ${label} batch ${batchNum}/${totalBatches}: ${error.message} — retrying row-by-row`);
       for (const row of batch) {
-        const { error: rowErr } = await supabase.from(table).upsert(row as never, { onConflict: 'external_key' });
+        const { error: rowErr } = await supabase.from(table).upsert(row as never, { onConflict: conflictKey });
         if (rowErr) {
           errors += 1;
           if (errors <= 5) log(`  skip row: ${rowErr.message}`);
@@ -179,7 +191,7 @@ async function seedEsgBusinessEntities(supabase: SupabaseClient, batchSize: numb
 
   const ingest = async (rows: JsonRow[], batchIdx: number) => {
     const payload = rows.map((r) => ({
-      external_key: `esg:${String(r['Company Name'] ?? r.Ticker ?? batchIdx).slice(0, 120)}`,
+      external_key: `esg:${String(r.Ticker ?? r['Company Name'] ?? batchIdx).slice(0, 80)}:${String(r['Company Name'] ?? '').slice(0, 80)}`,
       name: String(r['Company Name'] ?? 'Unknown Corp'),
       entity_type: 'business',
       esg_score: Number(r['Overall ESG SCORE'] ?? 0),
