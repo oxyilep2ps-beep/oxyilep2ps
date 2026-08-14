@@ -16,6 +16,7 @@ function isStaffPortalPath(pathname: string): boolean {
     pathname.startsWith('/blogger') ||
     pathname.startsWith('/social') ||
     pathname.startsWith('/admin-dashboard') ||
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/employee/dashboard')
   );
 }

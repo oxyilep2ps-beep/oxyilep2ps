@@ -68,6 +68,7 @@ export function getAuthRedirectPath(
 
 export const PROTECTED_PREFIXES = [
   '/admin-dashboard',
+  '/admin',
   '/hr',
   '/blogger',
   '/social',
@@ -98,6 +99,7 @@ export function canAccessPath(
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return (
       pathname.startsWith('/admin-dashboard') ||
+      pathname.startsWith('/admin') ||
       pathname.startsWith('/hr') ||
       pathname.startsWith('/blogger') ||
       pathname.startsWith('/social') ||

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Activity,
   Bot,
   Brain,
   Briefcase,
@@ -56,6 +57,7 @@ const items: {
   { href: '/admin-dashboard/hr-overview', label: 'HR Exec', icon: Building2 },
   { href: '/admin-dashboard/employees', label: 'Employees', icon: Users },
   { href: '/admin-dashboard/ai-training', label: 'AI Data', icon: Brain },
+  { href: '/admin/datasets-overview', label: 'Datasets', icon: Activity },
   { href: '/admin-dashboard/chat', label: 'Chat', icon: MessageCircle },
   { href: '/admin-dashboard/theme', label: 'Theme', icon: Palette },
   { href: '/admin-dashboard/profile', label: 'Profile', icon: User, exact: true },
