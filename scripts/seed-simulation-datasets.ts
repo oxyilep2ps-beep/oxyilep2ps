@@ -11,7 +11,7 @@ import {
   buildRegistryFromManifest,
   getUsefulDatasetSlugs,
   type DatasetManifestFile,
-} from '../lib/datasets/registry';
+} from '../lib/simulation/dataset-registry';
 
 const ROOT = path.resolve(__dirname, '..');
 const DATASETS_DIR = path.join(ROOT, 'DATASETS');

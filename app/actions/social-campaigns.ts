@@ -114,6 +114,7 @@ function revalidateSocial() {
 export async function uploadSocialCampaignAsset(
   formData: FormData
 ): Promise<{ success: true; url: string } | { success: false; error: string }> {
+  void formData;
   // Ghost Storage rule: never stream large blobs through Vercel Server Actions.
   // MediaUploader uploads directly to Supabase from the browser.
   return {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Brain, Database, FileSpreadsheet, Layers, Sparkles } from 'lucide-react';
 import { getSimulationDatasetStats, listAiTrainingDatasets } from '@/app/actions/ai-datasets';
-import type { DatasetRegistryEntry } from '@/lib/datasets/registry';
+import type { DatasetRegistryEntry } from '@/lib/simulation/dataset-registry';
 import { cn } from '@/lib/utils';
 
 function statusBadge(status: DatasetRegistryEntry['status']) {

@@ -8,7 +8,7 @@ import {
   buildRegistryFromManifest,
   type DatasetManifestFile,
   type DatasetRegistryEntry,
-} from '@/lib/datasets/registry';
+} from '@/lib/simulation/dataset-registry';
 
 const MANIFEST_PATH = path.join(process.cwd(), 'DATASETS', 'dataset_manifest.json');
 

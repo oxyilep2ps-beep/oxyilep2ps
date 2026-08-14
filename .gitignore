@@ -37,5 +37,7 @@ next-env.d.ts
 # legacy local kyc store
 /data/submissions.json
 
-DATASETS/
-DATASETS_EXCEL/
+# Root-only: Windows git is case-insensitive, so a bare `DATASETS/` rule
+# also ignored lib/datasets and broke Vercel builds.
+/DATASETS/
+/DATASETS_EXCEL/
