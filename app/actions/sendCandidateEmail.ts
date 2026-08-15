@@ -72,10 +72,9 @@ export async function sendCandidateEmail(input: {
       };
     }
 
-    const from = process.env.EMAIL_FROM?.trim() || 'Oxyile People <careers.oxyile@gmail.com>';
     const resend = new Resend(apiKey);
     const result = await resend.emails.send({
-      from,
+      from: 'Oxyile Careers <careers@oxyile.com>',
       to: [to],
       subject,
       html: brandedCandidateHtml(message),
