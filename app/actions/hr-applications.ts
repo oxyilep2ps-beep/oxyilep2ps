@@ -54,7 +54,7 @@ export async function updateJobApplicationStatus(id: string, status: AtsApplicat
   if (error) {
     throw new Error(
       /check|constraint|status/i.test(error.message)
-        ? `Could not update status — apply supabase/migrations/20260815180000_ats_application_status_pipeline.sql. (${error.message})`
+        ? `Could not update status — apply supabase/migrations/20260815190000_ats_consider_status_pipeline.sql. (${error.message})`
         : error.message
     );
   }

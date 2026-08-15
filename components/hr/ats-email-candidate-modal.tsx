@@ -54,7 +54,7 @@ export function AtsEmailCandidateModal({ to, candidateName, intent, applicationI
           <label className="block space-y-1.5">
             <span className="text-xs font-semibold text-neutral-400">Message</span>
             <textarea
-              rows={7}
+              rows={12}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className={HR_TEXTAREA_CLASS}

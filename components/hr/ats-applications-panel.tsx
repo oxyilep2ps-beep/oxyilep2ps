@@ -7,9 +7,12 @@ import { AtsEmailCandidateModal } from '@/components/hr/ats-email-candidate-moda
 import { updateJobApplicationStatus, type AtsApplication } from '@/app/actions/hr-applications';
 import {
   ATS_APPLICATION_STATUSES,
+  ATS_PIPELINE_TABS,
   ATS_STATUS_META,
+  matchesAtsTab,
   normalizeAtsStatus,
   type AtsApplicationStatus,
+  type AtsPipelineTab,
 } from '@/lib/hr/ats-application-status';
 import { HR_INPUT_CLASS, HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
@@ -25,6 +28,7 @@ export function AtsApplicationsPanel({
 }) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortDir>('newest');
+  const [tab, setTab] = useState<AtsPipelineTab>('new');
   const [rows, setRows] = useState(applications);
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
@@ -37,18 +41,36 @@ export function AtsApplicationsPanel({
     setRows(applications);
   }, [applications]);
 
+  const tabCounts = useMemo(() => {
+    const counts: Record<AtsPipelineTab, number> = {
+      all: rows.length,
+      new: 0,
+      consider: 0,
+      interview: 0,
+      rejected: 0,
+    };
+    for (const row of rows) {
+      if (matchesAtsTab(row.status, 'new')) counts.new += 1;
+      if (matchesAtsTab(row.status, 'consider')) counts.consider += 1;
+      if (matchesAtsTab(row.status, 'interview')) counts.interview += 1;
+      if (matchesAtsTab(row.status, 'rejected')) counts.rejected += 1;
+    }
+    return counts;
+  }, [rows]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? rows.filter((r) => r.candidate_name.toLowerCase().includes(q))
-      : rows;
-    const sorted = [...filtered].sort((a, b) => {
+    const filtered = rows.filter((r) => {
+      if (!matchesAtsTab(r.status, tab)) return false;
+      if (!q) return true;
+      return r.candidate_name.toLowerCase().includes(q);
+    });
+    return [...filtered].sort((a, b) => {
       const da = new Date(a.created_at).getTime();
       const db = new Date(b.created_at).getTime();
       return sort === 'newest' ? db - da : da - db;
     });
-    return sorted;
-  }, [rows, query, sort]);
+  }, [rows, query, sort, tab]);
 
   const setStatus = (row: AtsApplication, status: AtsApplicationStatus) => {
     const previous = row.status;
@@ -66,8 +88,50 @@ export function AtsApplicationsPanel({
     });
   };
 
+  const emptyMessage = query.trim()
+    ? `No candidates found for '${query.trim()}'`
+    : tab === 'all'
+      ? 'No applications yet — public /careers submissions appear here.'
+      : `No applications in ${ATS_PIPELINE_TABS.find((t) => t.id === tab)?.label ?? 'this stage'}.`;
+
   return (
     <div className="space-y-4 rounded-2xl border border-neutral-800 bg-black p-4">
+      <div
+        role="tablist"
+        aria-label="Application pipeline"
+        className="-mx-1 flex gap-1 overflow-x-auto border-b border-neutral-800 px-1 pb-px"
+      >
+        {ATS_PIPELINE_TABS.map((item) => {
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(item.id)}
+              className={cn(
+                'relative shrink-0 rounded-t-xl px-3 py-2.5 text-[12px] font-bold transition sm:px-4',
+                active ? 'text-[#F97316]' : 'text-neutral-500 hover:text-neutral-200'
+              )}
+            >
+              {item.label}
+              <span
+                className={cn(
+                  'ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-black',
+                  active ? 'bg-[#F97316]/20 text-[#F97316]' : 'bg-neutral-900 text-neutral-500'
+                )}
+              >
+                {tabCounts[item.id]}
+              </span>
+              {active ? (
+                <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#F97316]" />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <label className="relative min-w-0 flex-1">
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#F97316]" />
@@ -91,11 +155,7 @@ export function AtsApplicationsPanel({
 
       {visible.length === 0 ? (
         <div className="rounded-2xl border border-neutral-800 bg-neutral-950 px-4 py-10 text-center">
-          <p className="text-sm text-neutral-400">
-            {query.trim()
-              ? `No candidates found for '${query.trim()}'`
-              : 'No applications yet — public /careers submissions appear here.'}
-          </p>
+          <p className="text-sm text-neutral-400">{emptyMessage}</p>
         </div>
       ) : (
         <ul className="space-y-3">
