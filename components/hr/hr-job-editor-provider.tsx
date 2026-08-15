@@ -3,12 +3,14 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { HrEnterpriseJobEditor } from '@/components/hr/hr-enterprise-job-editor';
 import { AuthToast } from '@/components/auth-toast';
+import type { JobPosting } from '@/lib/hr/types';
 
 const JOB_CREATED_EVENT = 'oxyile:job-posting-created';
 
 type HrJobEditorContextValue = {
   open: boolean;
   openCreateJob: () => void;
+  openEditJob: (job: JobPosting) => void;
   closeCreateJob: () => void;
 };
 
@@ -34,25 +36,44 @@ export function subscribeJobPostingCreated(handler: () => void) {
 
 export function HrJobEditorProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState<JobPosting | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const openCreateJob = useCallback(() => setOpen(true), []);
-  const closeCreateJob = useCallback(() => setOpen(false), []);
+  const openCreateJob = useCallback(() => {
+    setEditingJob(null);
+    setOpen(true);
+  }, []);
+
+  const openEditJob = useCallback((job: JobPosting) => {
+    setEditingJob(job);
+    setOpen(true);
+  }, []);
+
+  const closeCreateJob = useCallback(() => {
+    setOpen(false);
+    setEditingJob(null);
+  }, []);
 
   const value = useMemo(
-    () => ({ open, openCreateJob, closeCreateJob }),
-    [open, openCreateJob, closeCreateJob]
+    () => ({ open, openCreateJob, openEditJob, closeCreateJob }),
+    [open, openCreateJob, openEditJob, closeCreateJob]
   );
 
   return (
     <HrJobEditorContext.Provider value={value}>
       {children}
       <HrEnterpriseJobEditor
+        key={editingJob?.id ?? 'new'}
         open={open}
+        initialData={editingJob}
         onClose={closeCreateJob}
-        onCreated={() => {
+        onCreated={(mode) => {
           dispatchJobPostingCreated();
-          setToast('Job posting saved. It is now in ATS — published roles sync to /careers.');
+          setToast(
+            mode === 'update'
+              ? 'Job posting updated. Published roles sync to /careers.'
+              : 'Job posting saved. It is now in ATS — published roles sync to /careers.'
+          );
           closeCreateJob();
         }}
       />

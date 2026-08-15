@@ -15,7 +15,10 @@ import {
 } from '@/app/actions/hr-suite';
 import type { ApplicantStage, BackgroundCheckStatus, JobApplicant, JobPosting } from '@/lib/hr/types';
 import { APPLICANT_STAGES, BACKGROUND_STATUSES, formatJobCompensation } from '@/lib/hr/types';
+import { Pencil } from 'lucide-react';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
+import { AtsApplicationsPanel } from '@/components/hr/ats-applications-panel';
+import { listAtsApplications, type AtsApplication } from '@/app/actions/hr-applications';
 import { subscribeJobPostingCreated, useHrJobEditor } from '@/components/hr/hr-job-editor-provider';
 import { HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
@@ -33,12 +36,13 @@ export function HrRecruitmentBoard() {
   const [loading, setLoading] = useState(true);
   const [applicants, setApplicants] = useState<JobApplicant[]>([]);
   const [jobs, setJobs] = useState<JobPosting[]>([]);
-  const [tab, setTab] = useState<'board' | 'talent' | 'jobs'>('board');
+  const [tab, setTab] = useState<'applications' | 'board' | 'talent' | 'jobs'>('applications');
   const [selected, setSelected] = useState<JobApplicant | null>(null);
+  const [applications, setApplications] = useState<AtsApplication[]>([]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
-  const { openCreateJob } = useHrJobEditor();
+  const { openCreateJob, openEditJob } = useHrJobEditor();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,10 +51,16 @@ export function HrRecruitmentBoard() {
       const [a, j] = await Promise.all([listJobApplicants(), listJobPostings()]);
       setApplicants(a);
       setJobs(j);
+      try {
+        setApplications(await listAtsApplications());
+      } catch {
+        setApplications([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load ATS — apply the HR migration.');
       setApplicants([]);
       setJobs([]);
+      setApplications([]);
     } finally {
       setLoading(false);
     }
@@ -100,33 +110,39 @@ export function HrRecruitmentBoard() {
   if (loading) return <HrSkeletonCards count={4} />;
 
   return (
-    <div className="cms-fade-in space-y-6 pb-8">
+    <div className="cms-fade-in space-y-6 bg-black pb-8 text-white">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black text-neutral-950 dark:text-white">ATS Recruitment</h2>
-          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            Kanban pipeline, AI match scores, DBS tracking, offers in £ GBP.
+          <h2 className="text-xl font-black text-white">ATS Recruitment</h2>
+          <p className="mt-1 text-sm text-neutral-400">
+            Applications, kanban pipeline, AI match scores, DBS tracking, offers in £ GBP.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => openCreateJob()}
-            className="rounded-full bg-orange-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-orange-600"
+            className="rounded-full bg-[#F97316] px-4 py-1.5 text-xs font-bold text-white hover:bg-orange-600"
           >
             + Create job
           </button>
-          {(['board', 'talent', 'jobs'] as const).map((t) => (
+          {(['applications', 'board', 'talent', 'jobs'] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
               className={cn(
                 'rounded-full px-3 py-1.5 text-xs font-bold capitalize',
-                tab === t ? 'bg-brand-500 text-white' : 'bg-white/60 dark:bg-white/10'
+                tab === t ? 'bg-[#F97316] text-white' : 'bg-neutral-900 text-neutral-400'
               )}
             >
-              {t === 'talent' ? 'Talent Pool' : t === 'jobs' ? 'Job Posts' : 'Kanban'}
+              {t === 'talent'
+                ? 'Talent Pool'
+                : t === 'jobs'
+                  ? 'Job Posts'
+                  : t === 'applications'
+                    ? 'Applications'
+                    : 'Kanban'}
             </button>
           ))}
         </div>
@@ -158,7 +174,9 @@ export function HrRecruitmentBoard() {
         </div>
       </div>
 
-      {tab === 'jobs' ? (
+      {tab === 'applications' ? (
+        <AtsApplicationsPanel applications={applications} onChanged={load} />
+      ) : tab === 'jobs' ? (
         <div className="space-y-3">
           {jobs.length === 0 ? (
             <p className="text-sm text-neutral-500">No jobs yet — use + Create job for the Enterprise Editor.</p>
@@ -173,28 +191,40 @@ export function HrRecruitmentBoard() {
                       {j.budget_approved ? ' · Budget ✓' : ' · Awaiting admin budget'}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    className="rounded-full bg-brand-500 px-3 py-1.5 text-xs font-bold text-white"
-                    onClick={() => {
-                      const name = prompt('Candidate full name');
-                      const email = prompt('Candidate email');
-                      if (!name || !email) return;
-                      startTransition(() => {
-                        void createJobApplicant({
-                          job_id: j.id,
-                          full_name: name,
-                          email,
-                          resume_text: `${name} ${j.requirements}`,
-                          source: 'direct',
-                        })
-                          .then(load)
-                          .catch((e) => setError(e instanceof Error ? e.message : 'Failed'));
-                      });
-                    }}
-                  >
-                    Add applicant
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#F97316]/60 px-3 py-1.5 text-xs font-bold text-[#F97316] hover:bg-[#F97316]/10"
+                      onClick={() => {
+                        setTab('jobs');
+                        openEditJob(j);
+                      }}
+                    >
+                      <Pencil size={12} /> Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full bg-[#F97316] px-3 py-1.5 text-xs font-bold text-white"
+                      onClick={() => {
+                        const name = prompt('Candidate full name');
+                        const email = prompt('Candidate email');
+                        if (!name || !email) return;
+                        startTransition(() => {
+                          void createJobApplicant({
+                            job_id: j.id,
+                            full_name: name,
+                            email,
+                            resume_text: `${name} ${j.requirements}`,
+                            source: 'direct',
+                          })
+                            .then(load)
+                            .catch((e) => setError(e instanceof Error ? e.message : 'Failed'));
+                        });
+                      }}
+                    >
+                      Add applicant
+                    </button>
+                  </div>
                 </div>
               </article>
             ))

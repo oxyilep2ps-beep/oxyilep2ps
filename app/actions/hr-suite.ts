@@ -114,6 +114,9 @@ function revalidateHr() {
   revalidatePath('/hr/payroll');
   revalidatePath('/hr/performance');
   revalidatePath('/admin-dashboard/hr-overview');
+  revalidatePath('/portal/leave');
+  revalidatePath('/portal/expenses');
+  revalidatePath('/portal/employees/new');
 }
 
 // ─── Jobs ───────────────────────────────────────────────────────────────────
@@ -237,22 +240,77 @@ export async function updateJobPosting(
     department: string;
     salary_min_gbp: number;
     salary_max_gbp: number;
+    salary_min: number;
+    salary_max: number;
     salary_range_gbp: string;
     requirements: string;
     description: string;
     responsibilities: string;
+    compliance_responsibilities: string;
     ai_match_keywords: string;
+    ai_keywords: string;
     location: string;
     employment_type: string;
     publish_to_careers: boolean;
+    is_published: boolean;
+    is_intern_to_fulltime: boolean;
+    unpaid_months: number | null;
     status: string;
+    source_budget_gbp: number;
   }>
 ) {
   const user = await assertHrOrAdmin();
   const admin = createAdminClient();
-  const { data, error } = await admin.from('job_postings').update(input).eq('id', id).select('*').single();
+  const internTrack = Boolean(input.is_intern_to_fulltime);
+  const min = input.salary_min ?? input.salary_min_gbp ?? null;
+  const max = input.salary_max ?? input.salary_max_gbp ?? null;
+  const unpaidMonths = internTrack
+    ? input.unpaid_months != null
+      ? Math.max(0, Number(input.unpaid_months))
+      : null
+    : null;
+  const published = Boolean(input.is_published ?? input.publish_to_careers);
+  const compliance = input.compliance_responsibilities ?? input.responsibilities ?? '';
+  const keywords = input.ai_keywords ?? input.ai_match_keywords ?? '';
+  const range =
+    internTrack
+      ? `Unpaid for ${unpaidMonths ?? 0} months, then ${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''} full-time`
+      : min != null || max != null
+        ? `${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''}`
+        : input.salary_range_gbp ?? null;
+  const status = input.status ?? (published ? 'open' : 'draft');
+
+  const { data, error } = await admin
+    .from('job_postings')
+    .update({
+      title: input.title?.trim(),
+      department: input.department?.trim(),
+      salary_range_gbp: range,
+      salary_min_gbp: min,
+      salary_max_gbp: max,
+      salary_min: min,
+      salary_max: max,
+      requirements: input.requirements,
+      description: input.description,
+      responsibilities: compliance,
+      compliance_responsibilities: compliance,
+      ai_match_keywords: keywords,
+      ai_keywords: keywords,
+      location: input.location,
+      employment_type: input.employment_type,
+      publish_to_careers: published,
+      is_published: published,
+      is_intern_to_fulltime: internTrack,
+      unpaid_months: unpaidMonths,
+      status,
+      budget_approved: status === 'open',
+      source_budget_gbp: input.source_budget_gbp ?? max ?? min ?? undefined,
+    })
+    .eq('id', id)
+    .select('*')
+    .single();
   if (error) throw new Error(error.message);
-  await audit('job_posting.update', user.id, { id, ...input });
+  await audit('job_posting.update', user.id, { id, is_intern_to_fulltime: internTrack });
   revalidateHr();
   revalidatePath('/careers');
   return mapJob(data as Record<string, unknown>);

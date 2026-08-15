@@ -71,8 +71,13 @@ export async function listPublicOpenJobs(): Promise<JobPosting[]> {
 }
 
 export async function getPublicJob(id: string): Promise<JobPosting | null> {
-  const jobs = await listPublicOpenJobs();
-  return jobs.find((j) => j.id === id) ?? null;
+  const admin = createAdminClient();
+  const { data, error } = await admin.from('job_postings').select('*').eq('id', id).maybeSingle();
+  if (error || !data) return null;
+  const job = mapPublicJob(data as Record<string, unknown>);
+  if (job.is_published) return job;
+  if (job.status === 'open' && job.publish_to_careers !== false) return job;
+  return null;
 }
 
 export async function scorePublicApplication(jobId: string, resumeHint: string) {

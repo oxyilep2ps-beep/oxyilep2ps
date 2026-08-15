@@ -13,6 +13,7 @@ import { isApprovedStatus, isSuspendedAccount } from '@/lib/auth/profile-status'
 function isStaffPortalPath(pathname: string): boolean {
   return (
     pathname.startsWith('/hr') ||
+    pathname.startsWith('/portal') ||
     pathname.startsWith('/blogger') ||
     pathname.startsWith('/social') ||
     pathname.startsWith('/admin-dashboard') ||

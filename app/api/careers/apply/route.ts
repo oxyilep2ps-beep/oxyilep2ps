@@ -5,6 +5,23 @@ import { scoreResumeAgainstRequirements } from '@/lib/hr/types';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
+const ALLOWED_MIME = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+
+function contentTypeFor(file: File): string | null {
+  if (ALLOWED_MIME.has(file.type)) return file.type;
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.doc')) return 'application/msword';
+  if (name.endsWith('.docx')) {
+    return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
     const form = await request.formData();
@@ -21,11 +38,12 @@ export async function POST(request: Request) {
     }
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'Resume PDF is required.' }, { status: 400 });
+      return NextResponse.json({ error: 'Resume is required (PDF, DOC, or DOCX).' }, { status: 400 });
     }
 
-    if (file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'Only PDF files are accepted.' }, { status: 400 });
+    const contentType = contentTypeFor(file);
+    if (!contentType) {
+      return NextResponse.json({ error: 'Only PDF, DOC, and DOCX files are accepted.' }, { status: 400 });
     }
 
     if (file.size > MAX_BYTES) {
@@ -38,16 +56,21 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const { error: uploadError } = await admin.storage.from('resumes').upload(path, buffer, {
-      contentType: 'application/pdf',
+      contentType,
       upsert: false,
     });
 
     if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: `Resume upload failed (${uploadError.message}). Create a public Storage bucket named "resumes" if it does not exist.`,
+        },
+        { status: 500 }
+      );
     }
 
     const { data: urlData } = admin.storage.from('resumes').getPublicUrl(path);
-    const resume_url = urlData.publicUrl;
+    const resume_url = urlData.publicUrl || path;
 
     let jobTitle = role_applied || 'General';
     let requirements = 'fintech uk fca lending compliance';
@@ -56,24 +79,22 @@ export async function POST(request: Request) {
     if (resolvedJobId) {
       const { data: job } = await admin
         .from('job_postings')
-        .select('id, title, requirements, ai_match_keywords, description, responsibilities, status, publish_to_careers')
+        .select(
+          'id, title, requirements, ai_match_keywords, description, responsibilities, status, publish_to_careers, is_published'
+        )
         .eq('id', resolvedJobId)
         .maybeSingle();
-      if (job && job.status === 'open') {
+      if (job && (job.is_published === true || job.status === 'open')) {
         jobTitle = String(job.title);
         requirements = [job.requirements, job.ai_match_keywords, job.description, job.responsibilities]
           .filter(Boolean)
           .join(' ');
-      } else {
+      } else if (!job) {
         resolvedJobId = null;
       }
     }
 
-    const { data: existing } = await admin
-      .from('job_applicants')
-      .select('id')
-      .ilike('email', email)
-      .limit(1);
+    const { data: existing } = await admin.from('job_applicants').select('id').ilike('email', email).limit(1);
     const duplicate = (existing?.length ?? 0) > 0;
 
     const ai_match_score = scoreResumeAgainstRequirements(
@@ -81,8 +102,36 @@ export async function POST(request: Request) {
       requirements
     );
 
-    // Primary ATS pipeline — HR Kanban sees this immediately
-    const { error: atsError } = await admin.from('job_applicants').insert({
+    // Public applications table — source of truth for /careers apply
+    const applicationInsert = {
+      job_id: resolvedJobId,
+      candidate_name: full_name,
+      candidate_email: email,
+      full_name,
+      email,
+      phone: phone || 'n/a',
+      role_applied: jobTitle,
+      resume_url,
+      status: 'Applied',
+    };
+
+    const { error: appError } = await admin.from('job_applications').insert(applicationInsert);
+    if (appError) {
+      const { error: legacyError } = await admin.from('job_applications').insert({
+        full_name,
+        email,
+        phone: phone || 'n/a',
+        role_applied: jobTitle,
+        resume_url,
+        status: 'PENDING',
+      });
+      if (legacyError) {
+        return NextResponse.json({ error: appError.message }, { status: 500 });
+      }
+    }
+
+    // ATS Kanban dual-write
+    await admin.from('job_applicants').insert({
       job_id: resolvedJobId,
       full_name,
       email,
@@ -96,24 +145,11 @@ export async function POST(request: Request) {
       notes: linkedin ? `LinkedIn: ${linkedin}` : null,
     });
 
-    if (atsError) {
-      return NextResponse.json({ error: atsError.message }, { status: 500 });
-    }
-
-    // Legacy table (best-effort dual-write)
-    await admin.from('job_applications').insert({
-      full_name,
-      email,
-      phone: phone || 'n/a',
-      role_applied: jobTitle,
-      resume_url,
-      status: 'PENDING',
-    });
-
     revalidatePath('/hr/recruitment');
     revalidatePath('/hr');
+    revalidatePath('/careers');
 
-    return NextResponse.json({ success: true, ai_match_score });
+    return NextResponse.json({ success: true, ai_match_score, resume_url });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Application failed';
     return NextResponse.json({ error: message }, { status: 500 });

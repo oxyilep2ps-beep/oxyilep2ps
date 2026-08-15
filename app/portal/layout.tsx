@@ -4,13 +4,13 @@ import { isAdminEmail } from '@/lib/auth/routing';
 import { isHrStaffEmail } from '@/lib/auth/role-emails';
 import { redirect } from 'next/navigation';
 
-export default async function HrLayout({ children }: { children: React.ReactNode }) {
+export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect('/signin?redirect=/hr');
+  if (!user) redirect('/signin?redirect=/portal/leave');
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
 
@@ -18,5 +18,5 @@ export default async function HrLayout({ children }: { children: React.ReactNode
     redirect('/dashboard');
   }
 
-  return <HrStudioShell>{children}</HrStudioShell>;
+  return <HrStudioShell subtitle="Quick-create stubs — leave, expenses, and new employees.">{children}</HrStudioShell>;
 }

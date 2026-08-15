@@ -70,6 +70,7 @@ export const PROTECTED_PREFIXES = [
   '/admin-dashboard',
   '/admin',
   '/hr',
+  '/portal',
   '/blogger',
   '/social',
   '/employee/dashboard',
@@ -101,6 +102,7 @@ export function canAccessPath(
       pathname.startsWith('/admin-dashboard') ||
       pathname.startsWith('/admin') ||
       pathname.startsWith('/hr') ||
+      pathname.startsWith('/portal') ||
       pathname.startsWith('/blogger') ||
       pathname.startsWith('/social') ||
       pathname.startsWith('/employee/dashboard') ||
@@ -111,7 +113,7 @@ export function canAccessPath(
 
   // HR is scoped to the HR portal only.
   if (isHrStaffEmail(email) || profile?.role === 'HR') {
-    return pathname.startsWith('/hr');
+    return pathname.startsWith('/hr') || pathname.startsWith('/portal');
   }
 
   // Bloggers are scoped to the blogger CMS only (/blogger — existing route).
