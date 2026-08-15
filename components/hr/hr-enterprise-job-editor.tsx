@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState, useTransition } from 'react';
+import { FormEvent, useEffect, useState, useTransition } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { createJobPosting } from '@/app/actions/hr-suite';
 import { HR_INPUT_CLASS, HR_SELECT_CLASS, HR_TEXTAREA_CLASS } from '@/lib/hr/ui';
@@ -16,6 +16,15 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [internToFullTime, setInternToFullTime] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setError(null);
+      setFieldErrors({});
+      setInternToFullTime(false);
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -23,9 +32,15 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
     const errs: Record<string, string> = {};
     if (!String(fd.get('title') || '').trim()) errs.title = 'Job title is required.';
     if (!String(fd.get('requirements') || '').trim()) errs.requirements = 'Requirements / AI keywords context is required.';
-    const min = Number(fd.get('salary_min_gbp') || 0);
-    const max = Number(fd.get('salary_max_gbp') || 0);
+    const min = Number(fd.get('salary_min') || 0);
+    const max = Number(fd.get('salary_max') || 0);
     if (min > 0 && max > 0 && max < min) errs.salary = 'Max salary must be ≥ min salary (£ GBP).';
+    if (internToFullTime) {
+      const months = Number(fd.get('unpaid_months') || 0);
+      if (!Number.isFinite(months) || months < 1) {
+        errs.unpaid_months = 'Enter unpaid duration in months (1 or more).';
+      }
+    }
     return errs;
   };
 
@@ -39,9 +54,12 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
       return;
     }
     setError(null);
-    const min = Number(fd.get('salary_min_gbp') || 0) || undefined;
-    const max = Number(fd.get('salary_max_gbp') || 0) || undefined;
+    const min = Number(fd.get('salary_min') || 0) || undefined;
+    const max = Number(fd.get('salary_max') || 0) || undefined;
     const publish = fd.get('publish_now') === 'on';
+    const unpaidMonths = internToFullTime ? Number(fd.get('unpaid_months') || 0) : null;
+    const compliance = String(fd.get('compliance_responsibilities') || '');
+    const keywords = String(fd.get('ai_keywords') || '');
 
     startTransition(() => {
       void createJobPosting({
@@ -49,19 +67,25 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
         department: String(fd.get('department')),
         employment_type: String(fd.get('employment_type')),
         location: String(fd.get('location')),
+        salary_min: min,
+        salary_max: max,
         salary_min_gbp: min,
         salary_max_gbp: max,
         description: String(fd.get('description') || ''),
-        responsibilities: String(fd.get('responsibilities') || ''),
+        responsibilities: compliance,
+        compliance_responsibilities: compliance,
         requirements: String(fd.get('requirements') || ''),
-        ai_match_keywords: String(fd.get('ai_match_keywords') || ''),
+        ai_match_keywords: keywords,
+        ai_keywords: keywords,
         source_budget_gbp: max ?? min,
-        publish_to_careers: true,
+        publish_to_careers: publish,
+        is_published: publish,
+        is_intern_to_fulltime: internToFullTime,
+        unpaid_months: unpaidMonths,
         status: publish ? 'open' : 'draft',
       })
         .then(() => {
           onCreated();
-          onClose();
         })
         .catch((err) => setError(err instanceof Error ? err.message : 'Could not create job'));
     });
@@ -117,6 +141,37 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
                   <option value="intern">Intern</option>
                 </select>
               </Field>
+
+              <label className="flex items-start gap-3 rounded-xl border border-neutral-800 bg-neutral-900/80 px-4 py-3 text-sm text-neutral-200">
+                <input
+                  type="checkbox"
+                  name="is_intern_to_fulltime"
+                  checked={internToFullTime}
+                  onChange={(e) => setInternToFullTime(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-700 accent-orange-500"
+                />
+                <span>
+                  <span className="font-semibold text-neutral-100">Start as Unpaid Intern before Full-Time?</span>
+                  <span className="mt-0.5 block text-[11px] text-neutral-500">
+                    Startup hiring track — unpaid months, then the posted £ GBP full-time band.
+                  </span>
+                </span>
+              </label>
+
+              {internToFullTime ? (
+                <Field label="Unpaid Duration (Months)" error={fieldErrors.unpaid_months}>
+                  <input
+                    name="unpaid_months"
+                    type="number"
+                    min={1}
+                    step={1}
+                    defaultValue={3}
+                    placeholder="e.g. 3"
+                    className={cn(HR_INPUT_CLASS, fieldErrors.unpaid_months && 'border-red-500')}
+                  />
+                </Field>
+              ) : null}
+
               <Field label="Location">
                 <select name="location" defaultValue="London, UK" className={HR_SELECT_CLASS}>
                   <option value="London, UK">London, UK</option>
@@ -125,10 +180,15 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
                   <option value="United Kingdom (Remote/Hybrid)">United Kingdom (Remote/Hybrid)</option>
                 </select>
               </Field>
-              <Field label="Salary band (£ GBP)" error={fieldErrors.salary}>
+              <Field
+                label={
+                  internToFullTime ? 'Post-Internship Full-Time Salary (£ GBP)' : 'Salary Band (£ GBP)'
+                }
+                error={fieldErrors.salary}
+              >
                 <div className="flex gap-2">
                   <input
-                    name="salary_min_gbp"
+                    name="salary_min"
                     type="number"
                     min={0}
                     step={1000}
@@ -136,7 +196,7 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
                     className={cn(HR_INPUT_CLASS, fieldErrors.salary && 'border-red-500')}
                   />
                   <input
-                    name="salary_max_gbp"
+                    name="salary_max"
                     type="number"
                     min={0}
                     step={1000}
@@ -168,7 +228,7 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
               </Field>
               <Field label="Key responsibilities & FCA / UK regulatory compliance">
                 <textarea
-                  name="responsibilities"
+                  name="compliance_responsibilities"
                   rows={5}
                   placeholder="Bullet-style responsibilities, SMCR awareness, customer safeguarding…"
                   className={HR_TEXTAREA_CLASS}
@@ -184,7 +244,7 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated }: Props) {
               </Field>
               <Field label="AI match keywords (comma-separated)">
                 <input
-                  name="ai_match_keywords"
+                  name="ai_keywords"
                   placeholder="TypeScript, Next.js, FCA, Direct Debit, Postgres"
                   className={HR_INPUT_CLASS}
                 />

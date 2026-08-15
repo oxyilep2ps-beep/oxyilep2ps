@@ -23,6 +23,13 @@ function mapPublicJob(row: Record<string, unknown>): JobPosting {
     headcount_requested: Number(row.headcount_requested ?? 1),
     source_budget_gbp: row.source_budget_gbp != null ? Number(row.source_budget_gbp) : null,
     created_at: String(row.created_at),
+    is_intern_to_fulltime: Boolean(row.is_intern_to_fulltime),
+    unpaid_months: row.unpaid_months != null ? Number(row.unpaid_months) : null,
+    salary_min: row.salary_min != null ? Number(row.salary_min) : row.salary_min_gbp != null ? Number(row.salary_min_gbp) : null,
+    salary_max: row.salary_max != null ? Number(row.salary_max) : row.salary_max_gbp != null ? Number(row.salary_max_gbp) : null,
+    is_published: Boolean(row.is_published ?? (row.status === 'open' && row.publish_to_careers !== false)),
+    compliance_responsibilities: String(row.compliance_responsibilities ?? row.responsibilities ?? ''),
+    ai_keywords: String(row.ai_keywords ?? row.ai_match_keywords ?? ''),
   };
 }
 
@@ -42,14 +49,22 @@ export async function listPublicOpenJobs(): Promise<JobPosting[]> {
   const { data, error } = await admin
     .from('job_postings')
     .select('*')
-    .eq('status', 'open')
-    .eq('publish_to_careers', true)
+    .eq('is_published', true)
     .order('created_at', { ascending: false });
 
   if (error) {
-    // Soft-fail if migration not applied yet
-    console.error('listPublicOpenJobs', error.message);
-    return [];
+    // Column missing until intern-track migration is applied — fall back to legacy flags.
+    const { data: legacy, error: legacyError } = await admin
+      .from('job_postings')
+      .select('*')
+      .eq('status', 'open')
+      .eq('publish_to_careers', true)
+      .order('created_at', { ascending: false });
+    if (legacyError) {
+      console.error('listPublicOpenJobs', error.message, legacyError.message);
+      return [];
+    }
+    return (legacy ?? []).map((r) => mapPublicJob(r as Record<string, unknown>));
   }
 
   return (data ?? []).map((r) => mapPublicJob(r as Record<string, unknown>));

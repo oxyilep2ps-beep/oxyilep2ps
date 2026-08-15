@@ -16,7 +16,7 @@ import {
 import { Footer } from '@/components/footer';
 import { listPublicOpenJobs } from '@/app/actions/public-careers';
 import type { JobPosting } from '@/lib/hr/types';
-import { formatGbp } from '@/lib/hr/types';
+import { formatJobCompensation } from '@/lib/hr/types';
 import { employmentTypeLabel } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
 
@@ -30,13 +30,7 @@ function Section({ children }: { children: React.ReactNode }) {
 }
 
 function salaryBand(job: JobPosting): string {
-  if (job.salary_range_gbp) return job.salary_range_gbp;
-  if (job.salary_min_gbp != null || job.salary_max_gbp != null) {
-    const a = job.salary_min_gbp != null ? formatGbp(job.salary_min_gbp) : '—';
-    const b = job.salary_max_gbp != null ? formatGbp(job.salary_max_gbp) : '—';
-    return `${a} – ${b}`;
-  }
-  return 'Competitive (£ GBP)';
+  return formatJobCompensation(job);
 }
 
 export function CareersJobsExperience() {
@@ -188,7 +182,7 @@ export function CareersJobsExperience() {
                           <MapPin size={12} />
                           {job.location || 'UK'}
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-emerald-700 dark:text-emerald-400">
+                        <span className="inline-flex max-w-full items-center gap-1 whitespace-normal rounded-full bg-emerald-500/15 px-2.5 py-1 text-left text-emerald-700 dark:text-emerald-400">
                           <Wallet size={12} />
                           {salaryBand(job)}
                         </span>

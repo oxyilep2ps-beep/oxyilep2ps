@@ -39,6 +39,13 @@ export type JobPosting = {
   headcount_requested: number;
   source_budget_gbp: number | null;
   created_at: string;
+  is_intern_to_fulltime?: boolean;
+  unpaid_months?: number | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  is_published?: boolean;
+  compliance_responsibilities?: string;
+  ai_keywords?: string;
 };
 
 export type JobApplicant = {
@@ -144,6 +151,30 @@ export function formatGbpPrecise(amount: number | null | undefined): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n);
+}
+
+/** Public / ATS compensation line — intern-to-FT track vs standard salary band. */
+export function formatJobCompensation(job: {
+  is_intern_to_fulltime?: boolean | null;
+  unpaid_months?: number | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_min_gbp?: number | null;
+  salary_max_gbp?: number | null;
+  salary_range_gbp?: string | null;
+}): string {
+  const min = job.salary_min ?? job.salary_min_gbp;
+  const max = job.salary_max ?? job.salary_max_gbp;
+  const band =
+    min != null || max != null
+      ? `${min != null ? formatGbp(min) : '£—'} - ${max != null ? formatGbp(max) : '£—'}`
+      : job.salary_range_gbp?.trim() || 'Competitive (£ GBP)';
+
+  if (job.is_intern_to_fulltime) {
+    const months = job.unpaid_months ?? 0;
+    return `Unpaid for ${months} months, then ${band} full-time`;
+  }
+  return band;
 }
 
 /** Simplified UK PAYE estimate (2025/26 standard personal allowance bands — illustrative). */

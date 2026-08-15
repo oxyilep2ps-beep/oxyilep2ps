@@ -1,4 +1,5 @@
 import { HrBottomNav } from '@/components/hr/hr-bottom-nav';
+import { HrJobEditorProvider } from '@/components/hr/hr-job-editor-provider';
 import { Logo } from '@/components/logo';
 import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/auth/routing';
@@ -29,8 +30,10 @@ export default async function HrLayout({ children }: { children: React.ReactNode
           Enterprise HRMS &amp; ATS for UK FinTech — all money in £ GBP. Use the bottom bar to move between modules.
         </p>
       </header>
-      {children}
-      <HrBottomNav />
+      <HrJobEditorProvider>
+        {children}
+        <HrBottomNav />
+      </HrJobEditorProvider>
     </div>
   );
 }

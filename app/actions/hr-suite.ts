@@ -45,6 +45,13 @@ function mapJob(row: Record<string, unknown>): JobPosting {
     headcount_requested: Number(row.headcount_requested ?? 1),
     source_budget_gbp: row.source_budget_gbp != null ? Number(row.source_budget_gbp) : null,
     created_at: String(row.created_at),
+    is_intern_to_fulltime: Boolean(row.is_intern_to_fulltime),
+    unpaid_months: row.unpaid_months != null ? Number(row.unpaid_months) : null,
+    salary_min: row.salary_min != null ? Number(row.salary_min) : row.salary_min_gbp != null ? Number(row.salary_min_gbp) : null,
+    salary_max: row.salary_max != null ? Number(row.salary_max) : row.salary_max_gbp != null ? Number(row.salary_max_gbp) : null,
+    is_published: Boolean(row.is_published ?? (row.status === 'open' && row.publish_to_careers !== false)),
+    compliance_responsibilities: String(row.compliance_responsibilities ?? row.responsibilities ?? ''),
+    ai_keywords: String(row.ai_keywords ?? row.ai_match_keywords ?? ''),
   };
 }
 
@@ -125,27 +132,41 @@ export async function createJobPosting(input: {
   salary_range_gbp?: string;
   salary_min_gbp?: number;
   salary_max_gbp?: number;
+  salary_min?: number;
+  salary_max?: number;
   requirements: string;
   description?: string;
   responsibilities?: string;
+  compliance_responsibilities?: string;
   ai_match_keywords?: string;
+  ai_keywords?: string;
   location?: string;
   employment_type?: string;
   source_budget_gbp?: number;
   publish_to_careers?: boolean;
+  is_published?: boolean;
+  is_intern_to_fulltime?: boolean;
+  unpaid_months?: number | null;
   status?: 'draft' | 'open';
 }) {
   const user = await assertHrOrAdmin();
   const admin = createAdminClient();
-  const min = input.salary_min_gbp ?? null;
-  const max = input.salary_max_gbp ?? null;
+  const min = input.salary_min ?? input.salary_min_gbp ?? null;
+  const max = input.salary_max ?? input.salary_max_gbp ?? null;
+  const internTrack = Boolean(input.is_intern_to_fulltime);
+  const unpaidMonths = internTrack ? Math.max(0, Number(input.unpaid_months ?? 0)) : null;
+  const published = Boolean(input.is_published ?? input.publish_to_careers);
   const range =
     input.salary_range_gbp?.trim() ||
-    (min != null || max != null
-      ? `${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''}`
-      : null);
+    (internTrack
+      ? `Unpaid for ${unpaidMonths ?? 0} months, then ${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''} full-time`
+      : min != null || max != null
+        ? `${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''}`
+        : null);
 
-  const status = input.status ?? 'draft';
+  const compliance = input.compliance_responsibilities ?? input.responsibilities ?? '';
+  const keywords = input.ai_keywords ?? input.ai_match_keywords ?? '';
+  const status = input.status ?? (published ? 'open' : 'draft');
   const { data, error } = await admin
     .from('job_postings')
     .insert({
@@ -154,33 +175,56 @@ export async function createJobPosting(input: {
       salary_range_gbp: range,
       salary_min_gbp: min,
       salary_max_gbp: max,
+      salary_min: min,
+      salary_max: max,
       requirements: input.requirements,
       description: input.description ?? '',
-      responsibilities: input.responsibilities ?? '',
-      ai_match_keywords: input.ai_match_keywords ?? '',
+      responsibilities: compliance,
+      compliance_responsibilities: compliance,
+      ai_match_keywords: keywords,
+      ai_keywords: keywords,
       location: input.location ?? 'United Kingdom (Remote/Hybrid)',
       employment_type: input.employment_type ?? 'full_time',
       source_budget_gbp: input.source_budget_gbp ?? max ?? min ?? null,
       status,
       budget_approved: status === 'open',
-      publish_to_careers: input.publish_to_careers !== false,
+      publish_to_careers: published,
+      is_published: published,
+      is_intern_to_fulltime: internTrack,
+      unpaid_months: unpaidMonths,
       created_by: user.id,
     })
     .select('*')
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    throw new Error(
+      /column|schema cache|is_intern_to_fulltime|is_published|unpaid_months/i.test(error.message)
+        ? `Could not save job — apply supabase/migrations/20260815150000_create_job_postings_table.sql in the Supabase SQL editor, then retry. (${error.message})`
+        : error.message
+    );
+  }
 
-  await admin.from('hr_headcount_requests').insert({
+  const { error: headcountError } = await admin.from('hr_headcount_requests').insert({
     job_posting_id: data.id,
     title: input.title.trim(),
     department: input.department.trim() || 'Operations',
     salary_budget_gbp: input.source_budget_gbp ?? max ?? min ?? 0,
-    justification: 'New requisition from Enterprise Job Editor',
+    justification: internTrack
+      ? `Intern-to-full-time track (${unpaidMonths ?? 0} unpaid months) from Enterprise Job Editor`
+      : 'New requisition from Enterprise Job Editor',
     requested_by: user.id,
     status: status === 'open' ? 'approved' : 'pending',
   });
+  if (headcountError) {
+    console.error('hr_headcount_requests insert skipped', headcountError.message);
+  }
 
-  await audit('job_posting.create', user.id, { jobId: data.id, title: input.title, status });
+  await audit('job_posting.create', user.id, {
+    jobId: data.id,
+    title: input.title,
+    status,
+    is_intern_to_fulltime: internTrack,
+  });
   revalidateHr();
   revalidatePath('/careers');
   return mapJob(data as Record<string, unknown>);

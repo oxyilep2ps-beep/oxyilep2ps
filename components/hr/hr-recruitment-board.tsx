@@ -14,9 +14,9 @@ import {
   updateBackgroundCheck,
 } from '@/app/actions/hr-suite';
 import type { ApplicantStage, BackgroundCheckStatus, JobApplicant, JobPosting } from '@/lib/hr/types';
-import { APPLICANT_STAGES, BACKGROUND_STATUSES, formatGbp } from '@/lib/hr/types';
+import { APPLICANT_STAGES, BACKGROUND_STATUSES, formatJobCompensation } from '@/lib/hr/types';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
-import { HrEnterpriseJobEditor } from '@/components/hr/hr-enterprise-job-editor';
+import { subscribeJobPostingCreated, useHrJobEditor } from '@/components/hr/hr-job-editor-provider';
 import { HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
 
@@ -38,7 +38,7 @@ export function HrRecruitmentBoard() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [jobEditorOpen, setJobEditorOpen] = useState(false);
+  const { openCreateJob } = useHrJobEditor();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,13 +60,15 @@ export function HrRecruitmentBoard() {
     void load();
   }, [load]);
 
+  useEffect(() => subscribeJobPostingCreated(() => void load()), [load]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (new URLSearchParams(window.location.search).get('new') === '1') {
-      setJobEditorOpen(true);
+      openCreateJob();
       window.history.replaceState({}, '', '/hr/recruitment');
     }
-  }, []);
+  }, [openCreateJob]);
 
   const sourceStats = useMemo(() => {
     const map = new Map<string, number>();
@@ -109,7 +111,7 @@ export function HrRecruitmentBoard() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => setJobEditorOpen(true)}
+            onClick={() => openCreateJob()}
             className="rounded-full bg-orange-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-orange-600"
           >
             + Create job
@@ -167,7 +169,7 @@ export function HrRecruitmentBoard() {
                   <div>
                     <p className="font-semibold">{j.title}</p>
                     <p className="text-xs text-neutral-500">
-                      {j.department} · {j.salary_range_gbp || formatGbp(j.salary_min_gbp ?? 0)} · {j.status}
+                      {j.department} · {formatJobCompensation(j)} · {j.status}
                       {j.budget_approved ? ' · Budget ✓' : ' · Awaiting admin budget'}
                     </p>
                   </div>
@@ -259,15 +261,6 @@ export function HrRecruitmentBoard() {
           setError={setError}
         />
       ) : null}
-
-      <HrEnterpriseJobEditor
-        open={jobEditorOpen}
-        onClose={() => setJobEditorOpen(false)}
-        onCreated={() => {
-          void load();
-          setTab('jobs');
-        }}
-      />
     </div>
   );
 }

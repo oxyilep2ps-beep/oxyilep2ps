@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { createExpenseClaim, createLeaveRequest, listEmployees } from '@/app/actions/hr-suite';
+import { useHrJobEditor } from '@/components/hr/hr-job-editor-provider';
 import { HR_INPUT_CLASS, HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
 
@@ -102,6 +103,7 @@ type QuickMode = 'leave' | 'expense' | null;
 export function HrBottomNav() {
   const router = useRouter();
   const pathname = usePathname();
+  const { openCreateJob } = useHrJobEditor();
   const [open, setOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mode, setMode] = useState<QuickMode>(null);
@@ -256,6 +258,7 @@ export function HrBottomNav() {
             setMsg={setMsg}
             startTransition={startTransition}
             router={router}
+            onPostJob={openCreateJob}
           />
 
           {DESKTOP_RIGHT.map((item) => (
@@ -298,6 +301,7 @@ export function HrBottomNav() {
             setMsg={setMsg}
             startTransition={startTransition}
             router={router}
+            onPostJob={openCreateJob}
           />
 
           <button
@@ -334,6 +338,7 @@ function CreateFab({
   setMsg,
   startTransition,
   router,
+  onPostJob,
 }: {
   createRef: React.RefObject<HTMLDivElement | null>;
   open: boolean;
@@ -346,6 +351,7 @@ function CreateFab({
   setMsg: (m: string | null) => void;
   startTransition: (fn: () => void) => void;
   router: ReturnType<typeof useRouter>;
+  onPostJob: () => void;
 }) {
   return (
     <div ref={createRef} className="relative flex w-14 shrink-0 flex-col items-center sm:w-16">
@@ -361,7 +367,7 @@ function CreateFab({
                 className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-semibold text-white hover:bg-[#F97316]/10"
                 onClick={() => {
                   setOpen(false);
-                  router.push('/hr/recruitment?new=1');
+                  onPostJob();
                 }}
               >
                 <BriefcaseBusiness size={16} className="text-[#F97316]" /> Post New Job (£ GBP)
