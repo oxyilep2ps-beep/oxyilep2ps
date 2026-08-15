@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Loader2, Send, X } from 'lucide-react';
-import { sendCandidateEmail } from '@/app/actions/hr-applications';
+import { sendCandidateEmail } from '@/app/actions/sendCandidateEmail';
 import { INTERVIEW_EMAIL_TEMPLATE, REJECTION_EMAIL_TEMPLATE } from '@/lib/hr/ats-application-status';
 import { HR_TEXTAREA_CLASS } from '@/lib/hr/ui';
 
@@ -96,9 +96,15 @@ export function AtsEmailCandidateModal({ to, candidateName, intent, applicationI
                   subject: 'Update on your application at Oxyile',
                   message,
                   applicationId,
-                })
-                  .then(() => onSent())
-                  .catch((err) => setError(err instanceof Error ? err.message : 'Send failed'));
+                }).then((result) => {
+                  if (!result?.success) {
+                    setError(result?.message || 'Send failed');
+                    return;
+                  }
+                  onSent();
+                }).catch((err: unknown) => {
+                  setError(err instanceof Error ? err.message : 'Send failed');
+                });
               });
             }}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#F97316] py-3 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-60"
