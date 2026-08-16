@@ -153,25 +153,36 @@ export function formatGbpPrecise(amount: number | null | undefined): string {
   }).format(n);
 }
 
-function formatSalaryAmount(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(Number(value))) return '£—';
-  return `£${Math.round(Number(value)).toLocaleString('en-GB')}`;
+function salaryNumber(value: number | string | null | undefined): number | null {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'string' ? Number(value.trim()) : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
-/** Public / ATS compensation line — intern-to-FT track vs standard salary band. */
+function formatSalaryAmount(value: number | null): string {
+  if (value == null) return '£—';
+  return `£${Math.round(value).toLocaleString('en-GB')}`;
+}
+
+/** Public / ATS compensation line — unpaid internship vs intern-to-FT vs salary band. */
 export function formatJobCompensation(job: {
   is_intern_to_fulltime?: boolean | null;
   unpaid_months?: number | null;
-  salary_min?: number | null;
-  salary_max?: number | null;
-  salary_min_gbp?: number | null;
-  salary_max_gbp?: number | null;
+  salary_min?: number | string | null;
+  salary_max?: number | string | null;
+  salary_min_gbp?: number | string | null;
+  salary_max_gbp?: number | string | null;
   salary_range_gbp?: string | null;
 }): string {
-  const min = job.salary_min ?? job.salary_min_gbp;
-  const max = job.salary_max ?? job.salary_max_gbp;
-  const band = `${formatSalaryAmount(min)} - ${formatSalaryAmount(max)} Full-Time`;
+  const min = salaryNumber(job.salary_min ?? job.salary_min_gbp);
+  const max = salaryNumber(job.salary_max ?? job.salary_max_gbp);
 
+  if (min == null && max == null) {
+    return 'Unpaid Internship';
+  }
+
+  const band = `${formatSalaryAmount(min)} - ${formatSalaryAmount(max)} Full-Time`;
   if (job.is_intern_to_fulltime) {
     const months = Math.max(0, Number(job.unpaid_months ?? 0));
     return `Unpaid for ${months} months, then ${band}`;
