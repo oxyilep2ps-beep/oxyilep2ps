@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import { FileUp } from 'lucide-react';
+import { CheckCircle2, FileUp } from 'lucide-react';
 
 const ACCEPT = '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -17,7 +17,7 @@ export function CareersApplyForm({ jobId, roleTitle }: Props) {
   const [linkedin, setLinkedin] = useState('');
   const [resume, setResume] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -28,7 +28,6 @@ export function CareersApplyForm({ jobId, roleTitle }: Props) {
     }
     setSubmitting(true);
     setError(null);
-    setMessage(null);
 
     const body = new FormData();
     body.set('full_name', fullName);
@@ -44,16 +43,25 @@ export function CareersApplyForm({ jobId, roleTitle }: Props) {
 
     if (!res.ok || data.error) {
       setError(data.error ?? 'Submission failed');
-    } else {
-      setMessage('Application received — HR will review your resume in the Oxyile ATS.');
-      setFullName('');
-      setEmail('');
-      setPhone('');
-      setLinkedin('');
-      setResume(null);
+      setSubmitting(false);
+      return;
     }
+
+    setSubmitted(true);
     setSubmitting(false);
   };
+
+  if (submitted) {
+    return (
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-8 text-center">
+        <CheckCircle2 className="mx-auto text-emerald-400" size={42} />
+        <p className="mt-4 text-sm leading-7 text-emerald-100">
+          Thank you for applying! Your application has been successfully submitted. We have sent a confirmation email
+          to your inbox and will be in touch shortly.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-white/10 bg-neutral-900/80 p-4">
@@ -100,7 +108,6 @@ export function CareersApplyForm({ jobId, roleTitle }: Props) {
         />
       </label>
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
-      {message ? <p className="text-sm text-emerald-400">{message}</p> : null}
       <button
         type="submit"
         disabled={submitting}

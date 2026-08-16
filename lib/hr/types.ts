@@ -153,6 +153,11 @@ export function formatGbpPrecise(amount: number | null | undefined): string {
   }).format(n);
 }
 
+function formatSalaryAmount(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(Number(value))) return '£—';
+  return `£${Math.round(Number(value)).toLocaleString('en-GB')}`;
+}
+
 /** Public / ATS compensation line — intern-to-FT track vs standard salary band. */
 export function formatJobCompensation(job: {
   is_intern_to_fulltime?: boolean | null;
@@ -165,14 +170,11 @@ export function formatJobCompensation(job: {
 }): string {
   const min = job.salary_min ?? job.salary_min_gbp;
   const max = job.salary_max ?? job.salary_max_gbp;
-  const band =
-    min != null || max != null
-      ? `${min != null ? formatGbp(min) : '£—'} - ${max != null ? formatGbp(max) : '£—'}`
-      : job.salary_range_gbp?.trim() || 'Competitive (£ GBP)';
+  const band = `${formatSalaryAmount(min)} - ${formatSalaryAmount(max)} Full-Time`;
 
   if (job.is_intern_to_fulltime) {
-    const months = job.unpaid_months ?? 0;
-    return `Unpaid for ${months} months, then ${band} full-time`;
+    const months = Math.max(0, Number(job.unpaid_months ?? 0));
+    return `Unpaid for ${months} months, then ${band}`;
   }
   return band;
 }

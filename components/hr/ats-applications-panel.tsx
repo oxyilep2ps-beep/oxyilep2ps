@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ExternalLink, Search } from 'lucide-react';
+import { ExternalLink, Search, Trash2 } from 'lucide-react';
 import { AuthToast } from '@/components/auth-toast';
 import { AtsEmailCandidateModal } from '@/components/hr/ats-email-candidate-modal';
-import { updateJobApplicationStatus, type AtsApplication } from '@/app/actions/hr-applications';
+import { deleteJobApplication, updateJobApplicationStatus, type AtsApplication } from '@/app/actions/hr-applications';
 import {
   ATS_APPLICATION_STATUSES,
   ATS_PIPELINE_TABS,
@@ -31,7 +31,7 @@ export function AtsApplicationsPanel({
   const [tab, setTab] = useState<AtsPipelineTab>('new');
   const [rows, setRows] = useState(applications);
   const [pending, startTransition] = useTransition();
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
   const [emailTarget, setEmailTarget] = useState<{
     row: AtsApplication;
     intent: 'Interview' | 'Rejected';
@@ -85,6 +85,26 @@ export function AtsApplicationsPanel({
         .catch(() => {
           setRows((cur) => cur.map((r) => (r.id === row.id ? { ...r, status: previous } : r)));
         });
+    });
+  };
+
+  const removeCandidate = (row: AtsApplication) => {
+    const ok = window.confirm(
+      `Delete ${row.candidate_name}? This removes the application and the uploaded resume file.`
+    );
+    if (!ok) return;
+    const snapshot = rows;
+    setRows((cur) => cur.filter((r) => r.id !== row.id));
+    startTransition(() => {
+      void deleteJobApplication(row.id).then((result) => {
+        if (!result?.success) {
+          setRows(snapshot);
+          setToast({ message: result?.message || 'Could not delete candidate.', tone: 'error' });
+          return;
+        }
+        setToast({ message: 'Candidate deleted', tone: 'success' });
+        void onChanged();
+      });
     });
   };
 
@@ -172,16 +192,27 @@ export function AtsApplicationsPanel({
                       {new Date(row.created_at).toLocaleString('en-GB')}
                     </p>
                   </div>
-                  {row.resume_url ? (
-                    <a
-                      href={row.resume_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#F97316] hover:text-orange-400"
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {row.resume_url ? (
+                      <a
+                        href={row.resume_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-[#F97316] hover:text-orange-400"
+                      >
+                        Resume <ExternalLink size={12} />
+                      </a>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={pending}
+                      title="Delete Candidate"
+                      onClick={() => removeCandidate(row)}
+                      className="inline-flex items-center gap-1 rounded-full border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-60"
                     >
-                      Resume <ExternalLink size={12} />
-                    </a>
-                  ) : null}
+                      <Trash2 size={12} /> Delete Candidate
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -220,7 +251,7 @@ export function AtsApplicationsPanel({
           onClose={() => setEmailTarget(null)}
           onSent={() => {
             setEmailTarget(null);
-            setToast('Email sent successfully!');
+            setToast({ message: 'Email sent successfully!', tone: 'success' });
             void onChanged();
           }}
         />
@@ -228,8 +259,8 @@ export function AtsApplicationsPanel({
 
       <AuthToast
         open={Boolean(toast)}
-        tone="success"
-        message={toast ?? ''}
+        tone={toast?.tone ?? 'success'}
+        message={toast?.message ?? ''}
         onClose={() => setToast(null)}
         autoCloseMs={4500}
       />

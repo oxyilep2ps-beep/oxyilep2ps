@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import {
   createJobApplicant,
+  deleteJobPosting,
   generateOffer,
   getEmailTemplate,
   listJobApplicants,
@@ -15,7 +16,7 @@ import {
 } from '@/app/actions/hr-suite';
 import type { ApplicantStage, BackgroundCheckStatus, JobApplicant, JobPosting } from '@/lib/hr/types';
 import { APPLICANT_STAGES, BACKGROUND_STATUSES, formatJobCompensation } from '@/lib/hr/types';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
 import { AtsApplicationsPanel } from '@/components/hr/ats-applications-panel';
 import { listAtsApplications, type AtsApplication } from '@/app/actions/hr-applications';
@@ -201,6 +202,28 @@ export function HrRecruitmentBoard() {
                       }}
                     >
                       <Pencil size={12} /> Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-500/20 disabled:opacity-60"
+                      onClick={() => {
+                        const ok = window.confirm(
+                          `Delete “${j.title}”? This removes the job posting from the portal and careers page.`
+                        );
+                        if (!ok) return;
+                        startTransition(() => {
+                          void deleteJobPosting(j.id).then((result) => {
+                            if (!result?.success) {
+                              setError(result?.message || 'Could not delete job.');
+                              return;
+                            }
+                            void load();
+                          });
+                        });
+                      }}
+                    >
+                      <Trash2 size={12} /> Delete
                     </button>
                     <button
                       type="button"

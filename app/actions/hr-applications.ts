@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { ATS_APPLICATION_STATUSES, type AtsApplicationStatus } from '@/lib/hr/ats-application-status';
+import { removeResumeFiles } from '@/lib/hr/resume-storage';
 
 export type AtsApplication = {
   id: string;
@@ -60,4 +61,35 @@ export async function updateJobApplicationStatus(id: string, status: AtsApplicat
   }
   revalidatePath('/hr/recruitment');
   return mapApplication(data as Record<string, unknown>);
+}
+
+export async function deleteJobApplication(id: string): Promise<{ success: boolean; message: string }> {
+  try {
+    await assertHrOrAdmin();
+    const admin = createAdminClient();
+    const { data: row, error: fetchError } = await admin
+      .from('job_applications')
+      .select('id, resume_url')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) return { success: false, message: fetchError.message };
+    if (!row) return { success: false, message: 'Application not found.' };
+
+    try {
+      await removeResumeFiles(admin, [row.resume_url as string | null]);
+    } catch {
+      // Continue so the ATS row is still removed.
+    }
+
+    const { error } = await admin.from('job_applications').delete().eq('id', id);
+    if (error) return { success: false, message: error.message };
+
+    revalidatePath('/hr/recruitment');
+    revalidatePath('/hr');
+    return { success: true, message: 'Candidate deleted' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not delete candidate.';
+    return { success: false, message };
+  }
 }

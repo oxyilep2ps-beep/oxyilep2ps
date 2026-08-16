@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { scoreResumeAgainstRequirements } from '@/lib/hr/types';
+import { sendApplicationReceivedEmail } from '@/lib/email/send-application-received';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -148,6 +149,16 @@ export async function POST(request: Request) {
     revalidatePath('/hr/recruitment');
     revalidatePath('/hr');
     revalidatePath('/careers');
+
+    try {
+      await sendApplicationReceivedEmail({
+        to: email,
+        candidateName: full_name,
+        jobTitle,
+      });
+    } catch {
+      // Confirmation email must never fail the application itself.
+    }
 
     return NextResponse.json({ success: true, ai_match_score, resume_url });
   } catch (e) {

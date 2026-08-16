@@ -3,8 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { removeResumeFiles } from '@/lib/hr/resume-storage';
 import {
   generateOfferLetterHtml,
+  formatJobCompensation,
   scoreResumeAgainstRequirements,
   type ApplicantStage,
   type BackgroundCheckStatus,
@@ -159,13 +161,12 @@ export async function createJobPosting(input: {
   const internTrack = Boolean(input.is_intern_to_fulltime);
   const unpaidMonths = internTrack ? Math.max(0, Number(input.unpaid_months ?? 0)) : null;
   const published = Boolean(input.is_published ?? input.publish_to_careers);
-  const range =
-    input.salary_range_gbp?.trim() ||
-    (internTrack
-      ? `Unpaid for ${unpaidMonths ?? 0} months, then ${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''} full-time`
-      : min != null || max != null
-        ? `${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''}`
-        : null);
+  const range = formatJobCompensation({
+    is_intern_to_fulltime: internTrack,
+    unpaid_months: unpaidMonths,
+    salary_min: min,
+    salary_max: max,
+  });
 
   const compliance = input.compliance_responsibilities ?? input.responsibilities ?? '';
   const keywords = input.ai_keywords ?? input.ai_match_keywords ?? '';
@@ -272,12 +273,12 @@ export async function updateJobPosting(
   const published = Boolean(input.is_published ?? input.publish_to_careers);
   const compliance = input.compliance_responsibilities ?? input.responsibilities ?? '';
   const keywords = input.ai_keywords ?? input.ai_match_keywords ?? '';
-  const range =
-    internTrack
-      ? `Unpaid for ${unpaidMonths ?? 0} months, then ${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''} full-time`
-      : min != null || max != null
-        ? `${min != null ? `£${min.toLocaleString('en-GB')}` : '?'}${max != null ? ` – £${max.toLocaleString('en-GB')}` : ''}`
-        : input.salary_range_gbp ?? null;
+  const range = formatJobCompensation({
+    is_intern_to_fulltime: internTrack,
+    unpaid_months: unpaidMonths,
+    salary_min: min,
+    salary_max: max,
+  });
   const status = input.status ?? (published ? 'open' : 'draft');
 
   const { data, error } = await admin
@@ -314,6 +315,34 @@ export async function updateJobPosting(
   revalidateHr();
   revalidatePath('/careers');
   return mapJob(data as Record<string, unknown>);
+}
+
+export async function deleteJobPosting(id: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const user = await assertHrOrAdmin();
+    const admin = createAdminClient();
+
+    const { data: apps } = await admin.from('job_applications').select('resume_url').eq('job_id', id);
+    try {
+      await removeResumeFiles(
+        admin,
+        (apps ?? []).map((row) => (row.resume_url as string | null) ?? null)
+      );
+    } catch {
+      // Storage cleanup is best-effort; still delete the posting.
+    }
+
+    const { error } = await admin.from('job_postings').delete().eq('id', id);
+    if (error) return { success: false, message: error.message };
+
+    await audit('job_posting.delete', user.id, { id });
+    revalidateHr();
+    revalidatePath('/careers');
+    return { success: true, message: 'Job posting deleted' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not delete job posting.';
+    return { success: false, message };
+  }
 }
 
 export type HrPortalSettings = {
