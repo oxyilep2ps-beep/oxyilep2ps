@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useState, useTransition } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { createJobPosting, updateJobPosting } from '@/app/actions/hr-suite';
 import type { JobPosting } from '@/lib/hr/types';
-import { DEFAULT_WHAT_YOU_WILL_GAIN } from '@/lib/hr/types';
 import { HR_INPUT_CLASS, HR_SELECT_CLASS, HR_TEXTAREA_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +29,8 @@ function payloadFromForm(
   const min = Number(fd.get('salary_min') || 0) || undefined;
   const max = Number(fd.get('salary_max') || 0) || undefined;
   const publish = fd.get('publish_now') === 'on';
-  const unpaidMonths = internToFullTime ? Number(fd.get('unpaid_months') || 0) : null;
+  const durationRaw = Number(fd.get('duration_months') || 0);
+  const durationMonths = Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : null;
   const compliance = String(fd.get('compliance_responsibilities') || '');
   const keywords = String(fd.get('ai_keywords') || '');
   return {
@@ -52,7 +52,8 @@ function payloadFromForm(
     publish_to_careers: publish,
     is_published: publish,
     is_intern_to_fulltime: internToFullTime,
-    unpaid_months: unpaidMonths,
+    duration_months: durationMonths,
+    unpaid_months: durationMonths,
     what_you_will_gain: String(fd.get('what_you_will_gain') || '').trim() || null,
     status: (publish ? 'open' : 'draft') as 'draft' | 'open',
   };
@@ -64,6 +65,7 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [internToFullTime, setInternToFullTime] = useState(Boolean(initialData?.is_intern_to_fulltime));
+  const [employmentType, setEmploymentType] = useState(initialData?.employment_type ?? 'full_time');
 
   useEffect(() => {
     if (!open) {
@@ -72,7 +74,8 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
       return;
     }
     setInternToFullTime(Boolean(initialData?.is_intern_to_fulltime));
-  }, [open, initialData?.id, initialData?.is_intern_to_fulltime]);
+    setEmploymentType(initialData?.employment_type ?? 'full_time');
+  }, [open, initialData?.id, initialData?.is_intern_to_fulltime, initialData?.employment_type]);
 
   if (!open) return null;
 
@@ -84,9 +87,9 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
     const max = Number(fd.get('salary_max') || 0);
     if (min > 0 && max > 0 && max < min) errs.salary = 'Max salary must be ≥ min salary (£ GBP).';
     if (internToFullTime) {
-      const months = Number(fd.get('unpaid_months') || 0);
+      const months = Number(fd.get('duration_months') || 0);
       if (!Number.isFinite(months) || months < 1) {
-        errs.unpaid_months = 'Enter unpaid duration in months (1 or more).';
+        errs.duration_months = 'Enter internship duration in months (1 or more).';
       }
     }
     return errs;
@@ -166,7 +169,12 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
                 </select>
               </Field>
               <Field label="Employment type">
-                <select name="employment_type" defaultValue={initialData?.employment_type ?? 'full_time'} className={HR_SELECT_CLASS}>
+                <select
+                  name="employment_type"
+                  value={employmentType}
+                  onChange={(e) => setEmploymentType(e.target.value)}
+                  className={HR_SELECT_CLASS}
+                >
                   <option value="full_time">Full-time FTE</option>
                   <option value="contractor">Contractor</option>
                   <option value="fixed_term">Fixed-Term</option>
@@ -184,26 +192,27 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
                   className="mt-0.5 h-4 w-4 rounded border-neutral-700 accent-[#F97316]"
                 />
                 <span>
-                  <span className="font-semibold text-neutral-100">Start as Unpaid Intern before Full-Time?</span>
+                  <span className="font-semibold text-neutral-100">Internship then Full-Time track</span>
                   <span className="mt-0.5 block text-[11px] text-neutral-500">
-                    Startup hiring track — unpaid months, then the posted £ GBP full-time band.
+                    Public copy will read “Internship for N months, then £ salary Full-Time”.
                   </span>
                 </span>
               </label>
 
-              {internToFullTime ? (
-                <Field label="Unpaid Duration (Months)" error={fieldErrors.unpaid_months}>
-                  <input
-                    name="unpaid_months"
-                    type="number"
-                    min={1}
-                    step={1}
-                    defaultValue={initialData?.unpaid_months ?? 3}
-                    placeholder="e.g. 3"
-                    className={cn(HR_INPUT_CLASS, fieldErrors.unpaid_months && 'border-red-500')}
-                  />
-                </Field>
-              ) : null}
+              <Field label="Duration (months)" error={fieldErrors.duration_months}>
+                <input
+                  name="duration_months"
+                  type="number"
+                  min={0}
+                  step={1}
+                  defaultValue={initialData?.duration_months ?? initialData?.unpaid_months ?? ''}
+                  placeholder="e.g. 3"
+                  className={cn(HR_INPUT_CLASS, fieldErrors.duration_months && 'border-red-500')}
+                />
+                <p className="mt-1 text-[11px] text-neutral-500">
+                  Used with Intern employment type or intern→FT track. Leave blank if not an internship.
+                </p>
+              </Field>
 
               <Field label="Location">
                 <select name="location" defaultValue={LOCATIONS.includes(location) ? location : location} className={HR_SELECT_CLASS}>
@@ -265,12 +274,12 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
                 <textarea
                   name="what_you_will_gain"
                   rows={6}
-                  defaultValue={initialData?.what_you_will_gain ?? DEFAULT_WHAT_YOU_WILL_GAIN}
-                  placeholder={DEFAULT_WHAT_YOU_WILL_GAIN}
+                  defaultValue={editing ? initialData?.what_you_will_gain ?? '' : ''}
+                  placeholder="Optional. Shown below Description on /careers."
                   className={HR_TEXTAREA_CLASS}
                 />
                 <p className="mt-1 text-[11px] text-neutral-500">
-                  Shown below Description on /careers. Leave the default copy for intern roles to emphasise recognition and a full-time path.
+                  Starts blank for new roles. Saved text is restored when you edit a posting.
                 </p>
               </Field>
               <Field label="Key responsibilities & FCA / UK regulatory compliance">
@@ -349,3 +358,5 @@ function Field({
     </label>
   );
 }
+
+export { HrEnterpriseJobEditor as JobEditorModal };

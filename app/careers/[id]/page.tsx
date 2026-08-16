@@ -4,7 +4,7 @@ import { ArrowLeft, BriefcaseBusiness, MapPin, Wallet } from 'lucide-react';
 import { getPublicJob } from '@/app/actions/public-careers';
 import { CareersApplyForm } from '@/components/careers/careers-apply-form';
 import { Footer } from '@/components/footer';
-import { formatJobCompensation, jobHasNumericSalary, resolveWhatYouWillGain } from '@/lib/hr/types';
+import { formatJobCompensation, resolveWhatYouWillGain } from '@/lib/hr/types';
 import { employmentTypeLabel } from '@/lib/hr/ui';
 
 export default async function PublicJobApplicationPage({
@@ -16,7 +16,6 @@ export default async function PublicJobApplicationPage({
   const job = await getPublicJob(id);
   if (!job) notFound();
 
-  const showCompensation = jobHasNumericSalary(job);
   const whatYoullGain = resolveWhatYouWillGain(job);
 
   return (
@@ -40,24 +39,20 @@ export default async function PublicJobApplicationPage({
             <MapPin size={12} />
             {job.location || 'UK'}
           </span>
-          {showCompensation ? (
-            <span className="inline-flex max-w-full items-center gap-1 whitespace-normal rounded-full bg-emerald-500/15 px-2.5 py-1 text-left text-emerald-400">
-              <Wallet size={12} />
-              {formatJobCompensation(job)}
-            </span>
-          ) : null}
+          <span className="inline-flex max-w-full items-center gap-1 whitespace-normal rounded-full bg-emerald-500/15 px-2.5 py-1 text-left text-emerald-400">
+            <Wallet size={12} />
+            {formatJobCompensation(job)}
+          </span>
         </div>
 
         <div className="mt-8 space-y-5 text-sm leading-7 text-neutral-300">
-          {showCompensation ? (
-            <div className="rounded-2xl border border-[#F97316]/20 bg-[#F97316]/10 px-4 py-3 font-semibold text-orange-300">
-              Compensation: {formatJobCompensation(job)}
-            </div>
-          ) : null}
+          <div className="rounded-2xl border border-[#F97316]/20 bg-[#F97316]/10 px-4 py-3 font-semibold text-orange-300">
+            Compensation: {formatJobCompensation(job)}
+          </div>
           <Block title="Description">
             {job.description || 'Join Oxyile to ship compliant, customer-obsessed FinTech.'}
           </Block>
-          <Block title="What You'll Gain">{whatYoullGain}</Block>
+          {whatYoullGain ? <Block title="What You'll Gain">{whatYoullGain}</Block> : null}
           <Block title="Key responsibilities & UK / FCA compliance">
             {job.compliance_responsibilities ||
               job.responsibilities ||

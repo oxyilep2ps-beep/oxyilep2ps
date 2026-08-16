@@ -49,7 +49,8 @@ function mapJob(row: Record<string, unknown>): JobPosting {
     source_budget_gbp: row.source_budget_gbp != null ? Number(row.source_budget_gbp) : null,
     created_at: String(row.created_at),
     is_intern_to_fulltime: Boolean(row.is_intern_to_fulltime),
-    unpaid_months: row.unpaid_months != null ? Number(row.unpaid_months) : null,
+    unpaid_months: row.unpaid_months != null ? Number(row.unpaid_months) : row.duration_months != null ? Number(row.duration_months) : null,
+    duration_months: row.duration_months != null ? Number(row.duration_months) : row.unpaid_months != null ? Number(row.unpaid_months) : null,
     salary_min: row.salary_min != null ? Number(row.salary_min) : row.salary_min_gbp != null ? Number(row.salary_min_gbp) : null,
     salary_max: row.salary_max != null ? Number(row.salary_max) : row.salary_max_gbp != null ? Number(row.salary_max_gbp) : null,
     is_published: Boolean(row.is_published ?? (row.status === 'open' && row.publish_to_careers !== false)),
@@ -133,6 +134,17 @@ export async function listJobPostings() {
   return (data ?? []).map((r) => mapJob(r as Record<string, unknown>));
 }
 
+function durationMonthsFromInput(input: {
+  duration_months?: number | null;
+  unpaid_months?: number | null;
+}): number | null {
+  const raw = input.duration_months ?? input.unpaid_months;
+  if (raw == null) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n);
+}
+
 export async function createJobPosting(input: {
   title: string;
   department: string;
@@ -154,6 +166,7 @@ export async function createJobPosting(input: {
   is_published?: boolean;
   is_intern_to_fulltime?: boolean;
   unpaid_months?: number | null;
+  duration_months?: number | null;
   what_you_will_gain?: string | null;
   status?: 'draft' | 'open';
 }) {
@@ -162,11 +175,13 @@ export async function createJobPosting(input: {
   const min = input.salary_min ?? input.salary_min_gbp ?? null;
   const max = input.salary_max ?? input.salary_max_gbp ?? null;
   const internTrack = Boolean(input.is_intern_to_fulltime);
-  const unpaidMonths = internTrack ? Math.max(0, Number(input.unpaid_months ?? 0)) : null;
+  const durationMonths = durationMonthsFromInput(input);
   const published = Boolean(input.is_published ?? input.publish_to_careers);
   const range = formatJobCompensation({
     is_intern_to_fulltime: internTrack,
-    unpaid_months: unpaidMonths,
+    employment_type: input.employment_type,
+    duration_months: durationMonths,
+    unpaid_months: durationMonths,
     salary_min: min,
     salary_max: max,
   });
@@ -198,7 +213,8 @@ export async function createJobPosting(input: {
       publish_to_careers: published,
       is_published: published,
       is_intern_to_fulltime: internTrack,
-      unpaid_months: unpaidMonths,
+      unpaid_months: durationMonths,
+      duration_months: durationMonths,
       what_you_will_gain: input.what_you_will_gain?.trim() || null,
       created_by: user.id,
     })
@@ -206,8 +222,8 @@ export async function createJobPosting(input: {
     .single();
   if (error) {
     throw new Error(
-      /column|schema cache|is_intern_to_fulltime|is_published|unpaid_months|what_you_will_gain/i.test(error.message)
-        ? `Could not save job — apply supabase/migrations/20260815150000_create_job_postings_table.sql and 20260816220000_add_job_what_you_will_gain.sql in the Supabase SQL editor, then retry. (${error.message})`
+      /column|schema cache|is_intern_to_fulltime|is_published|unpaid_months|duration_months|what_you_will_gain/i.test(error.message)
+        ? `Could not save job — apply supabase/migrations/20260816230000_add_job_duration_months.sql (and prior ATS job migrations) in the Supabase SQL editor, then retry. (${error.message})`
         : error.message
     );
   }
@@ -218,7 +234,7 @@ export async function createJobPosting(input: {
     department: input.department.trim() || 'Operations',
     salary_budget_gbp: input.source_budget_gbp ?? max ?? min ?? 0,
     justification: internTrack
-      ? `Intern-to-full-time track (${unpaidMonths ?? 0} unpaid months) from Enterprise Job Editor`
+      ? `Intern-to-full-time track (${durationMonths ?? 0} months) from Enterprise Job Editor`
       : 'New requisition from Enterprise Job Editor',
     requested_by: user.id,
     status: status === 'open' ? 'approved' : 'pending',
@@ -260,6 +276,7 @@ export async function updateJobPosting(
     is_published: boolean;
     is_intern_to_fulltime: boolean;
     unpaid_months: number | null;
+    duration_months?: number | null;
     what_you_will_gain?: string | null;
     status: string;
     source_budget_gbp: number;
@@ -270,17 +287,15 @@ export async function updateJobPosting(
   const internTrack = Boolean(input.is_intern_to_fulltime);
   const min = input.salary_min ?? input.salary_min_gbp ?? null;
   const max = input.salary_max ?? input.salary_max_gbp ?? null;
-  const unpaidMonths = internTrack
-    ? input.unpaid_months != null
-      ? Math.max(0, Number(input.unpaid_months))
-      : null
-    : null;
+  const durationMonths = durationMonthsFromInput(input);
   const published = Boolean(input.is_published ?? input.publish_to_careers);
   const compliance = input.compliance_responsibilities ?? input.responsibilities ?? '';
   const keywords = input.ai_keywords ?? input.ai_match_keywords ?? '';
   const range = formatJobCompensation({
     is_intern_to_fulltime: internTrack,
-    unpaid_months: unpaidMonths,
+    employment_type: input.employment_type,
+    duration_months: durationMonths,
+    unpaid_months: durationMonths,
     salary_min: min,
     salary_max: max,
   });
@@ -307,7 +322,8 @@ export async function updateJobPosting(
       publish_to_careers: published,
       is_published: published,
       is_intern_to_fulltime: internTrack,
-      unpaid_months: unpaidMonths,
+      unpaid_months: durationMonths,
+      duration_months: durationMonths,
       what_you_will_gain: input.what_you_will_gain !== undefined ? input.what_you_will_gain?.trim() || null : undefined,
       status,
       budget_approved: status === 'open',

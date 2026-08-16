@@ -41,6 +41,7 @@ export type JobPosting = {
   created_at: string;
   is_intern_to_fulltime?: boolean;
   unpaid_months?: number | null;
+  duration_months?: number | null;
   salary_min?: number | null;
   salary_max?: number | null;
   is_published?: boolean;
@@ -187,14 +188,16 @@ export const DEFAULT_WHAT_YOU_WILL_GAIN = `1. Earn Recognition: Official Certifi
 
 export function resolveWhatYouWillGain(job: {
   what_you_will_gain?: string | null;
-  salary_min?: number | string | null;
-  salary_max?: number | string | null;
-  salary_min_gbp?: number | string | null;
-  salary_max_gbp?: number | string | null;
+  is_intern_to_fulltime?: boolean | null;
+  employment_type?: string | null;
 }): string {
   const custom = String(job.what_you_will_gain ?? '').trim();
   if (custom) return custom;
-  return DEFAULT_WHAT_YOU_WILL_GAIN;
+  const type = String(job.employment_type ?? '').toLowerCase();
+  if (job.is_intern_to_fulltime || type === 'intern' || type.includes('intern')) {
+    return DEFAULT_WHAT_YOU_WILL_GAIN;
+  }
+  return '';
 }
 
 function formatSalaryAmount(value: number | null): string {
@@ -202,9 +205,29 @@ function formatSalaryAmount(value: number | null): string {
   return `£${Math.round(value).toLocaleString('en-GB')}`;
 }
 
-/** Public / ATS compensation line — unpaid internship vs intern-to-FT vs salary band. */
+function internshipDuration(job: {
+  duration_months?: number | null;
+  unpaid_months?: number | null;
+}): number | null {
+  const n = Number(job.duration_months ?? job.unpaid_months);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n);
+}
+
+function isInternshipRole(job: {
+  is_intern_to_fulltime?: boolean | null;
+  employment_type?: string | null;
+}): boolean {
+  if (job.is_intern_to_fulltime) return true;
+  const type = String(job.employment_type ?? '').toLowerCase();
+  return type === 'intern' || type.includes('intern');
+}
+
+/** Public / ATS compensation line — never use the word "Unpaid". */
 export function formatJobCompensation(job: {
   is_intern_to_fulltime?: boolean | null;
+  employment_type?: string | null;
+  duration_months?: number | null;
   unpaid_months?: number | null;
   salary_min?: number | string | null;
   salary_max?: number | string | null;
@@ -214,20 +237,24 @@ export function formatJobCompensation(job: {
 }): string {
   const min = salaryNumber(job.salary_min ?? job.salary_min_gbp);
   const max = salaryNumber(job.salary_max ?? job.salary_max_gbp);
+  const months = internshipDuration(job);
+  const internTrack = Boolean(job.is_intern_to_fulltime);
+  const internship = isInternshipRole(job);
+  const band = `${formatSalaryAmount(min)} - ${formatSalaryAmount(max)} Full-Time`;
+
+  if (internTrack && (min != null || max != null)) {
+    if (months != null) return `Internship for ${months} months, then ${band}`;
+    return `Internship, then ${band}`;
+  }
 
   if (min == null && max == null) {
-    const months = Number(job.unpaid_months);
-    if (Number.isFinite(months) && months > 0) {
-      return `Unpaid Internship for ${Math.round(months)} months`;
+    if (months != null && (internship || months > 0)) {
+      return `Internship for ${months} months`;
     }
-    return 'Unpaid Internship';
+    if (internship) return 'Internship';
+    return 'Full-Time';
   }
 
-  const band = `${formatSalaryAmount(min)} - ${formatSalaryAmount(max)} Full-Time`;
-  if (job.is_intern_to_fulltime) {
-    const months = Math.max(0, Number(job.unpaid_months ?? 0));
-    return `Unpaid for ${months} months, then ${band}`;
-  }
   return band;
 }
 

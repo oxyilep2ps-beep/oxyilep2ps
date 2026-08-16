@@ -56,7 +56,7 @@ function AdminHrOverviewInner() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const { openEditJob } = useHrJobEditor();
+  const { openEditJob, openCreateJob } = useHrJobEditor();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -364,9 +364,18 @@ function AdminHrOverviewInner() {
       </div>
 
       <section className="space-y-3">
-        <h3 className="text-sm font-black uppercase tracking-wider text-[#F97316]">
-          Headcount budget approvals ({overview.headcountPending} pending)
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-black uppercase tracking-wider text-[#F97316]">
+            Headcount budget approvals ({overview.headcountPending} pending)
+          </h3>
+          <button
+            type="button"
+            onClick={() => openCreateJob()}
+            className="rounded-full bg-[#F97316] px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-600"
+          >
+            + Create Job
+          </button>
+        </div>
         {headcount.length === 0 ? (
           <p className="text-sm text-neutral-500">No headcount requests.</p>
         ) : (

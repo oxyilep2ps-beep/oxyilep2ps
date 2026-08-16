@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { HrEnterpriseJobEditor } from '@/components/hr/hr-enterprise-job-editor';
+import { JobEditorModal } from '@/components/hr/hr-enterprise-job-editor';
 import { AuthToast } from '@/components/auth-toast';
 import type { JobPosting } from '@/lib/hr/types';
 
@@ -62,7 +62,7 @@ export function HrJobEditorProvider({ children }: { children: React.ReactNode })
   return (
     <HrJobEditorContext.Provider value={value}>
       {children}
-      <HrEnterpriseJobEditor
+      <JobEditorModal
         key={editingJob?.id ?? 'new'}
         open={open}
         initialData={editingJob}
