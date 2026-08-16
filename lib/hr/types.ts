@@ -179,6 +179,10 @@ export function formatJobCompensation(job: {
   const max = salaryNumber(job.salary_max ?? job.salary_max_gbp);
 
   if (min == null && max == null) {
+    const months = Number(job.unpaid_months);
+    if (Number.isFinite(months) && months > 0) {
+      return `Unpaid Internship for ${Math.round(months)} months`;
+    }
     return 'Unpaid Internship';
   }
 
