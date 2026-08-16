@@ -30,6 +30,7 @@ function mapPublicJob(row: Record<string, unknown>): JobPosting {
     is_published: Boolean(row.is_published ?? (row.status === 'open' && row.publish_to_careers !== false)),
     compliance_responsibilities: String(row.compliance_responsibilities ?? row.responsibilities ?? ''),
     ai_keywords: String(row.ai_keywords ?? row.ai_match_keywords ?? ''),
+    what_you_will_gain: (row.what_you_will_gain as string | null) ?? null,
   };
 }
 

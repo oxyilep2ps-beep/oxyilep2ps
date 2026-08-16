@@ -55,6 +55,7 @@ function mapJob(row: Record<string, unknown>): JobPosting {
     is_published: Boolean(row.is_published ?? (row.status === 'open' && row.publish_to_careers !== false)),
     compliance_responsibilities: String(row.compliance_responsibilities ?? row.responsibilities ?? ''),
     ai_keywords: String(row.ai_keywords ?? row.ai_match_keywords ?? ''),
+    what_you_will_gain: (row.what_you_will_gain as string | null) ?? null,
   };
 }
 
@@ -153,6 +154,7 @@ export async function createJobPosting(input: {
   is_published?: boolean;
   is_intern_to_fulltime?: boolean;
   unpaid_months?: number | null;
+  what_you_will_gain?: string | null;
   status?: 'draft' | 'open';
 }) {
   const user = await assertHrOrAdmin();
@@ -197,14 +199,15 @@ export async function createJobPosting(input: {
       is_published: published,
       is_intern_to_fulltime: internTrack,
       unpaid_months: unpaidMonths,
+      what_you_will_gain: input.what_you_will_gain?.trim() || null,
       created_by: user.id,
     })
     .select('*')
     .single();
   if (error) {
     throw new Error(
-      /column|schema cache|is_intern_to_fulltime|is_published|unpaid_months/i.test(error.message)
-        ? `Could not save job — apply supabase/migrations/20260815150000_create_job_postings_table.sql in the Supabase SQL editor, then retry. (${error.message})`
+      /column|schema cache|is_intern_to_fulltime|is_published|unpaid_months|what_you_will_gain/i.test(error.message)
+        ? `Could not save job — apply supabase/migrations/20260815150000_create_job_postings_table.sql and 20260816220000_add_job_what_you_will_gain.sql in the Supabase SQL editor, then retry. (${error.message})`
         : error.message
     );
   }
@@ -257,6 +260,7 @@ export async function updateJobPosting(
     is_published: boolean;
     is_intern_to_fulltime: boolean;
     unpaid_months: number | null;
+    what_you_will_gain?: string | null;
     status: string;
     source_budget_gbp: number;
   }>
@@ -304,6 +308,7 @@ export async function updateJobPosting(
       is_published: published,
       is_intern_to_fulltime: internTrack,
       unpaid_months: unpaidMonths,
+      what_you_will_gain: input.what_you_will_gain !== undefined ? input.what_you_will_gain?.trim() || null : undefined,
       status,
       budget_approved: status === 'open',
       source_budget_gbp: input.source_budget_gbp ?? max ?? min ?? undefined,

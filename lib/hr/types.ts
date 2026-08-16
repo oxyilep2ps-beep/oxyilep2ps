@@ -46,6 +46,7 @@ export type JobPosting = {
   is_published?: boolean;
   compliance_responsibilities?: string;
   ai_keywords?: string;
+  what_you_will_gain?: string | null;
 };
 
 export type JobApplicant = {
@@ -164,6 +165,36 @@ function salaryNumber(value: number | string | null | undefined): number | null 
   const n = typeof value === 'string' ? Number(value.trim()) : Number(value);
   if (!Number.isFinite(n) || n <= 0) return null;
   return n;
+}
+
+export function jobHasNumericSalary(job: {
+  salary_min?: number | string | null;
+  salary_max?: number | string | null;
+  salary_min_gbp?: number | string | null;
+  salary_max_gbp?: number | string | null;
+}): boolean {
+  return (
+    salaryNumber(job.salary_min ?? job.salary_min_gbp) != null ||
+    salaryNumber(job.salary_max ?? job.salary_max_gbp) != null
+  );
+}
+
+export const DEFAULT_WHAT_YOU_WILL_GAIN = `1. Earn Recognition: Official Certificate of Recognition and Experience Letter to highlight on your resume and LinkedIn.
+
+2. Job Opportunity: Outstanding performers who meet and exceed targets will have the opportunity to transition into full-time roles.
+
+3. Hands-On Experience: Real ownership, direct mentorship, and portfolio-building work from day one.`;
+
+export function resolveWhatYouWillGain(job: {
+  what_you_will_gain?: string | null;
+  salary_min?: number | string | null;
+  salary_max?: number | string | null;
+  salary_min_gbp?: number | string | null;
+  salary_max_gbp?: number | string | null;
+}): string {
+  const custom = String(job.what_you_will_gain ?? '').trim();
+  if (custom) return custom;
+  return DEFAULT_WHAT_YOU_WILL_GAIN;
 }
 
 function formatSalaryAmount(value: number | null): string {

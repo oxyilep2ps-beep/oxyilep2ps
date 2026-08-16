@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState, useTransition } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { createJobPosting, updateJobPosting } from '@/app/actions/hr-suite';
 import type { JobPosting } from '@/lib/hr/types';
+import { DEFAULT_WHAT_YOU_WILL_GAIN } from '@/lib/hr/types';
 import { HR_INPUT_CLASS, HR_SELECT_CLASS, HR_TEXTAREA_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +53,7 @@ function payloadFromForm(
     is_published: publish,
     is_intern_to_fulltime: internToFullTime,
     unpaid_months: unpaidMonths,
+    what_you_will_gain: String(fd.get('what_you_will_gain') || '').trim() || null,
     status: (publish ? 'open' : 'draft') as 'draft' | 'open',
   };
 }
@@ -258,6 +260,18 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
                   placeholder="Paragraphs and context for the role…"
                   className={HR_TEXTAREA_CLASS}
                 />
+              </Field>
+              <Field label="What you'll gain (public /careers)">
+                <textarea
+                  name="what_you_will_gain"
+                  rows={6}
+                  defaultValue={initialData?.what_you_will_gain ?? DEFAULT_WHAT_YOU_WILL_GAIN}
+                  placeholder={DEFAULT_WHAT_YOU_WILL_GAIN}
+                  className={HR_TEXTAREA_CLASS}
+                />
+                <p className="mt-1 text-[11px] text-neutral-500">
+                  Shown below Description on /careers. Leave the default copy for intern roles to emphasise recognition and a full-time path.
+                </p>
               </Field>
               <Field label="Key responsibilities & FCA / UK regulatory compliance">
                 <textarea
