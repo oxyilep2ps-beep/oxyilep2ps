@@ -15,7 +15,7 @@ import {
 import { Footer } from '@/components/footer';
 import { listPublicOpenJobs } from '@/app/actions/public-careers';
 import type { JobPosting } from '@/lib/hr/types';
-import { formatJobCompensation } from '@/lib/hr/types';
+import { formatJobCompensationChip } from '@/lib/hr/types';
 import { employmentTypeLabel } from '@/lib/hr/ui';
 
 const fadeUp: Variants = {
@@ -28,7 +28,7 @@ function Section({ children }: { children: React.ReactNode }) {
 }
 
 function salaryBand(job: JobPosting): string {
-  return formatJobCompensation(job);
+  return formatJobCompensationChip(job);
 }
 
 export function CareersJobsExperience() {

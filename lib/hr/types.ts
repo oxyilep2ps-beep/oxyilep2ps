@@ -248,14 +248,23 @@ export function formatJobCompensation(job: {
   }
 
   if (min == null && max == null) {
-    if (months != null && (internship || months > 0)) {
-      return `Internship for ${months} months`;
-    }
+    if (months != null) return `${months} months`;
     if (internship) return 'Internship';
     return 'Full-Time';
   }
 
   return band;
+}
+
+/** Green pill copy. Duration-only roles include the Duration: prefix. */
+export function formatJobCompensationChip(job: Parameters<typeof formatJobCompensation>[0]): string {
+  const min = salaryNumber(job.salary_min ?? job.salary_min_gbp);
+  const max = salaryNumber(job.salary_max ?? job.salary_max_gbp);
+  const months = internshipDuration(job);
+  if (min == null && max == null && months != null) {
+    return `Duration: ${months} months`;
+  }
+  return formatJobCompensation(job);
 }
 
 /** Simplified UK PAYE estimate (2025/26 standard personal allowance bands — illustrative). */

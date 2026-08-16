@@ -4,7 +4,7 @@ import { ArrowLeft, BriefcaseBusiness, MapPin, Wallet } from 'lucide-react';
 import { getPublicJob } from '@/app/actions/public-careers';
 import { CareersApplyForm } from '@/components/careers/careers-apply-form';
 import { Footer } from '@/components/footer';
-import { formatJobCompensation, jobHasNumericSalary, resolveWhatYouWillGain } from '@/lib/hr/types';
+import { formatJobCompensation, formatJobCompensationChip, jobHasNumericSalary, resolveWhatYouWillGain } from '@/lib/hr/types';
 import { employmentTypeLabel } from '@/lib/hr/ui';
 
 export default async function PublicJobApplicationPage({
@@ -42,7 +42,7 @@ export default async function PublicJobApplicationPage({
           </span>
           <span className="inline-flex max-w-full items-center gap-1 whitespace-normal rounded-full bg-emerald-500/15 px-2.5 py-1 text-left text-emerald-400">
             <Wallet size={12} />
-            {formatJobCompensation(job)}
+            {formatJobCompensationChip(job)}
           </span>
         </div>
 
