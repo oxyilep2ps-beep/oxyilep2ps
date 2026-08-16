@@ -132,6 +132,12 @@ export type HrExecOverview = {
   upcomingMilestones: { name: string; kind: 'birthday' | 'anniversary'; date: string }[];
   referralPendingGbp: number;
   headcountPending: number;
+  atsPipeline: {
+    total: number;
+    newAndReviewing: number;
+    interview: number;
+    rejected: number;
+  };
 };
 
 export function formatGbp(amount: number | null | undefined): string {

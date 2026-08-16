@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { removeResumeFiles } from '@/lib/hr/resume-storage';
+import { matchesAtsTab } from '@/lib/hr/ats-application-status';
 import {
   generateOfferLetterHtml,
   formatJobCompensation,
@@ -1059,15 +1060,43 @@ export async function exportAuditCsv(): Promise<string> {
 
 // ─── Admin executive overview ───────────────────────────────────────────────
 
-export async function listHeadcountRequests() {
+export type HeadcountRequestRow = {
+  id: string;
+  title: string;
+  department: string;
+  salary_budget_gbp: number;
+  status: string;
+  job_posting_id: string | null;
+  job: JobPosting | null;
+};
+
+export async function listHeadcountRequests(): Promise<HeadcountRequestRow[]> {
   await assertHrOrAdmin();
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('hr_headcount_requests')
-    .select('*')
+    .select('*, job_postings(*)')
     .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  if (error) {
+    const fallback = await admin.from('hr_headcount_requests').select('*').order('created_at', { ascending: false });
+    if (fallback.error) throw new Error(fallback.error.message);
+    return (fallback.data ?? []).map((row) => mapHeadcount(row as Record<string, unknown>));
+  }
+  return (data ?? []).map((row) => mapHeadcount(row as Record<string, unknown>));
+}
+
+function mapHeadcount(row: Record<string, unknown>): HeadcountRequestRow {
+  const joined = row.job_postings as Record<string, unknown> | Record<string, unknown>[] | null;
+  const jobRow = Array.isArray(joined) ? joined[0] : joined;
+  return {
+    id: String(row.id),
+    title: String(row.title ?? jobRow?.title ?? 'Role'),
+    department: String(row.department ?? ''),
+    salary_budget_gbp: Number(row.salary_budget_gbp ?? 0),
+    status: String(row.status ?? 'pending'),
+    job_posting_id: (row.job_posting_id as string | null) ?? (jobRow?.id as string | null) ?? null,
+    job: jobRow?.id ? mapJob(jobRow) : null,
+  };
 }
 
 export async function reviewHeadcountRequest(id: string, status: 'approved' | 'rejected') {
@@ -1101,13 +1130,14 @@ export async function listReferralBonuses() {
 export async function getHrExecOverview(): Promise<HrExecOverview> {
   await assertHrOrAdmin();
   const admin = createAdminClient();
-  const [emps, jobs, expenses, leaves, headcount, referrals] = await Promise.all([
+  const [emps, jobs, expenses, leaves, headcount, referrals, applications] = await Promise.all([
     admin.from('employee_hr_profiles').select('*').eq('status', 'active'),
     admin.from('job_postings').select('*').in('status', ['open', 'draft', 'paused']),
     admin.from('expense_claims').select('*').eq('status', 'pending'),
     admin.from('leave_requests').select('employee_id, start_date').eq('status', 'approved'),
     admin.from('hr_headcount_requests').select('*').eq('status', 'pending'),
     admin.from('hr_referral_bonuses').select('amount_gbp').in('status', ['pending', 'payable']),
+    admin.from('job_applications').select('status'),
   ]);
 
   const employees = (emps.data ?? []).map((r) => mapEmployee(r as Record<string, unknown>));
@@ -1177,6 +1207,20 @@ export async function getHrExecOverview(): Promise<HrExecOverview> {
 
   const referralPendingGbp = (referrals.data ?? []).reduce((s, r) => s + Number(r.amount_gbp), 0);
 
+  const atsPipeline = {
+    total: 0,
+    newAndReviewing: 0,
+    interview: 0,
+    rejected: 0,
+  };
+  for (const row of applications.data ?? []) {
+    const status = String(row.status ?? '');
+    atsPipeline.total += 1;
+    if (matchesAtsTab(status, 'new') || matchesAtsTab(status, 'consider')) atsPipeline.newAndReviewing += 1;
+    if (matchesAtsTab(status, 'interview')) atsPipeline.interview += 1;
+    if (matchesAtsTab(status, 'rejected')) atsPipeline.rejected += 1;
+  }
+
   return {
     monthlyPayrollBurnGbp,
     employeeCount,
@@ -1189,5 +1233,6 @@ export async function getHrExecOverview(): Promise<HrExecOverview> {
     upcomingMilestones,
     referralPendingGbp,
     headcountPending: (headcount.data ?? []).length,
+    atsPipeline,
   };
 }

@@ -20,13 +20,15 @@ export type AtsApplication = {
 function mapApplication(row: Record<string, unknown>): AtsApplication {
   const name = String(row.candidate_name || row.full_name || 'Unknown');
   const email = String(row.candidate_email || row.email || '');
+  const job = row.job_postings as { title?: string } | { title?: string }[] | null;
+  const jobTitle = Array.isArray(job) ? job[0]?.title : job?.title;
   return {
     id: String(row.id),
     job_id: (row.job_id as string | null) ?? null,
     candidate_name: name,
     candidate_email: email,
     resume_url: (row.resume_url as string | null) ?? null,
-    role_applied: (row.role_applied as string | null) ?? null,
+    role_applied: String(jobTitle || row.role_applied || 'General'),
     status: String(row.status ?? 'New'),
     created_at: String(row.created_at),
   };
@@ -35,9 +37,27 @@ function mapApplication(row: Record<string, unknown>): AtsApplication {
 export async function listAtsApplications(): Promise<AtsApplication[]> {
   await assertHrOrAdmin();
   const admin = createAdminClient();
-  const { data, error } = await admin.from('job_applications').select('*').order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
+  const { data, error } = await admin
+    .from('job_applications')
+    .select('*, job_postings(title)')
+    .order('created_at', { ascending: false });
+  if (error) {
+    const fallback = await admin.from('job_applications').select('*').order('created_at', { ascending: false });
+    if (fallback.error) throw new Error(fallback.error.message);
+    return (fallback.data ?? []).map((r) => mapApplication(r as Record<string, unknown>));
+  }
   return (data ?? []).map((r) => mapApplication(r as Record<string, unknown>));
+}
+
+export async function listRecentAtsApplications(limit = 20): Promise<AtsApplication[]> {
+  const rows = await listAtsApplications();
+  return rows.slice(0, Math.max(1, Math.min(limit, 100)));
+}
+
+function revalidateAts() {
+  revalidatePath('/hr/recruitment');
+  revalidatePath('/hr');
+  revalidatePath('/admin-dashboard/hr-overview');
 }
 
 export async function updateJobApplicationStatus(id: string, status: AtsApplicationStatus) {
@@ -59,7 +79,7 @@ export async function updateJobApplicationStatus(id: string, status: AtsApplicat
         : error.message
     );
   }
-  revalidatePath('/hr/recruitment');
+  revalidateAts();
   return mapApplication(data as Record<string, unknown>);
 }
 
@@ -85,8 +105,7 @@ export async function deleteJobApplication(id: string): Promise<{ success: boole
     const { error } = await admin.from('job_applications').delete().eq('id', id);
     if (error) return { success: false, message: error.message };
 
-    revalidatePath('/hr/recruitment');
-    revalidatePath('/hr');
+    revalidateAts();
     return { success: true, message: 'Candidate deleted' };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Could not delete candidate.';
