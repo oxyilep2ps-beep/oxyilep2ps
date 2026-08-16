@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import {
   deleteJobPosting,
@@ -12,14 +12,23 @@ import {
 } from '@/app/actions/hr-suite';
 import {
   deleteJobApplication,
-  listRecentAtsApplications,
+  listAtsApplications,
   updateJobApplicationStatus,
   type AtsApplication,
 } from '@/app/actions/hr-applications';
 import type { HrExecOverview } from '@/lib/hr/types';
 import { formatGbp } from '@/lib/hr/types';
-import { ATS_APPLICATION_STATUSES, normalizeAtsStatus, type AtsApplicationStatus } from '@/lib/hr/ats-application-status';
+import {
+  ATS_APPLICATION_STATUSES,
+  ATS_PIPELINE_TABS,
+  matchesAtsTab,
+  normalizeAtsStatus,
+  type AtsApplicationStatus,
+  type AtsPipelineTab,
+} from '@/lib/hr/ats-application-status';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
+import { AtsEmailCandidateModal } from '@/components/hr/ats-email-candidate-modal';
+import { AuthToast } from '@/components/auth-toast';
 import { HrJobEditorProvider, subscribeJobPostingCreated, useHrJobEditor } from '@/components/hr/hr-job-editor-provider';
 import { HR_SELECT_CLASS } from '@/lib/hr/ui';
 import { cn } from '@/lib/utils';
@@ -38,6 +47,12 @@ function AdminHrOverviewInner() {
   const [headcount, setHeadcount] = useState<HeadcountRequestRow[]>([]);
   const [referrals, setReferrals] = useState<Record<string, unknown>[]>([]);
   const [candidates, setCandidates] = useState<AtsApplication[]>([]);
+  const [candidateTab, setCandidateTab] = useState<AtsPipelineTab>('all');
+  const [emailTarget, setEmailTarget] = useState<{
+    row: AtsApplication;
+    intent: 'Interview' | 'Rejected';
+  } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -50,7 +65,7 @@ function AdminHrOverviewInner() {
         getHrExecOverview(),
         listHeadcountRequests(),
         listReferralBonuses(),
-        listRecentAtsApplications(25).catch(() => [] as AtsApplication[]),
+        listAtsApplications().catch(() => [] as AtsApplication[]),
       ]);
       setOverview(o);
       setHeadcount(h);
@@ -71,6 +86,62 @@ function AdminHrOverviewInner() {
 
   useEffect(() => subscribeJobPostingCreated(() => void load()), [load]);
 
+  const candidateTabCounts = useMemo(() => {
+    const counts: Record<AtsPipelineTab, number> = {
+      all: candidates.length,
+      new: 0,
+      consider: 0,
+      interview: 0,
+      rejected: 0,
+    };
+    for (const row of candidates) {
+      if (matchesAtsTab(row.status, 'new')) counts.new += 1;
+      if (matchesAtsTab(row.status, 'consider')) counts.consider += 1;
+      if (matchesAtsTab(row.status, 'interview')) counts.interview += 1;
+      if (matchesAtsTab(row.status, 'rejected')) counts.rejected += 1;
+    }
+    return counts;
+  }, [candidates]);
+
+  const visibleCandidates = useMemo(
+    () => candidates.filter((row) => matchesAtsTab(row.status, candidateTab)),
+    [candidates, candidateTab]
+  );
+
+  const adminFilterTabs = useMemo(
+    () =>
+      ATS_PIPELINE_TABS.map((tab) => ({
+        ...tab,
+        label:
+          tab.id === 'all'
+            ? 'All'
+            : tab.id === 'new'
+              ? 'New'
+              : tab.id === 'consider'
+                ? 'Consider'
+                : tab.id === 'interview'
+                  ? 'Interview'
+                  : 'Rejected',
+      })),
+    []
+  );
+
+  const setCandidateStatus = (row: AtsApplication, status: AtsApplicationStatus) => {
+    const previous = row.status;
+    setCandidates((cur) => cur.map((c) => (c.id === row.id ? { ...c, status } : c)));
+    startTransition(() => {
+      void updateJobApplicationStatus(row.id, status)
+        .then(() => {
+          if (status === 'Interview' || status === 'Rejected') {
+            setEmailTarget({ row: { ...row, status }, intent: status });
+          }
+        })
+        .catch(() => {
+          setCandidates((cur) => cur.map((c) => (c.id === row.id ? { ...c, status: previous } : c)));
+        });
+    });
+  };
+
   if (loading) return <HrSkeletonCards count={4} />;
   if (error || !overview) {
     return <p className="text-sm text-red-400">{error || 'No data'} — ensure HR migration is applied.</p>;
@@ -78,18 +149,6 @@ function AdminHrOverviewInner() {
 
   const maxSpend = Math.max(...overview.departmentSpend.map((d) => d.spendGbp), 1);
   const pipeline = overview.atsPipeline ?? { total: 0, newAndReviewing: 0, interview: 0, rejected: 0 };
-
-  const setCandidateStatus = (row: AtsApplication, status: AtsApplicationStatus) => {
-    const previous = row.status;
-    setCandidates((cur) => cur.map((c) => (c.id === row.id ? { ...c, status } : c)));
-    startTransition(() => {
-      void updateJobApplicationStatus(row.id, status)
-        .then(() => void load())
-        .catch(() => {
-          setCandidates((cur) => cur.map((c) => (c.id === row.id ? { ...c, status: previous } : c)));
-        });
-    });
-  };
 
   return (
     <div className="cms-fade-in space-y-6 pb-8">
@@ -123,8 +182,43 @@ function AdminHrOverviewInner() {
 
       <section className="space-y-3 rounded-2xl border border-neutral-800 bg-black p-4">
         <h3 className="text-sm font-black uppercase tracking-wider text-[#F97316]">Recent Candidate Activity</h3>
-        {candidates.length === 0 ? (
-          <p className="text-sm text-neutral-500">No applications yet.</p>
+        <div
+          role="tablist"
+          aria-label="Candidate status filter"
+          className="-mx-1 flex gap-1 overflow-x-auto border-b border-neutral-800 px-1 pb-px"
+        >
+          {adminFilterTabs.map((item) => {
+            const active = candidateTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setCandidateTab(item.id)}
+                className={cn(
+                  'relative shrink-0 rounded-t-xl px-3 py-2.5 text-[12px] font-bold transition sm:px-4',
+                  active ? 'text-[#F97316]' : 'text-neutral-500 hover:text-neutral-200'
+                )}
+              >
+                {item.label}
+                <span
+                  className={cn(
+                    'ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-black',
+                    active ? 'bg-[#F97316]/20 text-[#F97316]' : 'bg-neutral-900 text-neutral-500'
+                  )}
+                >
+                  {candidateTabCounts[item.id]}
+                </span>
+                {active ? <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#F97316]" /> : null}
+              </button>
+            );
+          })}
+        </div>
+        {visibleCandidates.length === 0 ? (
+          <p className="text-sm text-neutral-500">
+            {candidates.length === 0 ? 'No applications yet.' : `No candidates in ${adminFilterTabs.find((t) => t.id === candidateTab)?.label ?? 'this stage'}.`}
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
@@ -137,7 +231,7 @@ function AdminHrOverviewInner() {
                 </tr>
               </thead>
               <tbody>
-                {candidates.map((row) => (
+                {visibleCandidates.map((row) => (
                   <tr key={row.id} className="border-b border-neutral-900">
                     <td className="px-2 py-3">
                       <p className="font-semibold text-white">{row.candidate_name}</p>
@@ -360,6 +454,31 @@ function AdminHrOverviewInner() {
           ))
         )}
       </section>
+
+      {emailTarget ? (
+        <AtsEmailCandidateModal
+          to={emailTarget.row.candidate_email}
+          candidateName={emailTarget.row.candidate_name}
+          intent={emailTarget.intent}
+          applicationId={emailTarget.row.id}
+          roleTitle={emailTarget.row.role_applied || 'General'}
+          onClose={() => setEmailTarget(null)}
+          onSent={() => {
+            setEmailTarget(null);
+            setToast('Email sent successfully!');
+            void getHrExecOverview().then(setOverview);
+            void listAtsApplications().then(setCandidates);
+          }}
+        />
+      ) : null}
+
+      <AuthToast
+        open={Boolean(toast)}
+        tone="success"
+        message={toast ?? ''}
+        onClose={() => setToast(null)}
+        autoCloseMs={4500}
+      />
     </div>
   );
 }

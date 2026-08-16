@@ -11,11 +11,20 @@ type Props = {
   candidateName: string;
   intent: 'Interview' | 'Rejected';
   applicationId: string;
+  roleTitle?: string;
   onClose: () => void;
   onSent: () => void;
 };
 
-export function AtsEmailCandidateModal({ to, candidateName, intent, applicationId, onClose, onSent }: Props) {
+export function AtsEmailCandidateModal({
+  to,
+  candidateName,
+  intent,
+  applicationId,
+  roleTitle,
+  onClose,
+  onSent,
+}: Props) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState(intent === 'Interview' ? INTERVIEW_EMAIL_TEMPLATE : REJECTION_EMAIL_TEMPLATE);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +37,7 @@ export function AtsEmailCandidateModal({ to, candidateName, intent, applicationI
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#F97316]">Email Candidate</p>
             <h3 className="mt-1 text-lg font-black text-white">{candidateName}</h3>
             <p className="mt-1 text-xs text-neutral-400">
+              {roleTitle ? `${roleTitle} · ` : ''}
               {intent === 'Interview' ? 'Interview invite' : 'Rejection note'} · branded via Resend
             </p>
           </div>

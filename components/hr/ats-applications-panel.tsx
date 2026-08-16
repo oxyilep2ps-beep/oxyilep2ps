@@ -248,6 +248,7 @@ export function AtsApplicationsPanel({
           candidateName={emailTarget.row.candidate_name}
           intent={emailTarget.intent}
           applicationId={emailTarget.row.id}
+          roleTitle={emailTarget.row.role_applied || 'General'}
           onClose={() => setEmailTarget(null)}
           onSent={() => {
             setEmailTarget(null);
