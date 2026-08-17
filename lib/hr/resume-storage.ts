@@ -13,16 +13,14 @@ function guessResumeMime(fileName: string): string {
 export function resumeStoragePathFromUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const trimmed = url.trim();
-  const markers = [
-    '/storage/v1/object/public/resumes/',
-    '/storage/v1/object/sign/resumes/',
-    '/storage/v1/object/authenticated/resumes/',
-  ];
-  for (const marker of markers) {
-    const idx = trimmed.indexOf(marker);
-    if (idx >= 0) {
-      const rest = trimmed.slice(idx + marker.length).split('?')[0];
-      return rest ? decodeURIComponent(rest) : null;
+  const fromMarker = trimmed.match(
+    /\/object\/(?:public|sign|authenticated)\/resumes\/(.+?)(?:\?|$)/i
+  );
+  if (fromMarker?.[1]) {
+    try {
+      return decodeURIComponent(fromMarker[1]);
+    } catch {
+      return fromMarker[1];
     }
   }
   if (!trimmed.includes('://') && !trimmed.startsWith('/')) return trimmed;

@@ -73,9 +73,16 @@ const STOPWORDS = new Set([
   'candidate',
   'position',
   'opportunity',
+  'general',
+  'focused',
+  'looking',
+  'seeking',
+  'please',
 ]);
 
 export type AtsJobMatchSource = {
+  title?: string | null;
+  role_applied?: string | null;
   keywords?: string | null;
   ai_match_keywords?: string | null;
   ai_keywords?: string | null;
@@ -125,6 +132,31 @@ function uniqueTerms(text: string, limit = 20): string[] {
   return out;
 }
 
+function pushUnique(target: string[], seen: Set<string>, items: string[], limit = 28): void {
+  for (const item of items) {
+    if (target.length >= limit) return;
+    const key = item.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    target.push(item.trim());
+  }
+}
+
+function jobCorpus(job: AtsJobMatchSource): string {
+  return [
+    job.title,
+    job.role_applied,
+    job.keywords,
+    job.ai_match_keywords,
+    job.ai_keywords,
+    job.requirements,
+    job.description,
+    job.responsibilities,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
 function haystack(text: string): string {
   return ` ${text.toLowerCase().replace(/\s+/g, ' ')} `;
 }
@@ -149,10 +181,21 @@ export function collectTargetKeywords(job: AtsJobMatchSource): string[] {
   const explicit = parseKeywords(
     [job.keywords, job.ai_match_keywords, job.ai_keywords].filter(Boolean).join(', ')
   );
-  if (explicit.length) return explicit;
-  const fromRequirements = uniqueTerms(String(job.requirements ?? ''), 20);
-  if (fromRequirements.length) return fromRequirements;
-  return uniqueTerms([job.description, job.responsibilities].filter(Boolean).join(' '), 20);
+  const titleTerms = uniqueTerms([job.title, job.role_applied].filter(Boolean).join(' '), 10);
+  const bodyTerms = uniqueTerms(
+    [job.requirements, job.description, job.responsibilities].filter(Boolean).join(' '),
+    24
+  );
+
+  const merged: string[] = [];
+  const seen = new Set<string>();
+  pushUnique(merged, seen, explicit);
+  for (const item of explicit) {
+    if (item.includes(' ')) pushUnique(merged, seen, uniqueTerms(item, 8));
+  }
+  pushUnique(merged, seen, titleTerms);
+  pushUnique(merged, seen, explicit.length ? bodyTerms.slice(0, 12) : bodyTerms);
+  return merged;
 }
 
 export function buildAtsReason(input: {
@@ -165,18 +208,23 @@ export function buildAtsReason(input: {
   if (input.resumeEmpty) return 'Could not extract resume text.';
   if (input.noKeywords) return 'No job keywords available to match.';
   const missingList = input.missing.slice(0, 4).map(formatKeyword).join(', ');
-  if (input.matched.length === 0) return 'Poor match. No relevant frameworks found.';
+  if (input.matched.length === 0) {
+    return missingList
+      ? `Poor match. Missing: ${missingList}`
+      : 'Poor match. Resume did not match the job description.';
+  }
   if (input.score >= 75) {
     return missingList ? `Strong match. Missing: ${missingList}` : 'Strong match. All target keywords found.';
   }
   if (input.score >= 45) {
     return missingList ? `Partial match. Missing: ${missingList}` : 'Partial match.';
   }
-  return missingList ? `Poor match. Missing: ${missingList}` : 'Poor match. No relevant frameworks found.';
+  return missingList ? `Poor match. Missing: ${missingList}` : 'Poor match. Resume did not match the job description.';
 }
 
 /**
- * Keyword ATS match: % of job target keywords found in the resume (case-insensitive).
+ * Resume-vs-JD match: keyword hits plus token overlap so intern roles without
+ * HR match-keywords still get a real 0–100 score.
  */
 export function evaluateAtsMatch(resumeText: string, job: AtsJobMatchSource): AtsMatchResult {
   const resume = String(resumeText ?? '')
@@ -185,10 +233,12 @@ export function evaluateAtsMatch(resumeText: string, job: AtsJobMatchSource): At
     .trim();
   const resumeLower = resume.toLowerCase();
   const keywords = collectTargetKeywords(job);
+  const jobTokens = uniqueTerms(jobCorpus(job), 40);
 
   console.log('[ats] evaluateAtsMatch input', {
     resumeChars: resumeLower.length,
     resumePreview: resumeLower.slice(0, 500),
+    title: job.title || job.role_applied,
     targetKeywords: keywords,
   });
 
@@ -209,7 +259,7 @@ export function evaluateAtsMatch(resumeText: string, job: AtsJobMatchSource): At
     return result;
   }
 
-  if (!keywords.length) {
+  if (!keywords.length && !jobTokens.length) {
     const result: AtsMatchResult = {
       score: 0,
       reason: buildAtsReason({
@@ -227,9 +277,20 @@ export function evaluateAtsMatch(resumeText: string, job: AtsJobMatchSource): At
   }
 
   const hay = haystack(resumeLower);
-  const matched = keywords.filter((kw) => hasPhrase(hay, kw));
+  const resumeTokenSet = new Set(tokenize(resumeLower));
+  const matched = keywords.filter((kw) => hasPhrase(hay, kw) || resumeTokenSet.has(kw.toLowerCase()));
   const missing = keywords.filter((kw) => !matched.includes(kw));
-  const score = Math.round(Math.max(0, Math.min(100, (matched.length / keywords.length) * 100)));
+  const overlapHits = jobTokens.filter((token) => resumeTokenSet.has(token) || hasPhrase(hay, token));
+
+  const keywordRate = keywords.length ? matched.length / keywords.length : 0;
+  const overlapRate = jobTokens.length ? overlapHits.length / jobTokens.length : 0;
+  const blended =
+    keywords.length && jobTokens.length
+      ? keywordRate * 0.55 + overlapRate * 0.45
+      : keywords.length
+        ? keywordRate
+        : overlapRate;
+  const score = Math.round(Math.max(0, Math.min(100, blended * 100)));
   const reason = buildAtsReason({
     score,
     matched,
@@ -241,6 +302,8 @@ export function evaluateAtsMatch(resumeText: string, job: AtsJobMatchSource): At
   console.log('[ats] keyword match result', {
     hits: matched.length,
     total: keywords.length,
+    overlapHits: overlapHits.length,
+    jobTokens: jobTokens.length,
     matched: matched.slice(0, 20),
     missing: missing.slice(0, 20),
     score,

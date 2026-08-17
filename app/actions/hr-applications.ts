@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { ATS_APPLICATION_STATUSES, type AtsApplicationStatus } from '@/lib/hr/ats-application-status';
+import { JOB_MATCH_SELECT, hydrateAtsScores } from '@/lib/hr/rescore-zero-applications';
 import { removeResumeFiles } from '@/lib/hr/resume-storage';
 
 export type AtsApplication = {
@@ -44,14 +45,18 @@ export async function listAtsApplications(): Promise<AtsApplication[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('job_applications')
-    .select('*, job_postings(title)')
+    .select(`*, job_postings(${JOB_MATCH_SELECT})`)
     .order('created_at', { ascending: false });
+
+  let rows: Record<string, unknown>[] = (data ?? []) as Record<string, unknown>[];
   if (error) {
     const fallback = await admin.from('job_applications').select('*').order('created_at', { ascending: false });
     if (fallback.error) throw new Error(fallback.error.message);
-    return (fallback.data ?? []).map((r) => mapApplication(r as Record<string, unknown>));
+    rows = (fallback.data ?? []) as Record<string, unknown>[];
   }
-  return (data ?? []).map((r) => mapApplication(r as Record<string, unknown>));
+
+  await hydrateAtsScores(admin, rows, { limit: 16, concurrency: 4 });
+  return rows.map((r) => mapApplication(r));
 }
 
 export async function listRecentAtsApplications(limit = 20): Promise<AtsApplication[]> {

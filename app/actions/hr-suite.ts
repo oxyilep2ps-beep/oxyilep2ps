@@ -467,7 +467,7 @@ export async function createJobApplicant(input: {
   const { data: job } = input.job_id
     ? await admin
         .from('job_postings')
-        .select('requirements, ai_match_keywords, ai_keywords, description, responsibilities')
+        .select('title, requirements, ai_match_keywords, ai_keywords, description, responsibilities')
         .eq('id', input.job_id)
         .maybeSingle()
     : { data: null };
@@ -476,13 +476,15 @@ export async function createJobApplicant(input: {
   let score = 0;
   let reason = '';
   if (resumeText.length >= 20) {
-    const evaluated = evaluateAtsMatch(resumeText, {
+    const jobMatch = {
+      title: job?.title,
       ai_match_keywords: job?.ai_match_keywords,
       ai_keywords: job?.ai_keywords,
       requirements: job?.requirements,
       description: job?.description,
       responsibilities: job?.responsibilities,
-    });
+    };
+    const evaluated = evaluateAtsMatch(resumeText, jobMatch);
     score = evaluated.score;
     reason = evaluated.reason;
   } else {

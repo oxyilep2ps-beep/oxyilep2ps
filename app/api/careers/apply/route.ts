@@ -89,6 +89,8 @@ export async function POST(request: Request) {
       if (job) {
         jobTitle = String(job.title || jobTitle);
         jobMatchSource = {
+          title: jobTitle,
+          role_applied: role_applied || jobTitle,
           ai_match_keywords: job.ai_match_keywords,
           ai_keywords: job.ai_keywords,
           requirements: job.requirements,
@@ -102,9 +104,15 @@ export async function POST(request: Request) {
         });
       } else {
         resolvedJobId = null;
-        console.warn('[ats] job_id not found, scoring without job keywords', job_id);
+        console.warn('[ats] job_id not found, scoring with role title only', job_id);
       }
     }
+
+    jobMatchSource = {
+      ...jobMatchSource,
+      title: jobMatchSource.title || jobTitle,
+      role_applied: jobMatchSource.role_applied || role_applied || jobTitle,
+    };
 
     const { data: existing } = await admin.from('job_applicants').select('id').ilike('email', email).limit(1);
     const duplicate = (existing?.length ?? 0) > 0;

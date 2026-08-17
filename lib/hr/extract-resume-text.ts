@@ -21,46 +21,102 @@ function extractPrintableStrings(buffer: Buffer): string {
   return chunks.join(' ').replace(/\s+/g, ' ').trim();
 }
 
-async function extractPdfText(buffer: Buffer): Promise<string> {
-  const { PDFParse } = await import('pdf-parse');
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+function copyBytes(buffer: Buffer): Uint8Array {
+  return Uint8Array.from(buffer);
+}
+
+function looksLikePdfNoise(text: string): boolean {
+  const sample = text.slice(0, 2000);
+  const operators = (sample.match(/\b(endobj|endstream|obj|stream|BT|ET)\b/g) || []).length;
+  const dictKeys = (sample.match(/\/(Type|Font|Length|Filter|Subtype|Resources|MediaBox)\b/g) || []).length;
+  return operators + dictKeys >= 8;
+}
+
+function isUsefulResumeText(text: string): boolean {
+  const cleaned = String(text ?? '')
+    .replace(/\u0000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (cleaned.length < 20) return false;
+  if (looksLikePdfNoise(cleaned)) return false;
+  const letters = (cleaned.match(/[a-zA-Z]/g) || []).length;
+  return letters >= 16;
+}
+
+function normalizeExtracted(text: string): string {
+  return String(text ?? '')
+    .replace(/\u0000/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const result = await parser.getText();
-    const text = String(result?.text ?? '').replace(/\s+/g, ' ').trim();
-    console.log('[ats] pdf-parse pages/text', {
-      pages: result?.total ?? result?.pages?.length,
-      chars: text.length,
-    });
-    return text;
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+      }),
+    ]);
   } finally {
-    await parser.destroy().catch(() => undefined);
+    if (timer) clearTimeout(timer);
   }
 }
 
-async function extractPdfTextFallback(buffer: Buffer): Promise<string> {
+function extractPdfLiteralStrings(buffer: Buffer): string {
+  const raw = buffer.toString('latin1');
+  const pieces: string[] = [];
+  const re = /\((?:\\.|[^\\)]){4,}\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(raw))) {
+    const inner = match[0]
+      .slice(1, -1)
+      .replace(/\\n/g, ' ')
+      .replace(/\\r/g, ' ')
+      .replace(/\\t/g, ' ')
+      .replace(/\\\(/g, '(')
+      .replace(/\\\)/g, ')')
+      .replace(/\\[0-7]{1,3}/g, ' ')
+      .replace(/\\./g, ' ');
+    if (/[a-zA-Z]{3,}/.test(inner)) pieces.push(inner);
+    if (pieces.length > 800) break;
+  }
+  return pieces.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+async function extractPdfWithUnpdf(buffer: Buffer): Promise<string> {
   const { extractText, getDocumentProxy } = await import('unpdf');
-  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const pdf = await getDocumentProxy(copyBytes(buffer), {
+    isEvalSupported: false,
+    useSystemFonts: true,
+    disableFontFace: true,
+    disableWorker: true,
+  } as never);
   const result = await extractText(pdf, { mergePages: true });
-  return String(result.text ?? '').replace(/\s+/g, ' ').trim();
+  return normalizeExtracted(String(result.text ?? ''));
 }
 
 async function extractDocxText(buffer: Buffer): Promise<string> {
   const mammoth = await import('mammoth');
   const extractRawText = mammoth.extractRawText ?? mammoth.default?.extractRawText;
-  if (!extractRawText) return extractPrintableStrings(buffer);
+  if (!extractRawText) return '';
   const result = await extractRawText({ buffer });
-  return String(result.value ?? '').replace(/\s+/g, ' ').trim();
+  return normalizeExtracted(String(result.value ?? ''));
 }
 
-function looksLikePdf(buffer: Buffer, fileName: string, mimeType: string): boolean {
+function isPdfBuffer(buffer: Buffer, fileName: string, mimeType: string): boolean {
+  if (buffer.slice(0, 4).toString('utf8') === '%PDF') return true;
+  if (buffer.slice(0, 2).toString('utf8') === 'PK') return false;
   const name = fileName.toLowerCase();
-  if (mimeType.includes('pdf') || name.endsWith('.pdf')) return true;
-  return buffer.slice(0, 5).toString('utf8') === '%PDF-';
+  return mimeType.includes('pdf') || name.endsWith('.pdf');
 }
 
-function looksLikeDocx(fileName: string, mimeType: string): boolean {
+function isDocxBuffer(buffer: Buffer, fileName: string, mimeType: string): boolean {
   const name = fileName.toLowerCase();
-  return mimeType.includes('wordprocessingml') || name.endsWith('.docx');
+  if (mimeType.includes('wordprocessingml') || name.endsWith('.docx')) return true;
+  if (buffer.slice(0, 2).toString('utf8') !== 'PK') return false;
+  return buffer.slice(0, 200_000).toString('latin1').includes('word/');
 }
 
 export async function extractResumeText(
@@ -76,31 +132,28 @@ export async function extractResumeText(
     header: buffer.slice(0, 8).toString('utf8'),
   });
 
-  if (looksLikePdf(buffer, fileName, mimeType)) {
+  if (isPdfBuffer(buffer, fileName, mimeType)) {
     try {
-      const text = await extractPdfText(buffer);
-      if (text.length >= 20) {
+      const text = await withTimeout(extractPdfWithUnpdf(buffer), 12_000, 'unpdf');
+      console.log('[ats] unpdf chars', text.length, text.slice(0, 400));
+      if (isUsefulResumeText(text)) {
         console.log('[ats] extracted PDF text preview', text.slice(0, 800));
         return text;
       }
-      console.warn('[ats] pdf-parse returned too little text, trying unpdf fallback', { chars: text.length });
     } catch (err) {
-      console.error('[ats] pdf-parse failed', err);
+      console.error('[ats] unpdf failed', err);
     }
-    try {
-      const fallback = await extractPdfTextFallback(buffer);
-      console.log('[ats] unpdf fallback chars', fallback.length, fallback.slice(0, 400));
-      if (fallback.length >= 20) return fallback;
-    } catch (err) {
-      console.error('[ats] unpdf fallback failed', err);
-    }
+
+    const literals = extractPdfLiteralStrings(buffer);
+    console.log('[ats] pdf-literals chars', literals.length, literals.slice(0, 400));
+    if (isUsefulResumeText(literals)) return literals;
   }
 
-  if (looksLikeDocx(fileName, mimeType)) {
+  if (isDocxBuffer(buffer, fileName, mimeType) || buffer.slice(0, 2).toString('utf8') === 'PK') {
     try {
-      const text = await extractDocxText(buffer);
+      const text = await withTimeout(extractDocxText(buffer), 8_000, 'mammoth');
       console.log('[ats] extracted DOCX text preview', text.slice(0, 800));
-      if (text.length >= 20) return text;
+      if (isUsefulResumeText(text)) return text;
     } catch (err) {
       console.error('[ats] mammoth DOCX extract failed', err);
     }
@@ -108,5 +161,5 @@ export async function extractResumeText(
 
   const scanned = extractPrintableStrings(buffer);
   console.warn('[ats] binary string scan fallback', { chars: scanned.length, preview: scanned.slice(0, 400) });
-  return scanned;
+  return isUsefulResumeText(scanned) ? scanned : '';
 }

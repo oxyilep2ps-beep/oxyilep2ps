@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
+import { hydrateAtsScores } from '@/lib/hr/rescore-zero-applications';
 
 export type JobApplicationRow = {
   id: string;
@@ -38,16 +39,20 @@ export async function listJobApplications(): Promise<JobApplicationRow[]> {
 
   const { data, error } = await admin
     .from('job_applications')
-    .select('id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email, ai_match_score, ats_score, ats_reason')
+    .select('id, job_id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email, ai_match_score, ats_score, ats_reason')
     .order('created_at', { ascending: false });
 
   if (error) {
     const fallback = await admin
       .from('job_applications')
-      .select('id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email')
+      .select('id, job_id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email')
       .order('created_at', { ascending: false });
     if (fallback.error) throw new Error(error.message);
-    return (fallback.data ?? []).map((r) => mapRow(r as Record<string, unknown>));
+    const rows = (fallback.data ?? []) as Record<string, unknown>[];
+    await hydrateAtsScores(admin, rows, { limit: 16, concurrency: 4 });
+    return rows.map((r) => mapRow(r));
   }
-  return (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
+  const rows = (data ?? []) as Record<string, unknown>[];
+  await hydrateAtsScores(admin, rows, { limit: 16, concurrency: 4 });
+  return rows.map((r) => mapRow(r));
 }

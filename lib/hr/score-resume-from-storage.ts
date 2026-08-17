@@ -74,5 +74,12 @@ export async function persistAtsScore(
   if (!retry) return;
 
   console.warn('[ats] reason persist failed, writing score only', table, retry.message);
-  await admin.from(table).update({ ai_match_score: payload.ai_match_score }).eq('id', id);
+  const { error: scoreOnly } = await admin
+    .from(table)
+    .update({ ai_match_score: payload.ai_match_score })
+    .eq('id', id);
+  if (!scoreOnly) return;
+
+  console.warn('[ats] ai_match_score persist failed, trying ats_score', table, scoreOnly.message);
+  await admin.from(table).update({ ats_score: payload.ats_score, ats_reason: reason }).eq('id', id);
 }
