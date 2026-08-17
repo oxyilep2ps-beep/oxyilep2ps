@@ -91,6 +91,7 @@ export async function sendReviewEmail(
   const resend = new Resend(apiKey);
   const { data, error } = await resend.emails.send({
     from,
+    replyTo: 'oxyilemoneyquest.support@gmail.com',
     to: [to],
     subject,
     html,

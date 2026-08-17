@@ -16,6 +16,7 @@ import { Footer } from '@/components/footer';
 import { listPublicOpenJobs } from '@/app/actions/public-careers';
 import type { JobPosting } from '@/lib/hr/types';
 import { formatJobCompensationChip } from '@/lib/hr/types';
+import { jobWorkingModel } from '@/lib/hr/working-model';
 import { employmentTypeLabel } from '@/lib/hr/ui';
 
 const fadeUp: Variants = {
@@ -118,7 +119,7 @@ export function CareersJobsExperience() {
                         </span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-neutral-500/15 px-2.5 py-1 text-neutral-600 dark:text-neutral-300">
                           <MapPin size={12} />
-                          {job.location || 'UK'}
+                          {jobWorkingModel(job)}
                         </span>
                         <span className="inline-flex max-w-full items-center gap-1 whitespace-normal rounded-full bg-emerald-500/15 px-2.5 py-1 text-left text-emerald-700 dark:text-emerald-400">
                           <Wallet size={12} />

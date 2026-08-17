@@ -82,6 +82,7 @@ export async function sendGuarantorInvite({
 
   await resend.emails.send({
     from: 'Oxyile <guarantor@oxyile.com>',
+    replyTo: 'oxyilemoneyquest.support@gmail.com',
     to: guarantorEmail,
     subject: 'Oxyile guarantor invitation',
     html: `

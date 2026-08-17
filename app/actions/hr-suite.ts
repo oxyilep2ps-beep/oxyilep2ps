@@ -3,12 +3,15 @@
 import { revalidatePath } from 'next/cache';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { removeResumeFiles } from '@/lib/hr/resume-storage';
+import { extractResumeText } from '@/lib/hr/extract-resume-text';
+import { removeResumeFiles, resumeStoragePathFromUrl } from '@/lib/hr/resume-storage';
 import { matchesAtsTab } from '@/lib/hr/ats-application-status';
+import { computeAtsMatchScore } from '@/lib/hr/ats-match-score';
+import { normalizeWorkingModel } from '@/lib/hr/working-model';
+import { parseJobPostingPayload } from '@/lib/hr/job-schema';
 import {
   generateOfferLetterHtml,
   formatJobCompensation,
-  scoreResumeAgainstRequirements,
   type ApplicantStage,
   type BackgroundCheckStatus,
   type EmployeeHrProfile,
@@ -41,7 +44,8 @@ function mapJob(row: Record<string, unknown>): JobPosting {
     description: String(row.description ?? ''),
     responsibilities: String(row.responsibilities ?? ''),
     ai_match_keywords: String(row.ai_match_keywords ?? ''),
-    location: (row.location as string | null) ?? null,
+    working_model: normalizeWorkingModel((row.working_model as string | null) ?? (row.location as string | null)),
+    location: normalizeWorkingModel((row.working_model as string | null) ?? (row.location as string | null)),
     employment_type: String(row.employment_type ?? 'full_time'),
     budget_approved: Boolean(row.budget_approved),
     publish_to_careers: row.publish_to_careers !== false,
@@ -134,6 +138,17 @@ export async function listJobPostings() {
   return (data ?? []).map((r) => mapJob(r as Record<string, unknown>));
 }
 
+async function extractResumeFromStorage(
+  admin: ReturnType<typeof createAdminClient>,
+  resumeUrl: string | null | undefined
+): Promise<string> {
+  const path = resumeStoragePathFromUrl(resumeUrl);
+  if (!path) return '';
+  const { data } = await admin.storage.from('resumes').download(path);
+  if (!data) return '';
+  return extractResumeText(Buffer.from(await data.arrayBuffer()), { fileName: path });
+}
+
 function durationMonthsFromInput(input: {
   duration_months?: number | null;
   unpaid_months?: number | null;
@@ -159,6 +174,7 @@ export async function createJobPosting(input: {
   compliance_responsibilities?: string;
   ai_match_keywords?: string;
   ai_keywords?: string;
+  working_model?: string;
   location?: string;
   employment_type?: string;
   source_budget_gbp?: number;
@@ -171,42 +187,52 @@ export async function createJobPosting(input: {
   status?: 'draft' | 'open';
 }) {
   const user = await assertHrOrAdmin();
+  const parsed = parseJobPostingPayload({
+    ...input,
+    working_model: input.working_model ?? input.location ?? 'Hybrid',
+    employment_type: input.employment_type ?? 'full_time',
+  });
+  if (!parsed.success) {
+    throw new Error(Object.values(parsed.fieldErrors)[0] ?? 'Invalid job posting.');
+  }
   const admin = createAdminClient();
-  const min = input.salary_min ?? input.salary_min_gbp ?? null;
-  const max = input.salary_max ?? input.salary_max_gbp ?? null;
-  const internTrack = Boolean(input.is_intern_to_fulltime);
-  const durationMonths = durationMonthsFromInput(input);
-  const published = Boolean(input.is_published ?? input.publish_to_careers);
+  const min = parsed.data.salary_min ?? parsed.data.salary_min_gbp ?? input.salary_min ?? input.salary_min_gbp ?? null;
+  const max = parsed.data.salary_max ?? parsed.data.salary_max_gbp ?? input.salary_max ?? input.salary_max_gbp ?? null;
+  const internTrack = Boolean(parsed.data.is_intern_to_fulltime);
+  const durationMonths = durationMonthsFromInput(parsed.data);
+  const published = Boolean(parsed.data.is_published ?? parsed.data.publish_to_careers);
   const range = formatJobCompensation({
     is_intern_to_fulltime: internTrack,
-    employment_type: input.employment_type,
+    employment_type: parsed.data.employment_type,
     duration_months: durationMonths,
     unpaid_months: durationMonths,
     salary_min: min,
     salary_max: max,
   });
 
-  const compliance = input.compliance_responsibilities ?? input.responsibilities ?? '';
-  const keywords = input.ai_keywords ?? input.ai_match_keywords ?? '';
-  const status = input.status ?? (published ? 'open' : 'draft');
+  const compliance = parsed.data.compliance_responsibilities ?? parsed.data.responsibilities ?? '';
+  const keywords = parsed.data.ai_keywords ?? parsed.data.ai_match_keywords ?? '';
+  const status = parsed.data.status ?? (published ? 'open' : 'draft');
+  const working_model = parsed.data.working_model;
   const { data, error } = await admin
     .from('job_postings')
     .insert({
-      title: input.title.trim(),
-      department: input.department.trim() || 'Operations',
+      title: parsed.data.title.trim(),
+      department: parsed.data.department.trim() || 'Operations',
       salary_range_gbp: range,
       salary_min_gbp: min,
       salary_max_gbp: max,
       salary_min: min,
       salary_max: max,
-      requirements: input.requirements,
-      description: input.description ?? '',
+      requirements: parsed.data.requirements,
+      description: parsed.data.description ?? '',
       responsibilities: compliance,
       compliance_responsibilities: compliance,
       ai_match_keywords: keywords,
       ai_keywords: keywords,
-      location: input.location ?? 'United Kingdom (Remote/Hybrid)',
-      employment_type: input.employment_type ?? 'full_time',
+      working_model,
+      location: working_model,
+      employment_type: parsed.data.employment_type ?? 'full_time',
       source_budget_gbp: input.source_budget_gbp ?? max ?? min ?? null,
       status,
       budget_approved: status === 'open',
@@ -215,15 +241,15 @@ export async function createJobPosting(input: {
       is_intern_to_fulltime: internTrack,
       unpaid_months: durationMonths,
       duration_months: durationMonths,
-      what_you_will_gain: input.what_you_will_gain?.trim() || null,
+      what_you_will_gain: parsed.data.what_you_will_gain?.trim() || null,
       created_by: user.id,
     })
     .select('*')
     .single();
   if (error) {
     throw new Error(
-      /column|schema cache|is_intern_to_fulltime|is_published|unpaid_months|duration_months|what_you_will_gain/i.test(error.message)
-        ? `Could not save job — apply supabase/migrations/20260816230000_add_job_duration_months.sql (and prior ATS job migrations) in the Supabase SQL editor, then retry. (${error.message})`
+      /column|schema cache|is_intern_to_fulltime|is_published|unpaid_months|duration_months|what_you_will_gain|working_model/i.test(error.message)
+        ? `Could not save job — apply supabase/migrations/20260817140000_job_working_model_and_ats_score.sql (and prior ATS job migrations) in the Supabase SQL editor, then retry. (${error.message})`
         : error.message
     );
   }
@@ -270,6 +296,7 @@ export async function updateJobPosting(
     compliance_responsibilities: string;
     ai_match_keywords: string;
     ai_keywords: string;
+    working_model: string;
     location: string;
     employment_type: string;
     publish_to_careers: boolean;
@@ -291,6 +318,10 @@ export async function updateJobPosting(
   const published = Boolean(input.is_published ?? input.publish_to_careers);
   const compliance = input.compliance_responsibilities ?? input.responsibilities ?? '';
   const keywords = input.ai_keywords ?? input.ai_match_keywords ?? '';
+  const working_model =
+    input.working_model != null || input.location != null
+      ? normalizeWorkingModel(input.working_model ?? input.location)
+      : undefined;
   const range = formatJobCompensation({
     is_intern_to_fulltime: internTrack,
     employment_type: input.employment_type,
@@ -317,7 +348,8 @@ export async function updateJobPosting(
       compliance_responsibilities: compliance,
       ai_match_keywords: keywords,
       ai_keywords: keywords,
-      location: input.location,
+      working_model,
+      location: working_model,
       employment_type: input.employment_type,
       publish_to_careers: published,
       is_published: published,
@@ -442,21 +474,30 @@ export async function createJobApplicant(input: {
     .limit(1);
   const duplicate = (existing?.length ?? 0) > 0;
 
-  let requirements = '';
-  if (input.job_id) {
-    const { data: job } = await admin
-      .from('job_postings')
-      .select('requirements, ai_match_keywords, description, responsibilities')
-      .eq('id', input.job_id)
-      .maybeSingle();
-    requirements = [job?.requirements, job?.ai_match_keywords, job?.description, job?.responsibilities]
-      .filter(Boolean)
-      .join(' ');
+  const { data: job } = input.job_id
+    ? await admin
+        .from('job_postings')
+        .select('requirements, ai_match_keywords, ai_keywords, description, responsibilities')
+        .eq('id', input.job_id)
+        .maybeSingle()
+    : { data: null };
+
+  let resumeText = String(input.resume_text ?? '').trim();
+  if (resumeText.length < 40 && input.resume_url) {
+    try {
+      resumeText = (await extractResumeFromStorage(admin, input.resume_url)) || resumeText;
+    } catch {
+      // Score 0 if the stored file cannot be read.
+    }
   }
-  const score = scoreResumeAgainstRequirements(
-    `${input.resume_text ?? ''} ${input.full_name} ${input.email}`,
-    requirements || 'fintech compliance lending uk fca direct debit'
-  );
+
+  const score = computeAtsMatchScore(resumeText, {
+    ai_match_keywords: job?.ai_match_keywords,
+    ai_keywords: job?.ai_keywords,
+    requirements: job?.requirements,
+    description: job?.description,
+    responsibilities: job?.responsibilities,
+  });
 
   const { data, error } = await admin
     .from('job_applicants')

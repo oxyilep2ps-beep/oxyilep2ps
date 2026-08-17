@@ -32,6 +32,7 @@ export type JobPosting = {
   description: string;
   responsibilities?: string;
   ai_match_keywords?: string;
+  working_model?: string | null;
   location: string | null;
   employment_type: string;
   budget_approved: boolean;
@@ -307,21 +308,7 @@ export function estimateUkPayeAnnual(grossGbp: number): {
   };
 }
 
-export function scoreResumeAgainstRequirements(
-  resumeText: string,
-  requirements: string
-): number {
-  const reqTokens = requirements
-    .toLowerCase()
-    .split(/[^a-z0-9+#]+/)
-    .filter((t) => t.length > 3);
-  const unique = [...new Set(reqTokens)].slice(0, 40);
-  if (unique.length === 0) return 55;
-  const hay = resumeText.toLowerCase();
-  const hits = unique.filter((t) => hay.includes(t)).length;
-  const base = Math.round((hits / unique.length) * 100);
-  return Math.max(12, Math.min(98, base));
-}
+export { computeAtsMatchScore, scoreResumeAgainstRequirements } from '@/lib/hr/ats-match-score';
 
 export function generateOfferLetterHtml(input: {
   candidateName: string;

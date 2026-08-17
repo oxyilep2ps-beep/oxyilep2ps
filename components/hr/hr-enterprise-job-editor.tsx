@@ -3,17 +3,13 @@
 import { FormEvent, useEffect, useState, useTransition } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { createJobPosting, updateJobPosting } from '@/app/actions/hr-suite';
+import { parseJobPostingPayload } from '@/lib/hr/job-schema';
 import type { JobPosting } from '@/lib/hr/types';
 import { HR_INPUT_CLASS, HR_SELECT_CLASS, HR_TEXTAREA_CLASS } from '@/lib/hr/ui';
+import { WORKING_MODELS, jobWorkingModel } from '@/lib/hr/working-model';
 import { cn } from '@/lib/utils';
 
 const DEPARTMENTS = ['Engineering', 'Finance', 'Compliance', 'Marketing', 'Operations', 'Product', 'People'];
-const LOCATIONS = [
-  'London, UK',
-  'Hybrid — Bengaluru / UK',
-  'Remote — UK',
-  'United Kingdom (Remote/Hybrid)',
-];
 
 type Props = {
   open: boolean;
@@ -30,14 +26,15 @@ function payloadFromForm(
   const max = Number(fd.get('salary_max') || 0) || undefined;
   const publish = fd.get('publish_now') === 'on';
   const durationRaw = Number(fd.get('duration_months') || 0);
-  const durationMonths = Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : null;
+  const durationMonths = Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : undefined;
   const compliance = String(fd.get('compliance_responsibilities') || '');
   const keywords = String(fd.get('ai_keywords') || '');
   return {
     title: String(fd.get('title')),
     department: String(fd.get('department')),
     employment_type: String(fd.get('employment_type')),
-    location: String(fd.get('location')),
+    working_model: String(fd.get('working_model')),
+    location: String(fd.get('working_model')),
     salary_min: min,
     salary_max: max,
     salary_min_gbp: min,
@@ -79,33 +76,32 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
 
   if (!open) return null;
 
-  const validate = (fd: FormData) => {
-    const errs: Record<string, string> = {};
-    if (!String(fd.get('title') || '').trim()) errs.title = 'Job title is required.';
-    if (!String(fd.get('requirements') || '').trim()) errs.requirements = 'Requirements / AI keywords context is required.';
+  const validate = (fd: FormData, internTrack: boolean) => {
+    const payload = payloadFromForm(fd, internTrack);
+    const parsed = parseJobPostingPayload(payload);
+    const errs: Record<string, string> = parsed.success ? {} : { ...parsed.fieldErrors };
     const min = Number(fd.get('salary_min') || 0);
     const max = Number(fd.get('salary_max') || 0);
     if (min > 0 && max > 0 && max < min) errs.salary = 'Max salary must be ≥ min salary (£ GBP).';
-    if (internToFullTime) {
+    if (internTrack) {
       const months = Number(fd.get('duration_months') || 0);
       if (!Number.isFinite(months) || months < 1) {
         errs.duration_months = 'Enter internship duration in months (1 or more).';
       }
     }
-    return errs;
+    return { errs, payload: parsed.success ? parsed.data : payload };
   };
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const errs = validate(fd);
+    const { errs, payload } = validate(fd, internToFullTime);
     setFieldErrors(errs);
     if (Object.keys(errs).length) {
       setError('Please fix the highlighted fields.');
       return;
     }
     setError(null);
-    const payload = payloadFromForm(fd, internToFullTime);
 
     startTransition(() => {
       const task = initialData?.id
@@ -120,7 +116,7 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
   const minSalary = initialData?.salary_min ?? initialData?.salary_min_gbp ?? undefined;
   const maxSalary = initialData?.salary_max ?? initialData?.salary_max_gbp ?? undefined;
   const department = initialData?.department ?? 'Engineering';
-  const location = initialData?.location || 'London, UK';
+  const workingModel = initialData ? jobWorkingModel(initialData) : 'Hybrid';
   const published = Boolean(initialData?.is_published ?? (initialData?.status === 'open' && initialData?.publish_to_careers !== false));
 
   return (
@@ -214,11 +210,15 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
                 </p>
               </Field>
 
-              <Field label="Location">
-                <select name="location" defaultValue={LOCATIONS.includes(location) ? location : location} className={HR_SELECT_CLASS}>
-                  {(LOCATIONS.includes(location) ? LOCATIONS : [location, ...LOCATIONS]).map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
+              <Field label="Working Model" error={fieldErrors.working_model}>
+                <select
+                  name="working_model"
+                  defaultValue={workingModel}
+                  className={cn(HR_SELECT_CLASS, fieldErrors.working_model && 'border-red-500')}
+                >
+                  {WORKING_MODELS.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
                     </option>
                   ))}
                 </select>

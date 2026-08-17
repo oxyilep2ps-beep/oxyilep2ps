@@ -23,8 +23,8 @@ export const HR_GUIDE_FEATURES: HrGuideFeature[] = [
   {
     id: 2,
     name: 'AI Resume Score & Matcher',
-    purpose: 'Scores resumes 0–100% against job requirements and AI Match Keywords from the Enterprise Job Editor.',
-    where: 'ATS board — score badge on each card; keywords set when creating a job',
+    purpose: 'Extracts text from the uploaded resume (PDF/DOCX) and scores 0–100% against the job description and AI Match Keywords from the Enterprise Job Editor.',
+    where: 'ATS Applications / Kanban / candidate profile — score badge next to Resume',
     steps: 'In Enterprise Job Editor, add comma-separated AI Match Keywords → publish. New /careers applicants are scored on insert.',
     benefit: 'Faster shortlists without bias toward formatting alone.',
     group: 'ATS & Recruitment',
@@ -386,7 +386,7 @@ export const HR_GUIDE_FEATURES: HrGuideFeature[] = [
     id: 42,
     name: 'Enterprise Job Editor',
     purpose:
-      'Spacious 2-column creator for title, department, employment type, location, £ GBP salary band, description, FCA responsibilities, and AI Match Keywords.',
+      'Spacious 2-column creator for title, department, employment type, working model (Remote / On-site / Hybrid), £ GBP salary band, description, FCA responsibilities, and AI Match Keywords.',
     where: 'ATS Recruitment → + Create job (or Quick Create → Post New Job)',
     steps:
       'Fill metadata on the left, rich details on the right, add comma-separated AI keywords, then create. Use polished validation messages if fields are missing.',

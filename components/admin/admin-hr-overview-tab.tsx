@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, ExternalLink } from 'lucide-react';
 import {
   deleteJobPosting,
   getHrExecOverview,
@@ -28,6 +28,7 @@ import {
 } from '@/lib/hr/ats-application-status';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
 import { AtsEmailCandidateModal } from '@/components/hr/ats-email-candidate-modal';
+import { AtsMatchBadge } from '@/components/hr/ats-match-badge';
 import { AuthToast } from '@/components/auth-toast';
 import { HrJobEditorProvider, subscribeJobPostingCreated, useHrJobEditor } from '@/components/hr/hr-job-editor-provider';
 import { HR_SELECT_CLASS } from '@/lib/hr/ui';
@@ -227,6 +228,7 @@ function AdminHrOverviewInner() {
                   <th className="px-2 py-2">Candidate</th>
                   <th className="px-2 py-2">Role</th>
                   <th className="px-2 py-2">Status</th>
+                  <th className="px-2 py-2">ATS</th>
                   <th className="px-2 py-2 text-right">Actions</th>
                 </tr>
               </thead>
@@ -253,8 +255,22 @@ function AdminHrOverviewInner() {
                         ))}
                       </select>
                     </td>
+                    <td className="px-2 py-3">
+                      <AtsMatchBadge score={row.ai_match_score} size="sm" />
+                    </td>
                     <td className="px-2 py-3 text-right">
-                      <button
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {row.resume_url ? (
+                          <a
+                            href={row.resume_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-bold text-[#F97316] hover:text-orange-400"
+                          >
+                            Resume <ExternalLink size={12} />
+                          </a>
+                        ) : null}
+                        <button
                         type="button"
                         disabled={pending}
                         title="Delete candidate"
@@ -277,6 +293,7 @@ function AdminHrOverviewInner() {
                       >
                         <Trash2 size={12} /> Delete
                       </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

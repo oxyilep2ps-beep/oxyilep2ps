@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { ExternalLink, Search, Trash2 } from 'lucide-react';
 import { AuthToast } from '@/components/auth-toast';
 import { AtsEmailCandidateModal } from '@/components/hr/ats-email-candidate-modal';
+import { AtsMatchBadge } from '@/components/hr/ats-match-badge';
 import { deleteJobApplication, updateJobApplicationStatus, type AtsApplication } from '@/app/actions/hr-applications';
 import {
   ATS_APPLICATION_STATUSES,
@@ -193,6 +194,7 @@ export function AtsApplicationsPanel({
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <AtsMatchBadge score={row.ai_match_score} />
                     {row.resume_url ? (
                       <a
                         href={row.resume_url}

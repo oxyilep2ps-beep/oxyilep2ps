@@ -5,6 +5,7 @@ import { getPublicJob } from '@/app/actions/public-careers';
 import { CareersApplyForm } from '@/components/careers/careers-apply-form';
 import { Footer } from '@/components/footer';
 import { formatJobCompensation, formatJobCompensationChip, jobHasNumericSalary, resolveWhatYouWillGain } from '@/lib/hr/types';
+import { jobWorkingModel } from '@/lib/hr/working-model';
 import { employmentTypeLabel } from '@/lib/hr/ui';
 
 export default async function PublicJobApplicationPage({
@@ -28,7 +29,7 @@ export default async function PublicJobApplicationPage({
         <p className="mt-8 text-xs font-black uppercase tracking-[0.28em] text-[#F97316]">Open role</p>
         <h1 className="mt-3 text-3xl font-black sm:text-4xl">{job.title}</h1>
         <p className="mt-2 text-sm text-neutral-400">
-          {job.department} · {employmentTypeLabel(job.employment_type)} · {job.location || 'UK'}
+          {job.department} · {employmentTypeLabel(job.employment_type)} · {jobWorkingModel(job)}
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-semibold">
@@ -38,7 +39,7 @@ export default async function PublicJobApplicationPage({
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-neutral-800 px-2.5 py-1 text-neutral-300">
             <MapPin size={12} />
-            {job.location || 'UK'}
+            {jobWorkingModel(job)}
           </span>
           <span className="inline-flex max-w-full items-center gap-1 whitespace-normal rounded-full bg-emerald-500/15 px-2.5 py-1 text-left text-emerald-400">
             <Wallet size={12} />

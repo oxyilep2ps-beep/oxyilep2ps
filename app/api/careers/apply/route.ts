@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { scoreResumeAgainstRequirements } from '@/lib/hr/types';
+import { computeAtsMatchScore } from '@/lib/hr/ats-match-score';
+import { extractResumeText } from '@/lib/hr/extract-resume-text';
 import { sendApplicationReceivedEmail } from '@/lib/email/send-application-received';
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -74,22 +75,26 @@ export async function POST(request: Request) {
     const resume_url = urlData.publicUrl || path;
 
     let jobTitle = role_applied || 'General';
-    let requirements = 'fintech uk fca lending compliance';
     let resolvedJobId: string | null = job_id || null;
+    let jobMatchSource: Parameters<typeof computeAtsMatchScore>[1] = {};
 
     if (resolvedJobId) {
       const { data: job } = await admin
         .from('job_postings')
         .select(
-          'id, title, requirements, ai_match_keywords, description, responsibilities, status, publish_to_careers, is_published'
+          'id, title, requirements, ai_match_keywords, ai_keywords, description, responsibilities, status, publish_to_careers, is_published'
         )
         .eq('id', resolvedJobId)
         .maybeSingle();
       if (job && (job.is_published === true || job.status === 'open')) {
         jobTitle = String(job.title);
-        requirements = [job.requirements, job.ai_match_keywords, job.description, job.responsibilities]
-          .filter(Boolean)
-          .join(' ');
+        jobMatchSource = {
+          ai_match_keywords: job.ai_match_keywords,
+          ai_keywords: job.ai_keywords,
+          requirements: job.requirements,
+          description: job.description,
+          responsibilities: job.responsibilities,
+        };
       } else if (!job) {
         resolvedJobId = null;
       }
@@ -98,10 +103,11 @@ export async function POST(request: Request) {
     const { data: existing } = await admin.from('job_applicants').select('id').ilike('email', email).limit(1);
     const duplicate = (existing?.length ?? 0) > 0;
 
-    const ai_match_score = scoreResumeAgainstRequirements(
-      `${full_name} ${email} ${linkedin} ${jobTitle}`,
-      requirements
-    );
+    const resumeText = await extractResumeText(buffer, {
+      fileName: file.name,
+      mimeType: contentType,
+    });
+    const ai_match_score = computeAtsMatchScore(resumeText, jobMatchSource);
 
     // Public applications table — source of truth for /careers apply
     const applicationInsert = {
@@ -113,21 +119,26 @@ export async function POST(request: Request) {
       phone: phone || 'n/a',
       role_applied: jobTitle,
       resume_url,
+      ai_match_score,
       status: 'Applied',
     };
 
     const { error: appError } = await admin.from('job_applications').insert(applicationInsert);
     if (appError) {
-      const { error: legacyError } = await admin.from('job_applications').insert({
-        full_name,
-        email,
-        phone: phone || 'n/a',
-        role_applied: jobTitle,
-        resume_url,
-        status: 'PENDING',
-      });
-      if (legacyError) {
-        return NextResponse.json({ error: appError.message }, { status: 500 });
+      const { ai_match_score: _score, ...withoutScore } = applicationInsert;
+      const { error: retryError } = await admin.from('job_applications').insert(withoutScore);
+      if (retryError) {
+        const { error: legacyError } = await admin.from('job_applications').insert({
+          full_name,
+          email,
+          phone: phone || 'n/a',
+          role_applied: jobTitle,
+          resume_url,
+          status: 'PENDING',
+        });
+        if (legacyError) {
+          return NextResponse.json({ error: appError.message }, { status: 500 });
+        }
       }
     }
 

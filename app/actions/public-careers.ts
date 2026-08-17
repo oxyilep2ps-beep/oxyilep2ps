@@ -1,7 +1,9 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { scoreResumeAgainstRequirements, type JobPosting } from '@/lib/hr/types';
+import { computeAtsMatchScore } from '@/lib/hr/ats-match-score';
+import { normalizeWorkingModel } from '@/lib/hr/working-model';
+import type { JobPosting } from '@/lib/hr/types';
 
 function mapPublicJob(row: Record<string, unknown>): JobPosting {
   return {
@@ -16,7 +18,8 @@ function mapPublicJob(row: Record<string, unknown>): JobPosting {
     description: String(row.description ?? ''),
     responsibilities: String(row.responsibilities ?? ''),
     ai_match_keywords: String(row.ai_match_keywords ?? ''),
-    location: (row.location as string | null) ?? 'United Kingdom',
+    working_model: normalizeWorkingModel((row.working_model as string | null) ?? (row.location as string | null)),
+    location: normalizeWorkingModel((row.working_model as string | null) ?? (row.location as string | null)),
     employment_type: String(row.employment_type ?? 'full_time'),
     budget_approved: Boolean(row.budget_approved),
     publish_to_careers: row.publish_to_careers !== false,
@@ -86,16 +89,14 @@ export async function scorePublicApplication(jobId: string, resumeHint: string) 
   const admin = createAdminClient();
   const { data: job } = await admin
     .from('job_postings')
-    .select('requirements, ai_match_keywords, description, responsibilities')
+    .select('requirements, ai_match_keywords, ai_keywords, description, responsibilities')
     .eq('id', jobId)
     .maybeSingle();
-  const blob = [
-    job?.requirements,
-    job?.ai_match_keywords,
-    job?.description,
-    job?.responsibilities,
-  ]
-    .filter(Boolean)
-    .join(' ');
-  return scoreResumeAgainstRequirements(resumeHint, blob || 'fintech uk fca lending');
+  return computeAtsMatchScore(resumeHint, {
+    ai_match_keywords: job?.ai_match_keywords,
+    ai_keywords: job?.ai_keywords,
+    requirements: job?.requirements,
+    description: job?.description,
+    responsibilities: job?.responsibilities,
+  });
 }

@@ -37,6 +37,10 @@ function brandedCandidateHtml(message: string): string {
         <p style="margin:32px 0 0;font-size:13px;color:#8a847a">
           Kind regards,<br/>Oxyile People Team
         </p>
+        <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid rgba(249,115,22,.22);font-size:13px;line-height:1.7;color:#c4beb4">
+          Note: This is an automated notification. If you have questions regarding your application or need support, please click &#39;Reply&#39; to contact our team, or email us directly at
+          <a href="mailto:oxyilemoneyquest.support@gmail.com" style="color:#F97316;text-decoration:underline;font-weight:600">oxyilemoneyquest.support@gmail.com</a>.
+        </p>
       </div>
     </div>
   </div>
@@ -75,10 +79,11 @@ export async function sendCandidateEmail(input: {
     const resend = new Resend(apiKey);
     const result = await resend.emails.send({
       from: 'Oxyile Careers <no-reply@oxyile.com>',
+      replyTo: 'oxyilemoneyquest.support@gmail.com',
       to: [to],
       subject,
       html: brandedCandidateHtml(message),
-      text: `${message}\n\nKind regards,\nOxyile People Team`,
+      text: `${message}\n\nKind regards,\nOxyile People Team\n\nNote: This is an automated notification. If you have questions regarding your application or need support, please click 'Reply' to contact our team, or email us directly at oxyilemoneyquest.support@gmail.com.`,
     });
 
     if (result.error) {

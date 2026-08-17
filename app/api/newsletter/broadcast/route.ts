@@ -49,6 +49,7 @@ async function sendNewsletterBatch(
     const { error } = await resend.batch.send(
       chunk.map((to) => ({
         from: NEWSLETTER_FROM_ADDRESS,
+        replyTo: 'oxyilemoneyquest.support@gmail.com',
         to,
         subject,
         html: htmlContent,

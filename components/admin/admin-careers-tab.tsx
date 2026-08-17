@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Briefcase, ExternalLink, Loader2 } from 'lucide-react';
 import { listJobApplications, type JobApplicationRow } from '@/app/actions/admin-careers';
+import { AtsMatchBadge } from '@/components/hr/ats-match-badge';
 
 export function AdminCareersTab() {
   const [rows, setRows] = useState<JobApplicationRow[]>([]);
@@ -63,16 +64,23 @@ export function AdminCareersTab() {
                   {row.status}
                 </span>
               </div>
-              {row.resume_url && (
-                <a
-                  href={row.resume_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-brand-600"
-                >
-                  View Resume <ExternalLink size={14} />
-                </a>
-              )}
+                  {row.resume_url ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <AtsMatchBadge score={row.ai_match_score} />
+                      <a
+                        href={row.resume_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600"
+                      >
+                        View Resume <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="mt-3">
+                      <AtsMatchBadge score={row.ai_match_score} />
+                    </div>
+                  )}
             </li>
           ))}
         </ul>

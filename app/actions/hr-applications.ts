@@ -15,6 +15,7 @@ export type AtsApplication = {
   role_applied: string | null;
   status: string;
   created_at: string;
+  ai_match_score: number;
 };
 
 function mapApplication(row: Record<string, unknown>): AtsApplication {
@@ -22,6 +23,7 @@ function mapApplication(row: Record<string, unknown>): AtsApplication {
   const email = String(row.candidate_email || row.email || '');
   const job = row.job_postings as { title?: string } | { title?: string }[] | null;
   const jobTitle = Array.isArray(job) ? job[0]?.title : job?.title;
+  const scoreRaw = Number(row.ai_match_score ?? 0);
   return {
     id: String(row.id),
     job_id: (row.job_id as string | null) ?? null,
@@ -31,6 +33,7 @@ function mapApplication(row: Record<string, unknown>): AtsApplication {
     role_applied: String(jobTitle || row.role_applied || 'General'),
     status: String(row.status ?? 'New'),
     created_at: String(row.created_at),
+    ai_match_score: Number.isFinite(scoreRaw) ? Math.max(0, Math.min(100, Math.round(scoreRaw))) : 0,
   };
 }
 

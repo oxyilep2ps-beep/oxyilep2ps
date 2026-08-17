@@ -17,11 +17,13 @@ import {
 import type { ApplicantStage, BackgroundCheckStatus, JobApplicant, JobPosting } from '@/lib/hr/types';
 import { APPLICANT_STAGES, BACKGROUND_STATUSES, formatJobCompensation } from '@/lib/hr/types';
 import { Pencil, Trash2 } from 'lucide-react';
+import { AtsMatchBadge } from '@/components/hr/ats-match-badge';
 import { HrSkeletonCards } from '@/components/hr/hr-skeleton';
 import { AtsApplicationsPanel } from '@/components/hr/ats-applications-panel';
 import { listAtsApplications, type AtsApplication } from '@/app/actions/hr-applications';
 import { subscribeJobPostingCreated, useHrJobEditor } from '@/components/hr/hr-job-editor-provider';
 import { HR_SELECT_CLASS } from '@/lib/hr/ui';
+import { jobWorkingModel } from '@/lib/hr/working-model';
 import { cn } from '@/lib/utils';
 
 const STAGE_LABELS: Record<ApplicantStage, string> = {
@@ -188,7 +190,7 @@ export function HrRecruitmentBoard() {
                   <div>
                     <p className="font-semibold">{j.title}</p>
                     <p className="text-xs text-neutral-500">
-                      {j.department} · {formatJobCompensation(j)} · {j.status}
+                      {j.department} · {jobWorkingModel(j)} · {formatJobCompensation(j)} · {j.status}
                       {j.budget_approved ? ' · Budget ✓' : ' · Awaiting admin budget'}
                     </p>
                   </div>
@@ -237,7 +239,6 @@ export function HrRecruitmentBoard() {
                             job_id: j.id,
                             full_name: name,
                             email,
-                            resume_text: `${name} ${j.requirements}`,
                             source: 'direct',
                           })
                             .then(load)
@@ -280,9 +281,7 @@ export function HrRecruitmentBoard() {
                       <p className="text-sm font-semibold">{a.full_name}</p>
                       <p className="text-[11px] text-neutral-500">{a.job_title || 'General'} · {a.email}</p>
                       <div className="mt-2 flex flex-wrap gap-1">
-                        <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-[10px] font-bold text-brand-600">
-                          AI {a.ai_match_score}%
-                        </span>
+                        <AtsMatchBadge score={a.ai_match_score} size="sm" />
                         <span className="rounded-full bg-neutral-500/15 px-2 py-0.5 text-[10px] font-bold capitalize">
                           {a.background_check_status.replace(/_/g, ' ')}
                         </span>
@@ -347,6 +346,21 @@ function ApplicantDrawer({
           <div>
             <p className="text-lg font-black">{applicant.full_name}</p>
             <p className="text-xs text-neutral-500">{applicant.email}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <AtsMatchBadge score={applicant.ai_match_score} />
+              {applicant.resume_url ? (
+                <a
+                  href={applicant.resume_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#F97316]"
+                >
+                  Open resume
+                </a>
+              ) : (
+                <span className="text-xs text-neutral-500">No resume uploaded</span>
+              )}
+            </div>
           </div>
           <button type="button" onClick={onClose} className="text-sm font-semibold text-neutral-500">
             Close
@@ -527,12 +541,6 @@ function ApplicantDrawer({
           >
             {applicant.in_talent_pool ? 'Remove from talent pool' : 'Add to talent pool'}
           </button>
-
-          {applicant.resume_url ? (
-            <a href={applicant.resume_url} target="_blank" rel="noreferrer" className="block text-xs font-bold text-brand-600">
-              Open resume
-            </a>
-          ) : null}
         </div>
       </div>
     </div>
