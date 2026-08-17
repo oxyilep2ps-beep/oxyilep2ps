@@ -59,6 +59,7 @@ export type JobApplicant = {
   phone: string | null;
   resume_url: string | null;
   ai_match_score: number;
+  ats_reason?: string | null;
   stage: ApplicantStage;
   background_check_status: BackgroundCheckStatus;
   notes: string | null;

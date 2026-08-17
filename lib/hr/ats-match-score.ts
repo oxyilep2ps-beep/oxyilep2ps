@@ -84,6 +84,13 @@ export type AtsJobMatchSource = {
   responsibilities?: string | null;
 };
 
+export type AtsMatchResult = {
+  score: number;
+  reason: string;
+  matched: string[];
+  missing: string[];
+};
+
 function tokenize(text: string): string[] {
   return text
     .toLowerCase()
@@ -92,14 +99,21 @@ function tokenize(text: string): string[] {
     .filter((token) => token.length > 2 && !STOPWORDS.has(token) && !/^\d+$/.test(token));
 }
 
-function parsePhrases(raw: string): string[] {
-  return raw
-    .split(/[,;\n|/]+/)
-    .map((phrase) => phrase.trim().toLowerCase().replace(/\s+/g, ' '))
-    .filter((phrase) => phrase.length > 1);
+function parseKeywords(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(/[,;\n|/]+/)) {
+    const display = part.trim().replace(/\s+/g, ' ');
+    if (display.length < 2) continue;
+    const key = display.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(display);
+  }
+  return out;
 }
 
-function uniqueTerms(text: string, limit = 48): string[] {
+function uniqueTerms(text: string, limit = 20): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const token of tokenize(text)) {
@@ -124,88 +138,122 @@ function hasPhrase(hay: string, phrase: string): boolean {
   return hay.replace(/[.\s-]+/g, '').includes(compactNeedle);
 }
 
-function coverage(hay: string, terms: string[]): number | null {
-  if (!terms.length) return null;
-  const matched = terms.filter((term) => hasPhrase(hay, term));
-  console.log('[ats] coverage', {
-    terms: terms.length,
-    hits: matched.length,
-    matched: matched.slice(0, 20),
-    missed: terms.filter((term) => !matched.includes(term)).slice(0, 20),
-  });
-  return matched.length / terms.length;
+function formatKeyword(value: string): string {
+  const trimmed = value.trim();
+  if (/^[a-z0-9+#.-]+$/i.test(trimmed) && trimmed === trimmed.toUpperCase()) return trimmed;
+  if (trimmed.length <= 4 && /[a-z]/i.test(trimmed)) return trimmed.toUpperCase();
+  return trimmed.replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+}
+
+export function collectTargetKeywords(job: AtsJobMatchSource): string[] {
+  const explicit = parseKeywords(
+    [job.keywords, job.ai_match_keywords, job.ai_keywords].filter(Boolean).join(', ')
+  );
+  if (explicit.length) return explicit;
+  const fromRequirements = uniqueTerms(String(job.requirements ?? ''), 20);
+  if (fromRequirements.length) return fromRequirements;
+  return uniqueTerms([job.description, job.responsibilities].filter(Boolean).join(' '), 20);
+}
+
+export function buildAtsReason(input: {
+  score: number;
+  matched: string[];
+  missing: string[];
+  resumeEmpty: boolean;
+  noKeywords: boolean;
+}): string {
+  if (input.resumeEmpty) return 'Could not extract resume text.';
+  if (input.noKeywords) return 'No job keywords available to match.';
+  const missingList = input.missing.slice(0, 4).map(formatKeyword).join(', ');
+  if (input.matched.length === 0) return 'Poor match. No relevant frameworks found.';
+  if (input.score >= 75) {
+    return missingList ? `Strong match. Missing: ${missingList}` : 'Strong match. All target keywords found.';
+  }
+  if (input.score >= 45) {
+    return missingList ? `Partial match. Missing: ${missingList}` : 'Partial match.';
+  }
+  return missingList ? `Poor match. Missing: ${missingList}` : 'Poor match. No relevant frameworks found.';
 }
 
 /**
- * Deterministic 0–100 ATS match: resume text vs Match Keywords + job description.
- * Comparison is always case-insensitive. Empty / unreadable resumes score 0.
+ * Keyword ATS match: % of job target keywords found in the resume (case-insensitive).
  */
-export function computeAtsMatchScore(resumeText: string, job: AtsJobMatchSource): number {
+export function evaluateAtsMatch(resumeText: string, job: AtsJobMatchSource): AtsMatchResult {
   const resume = String(resumeText ?? '')
     .replace(/\u0000/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   const resumeLower = resume.toLowerCase();
-  console.log('[ats] computeAtsMatchScore input', {
+  const keywords = collectTargetKeywords(job);
+
+  console.log('[ats] evaluateAtsMatch input', {
     resumeChars: resumeLower.length,
     resumePreview: resumeLower.slice(0, 500),
-    keywordsRaw: job.ai_match_keywords || job.ai_keywords || job.keywords || '',
-    requirementsChars: String(job.requirements ?? '').length,
-    descriptionChars: String(job.description ?? '').length,
+    targetKeywords: keywords,
   });
+
   if (resumeLower.length < 20) {
-    console.warn('[ats] resume text too short to score — returning 0');
-    return 0;
+    const result: AtsMatchResult = {
+      score: 0,
+      reason: buildAtsReason({
+        score: 0,
+        matched: [],
+        missing: keywords,
+        resumeEmpty: true,
+        noKeywords: keywords.length === 0,
+      }),
+      matched: [],
+      missing: keywords,
+    };
+    console.warn('[ats] resume text too short', result);
+    return result;
+  }
+
+  if (!keywords.length) {
+    const result: AtsMatchResult = {
+      score: 0,
+      reason: buildAtsReason({
+        score: 0,
+        matched: [],
+        missing: [],
+        resumeEmpty: false,
+        noKeywords: true,
+      }),
+      matched: [],
+      missing: [],
+    };
+    console.warn('[ats] no target keywords on job posting', result);
+    return result;
   }
 
   const hay = haystack(resumeLower);
-  const keywordSource = [job.keywords, job.ai_match_keywords, job.ai_keywords]
-    .filter(Boolean)
-    .join(', ')
-    .toLowerCase();
-  const keywords = [...new Set(parsePhrases(keywordSource))];
-  const requirements = String(job.requirements ?? '').trim().toLowerCase();
-  const description = [job.description, job.responsibilities]
-    .filter(Boolean)
-    .join('\n')
-    .toLowerCase();
+  const matched = keywords.filter((kw) => hasPhrase(hay, kw));
+  const missing = keywords.filter((kw) => !matched.includes(kw));
+  const score = Math.round(Math.max(0, Math.min(100, (matched.length / keywords.length) * 100)));
+  const reason = buildAtsReason({
+    score,
+    matched,
+    missing,
+    resumeEmpty: false,
+    noKeywords: false,
+  });
 
-  const parts: Array<{ weight: number; value: number; label: string }> = [];
-  const keywordScore = coverage(hay, keywords);
-  const reqScore = coverage(hay, uniqueTerms(requirements, 40));
-  const descScore = coverage(hay, uniqueTerms(description, 40));
+  console.log('[ats] keyword match result', {
+    hits: matched.length,
+    total: keywords.length,
+    matched: matched.slice(0, 20),
+    missing: missing.slice(0, 20),
+    score,
+    reason,
+  });
 
-  if (keywordScore != null) parts.push({ weight: 0.5, value: keywordScore, label: 'keywords' });
-  if (reqScore != null) parts.push({ weight: 0.3, value: reqScore, label: 'requirements' });
-  if (descScore != null) parts.push({ weight: 0.2, value: descScore, label: 'description' });
+  return { score, reason, matched, missing };
+}
 
-  let score = 0;
-  if (!parts.length) {
-    const fallback = uniqueTerms([keywordSource, requirements, description].join(' '), 50);
-    const fallbackScore = coverage(hay, fallback);
-    score = fallbackScore == null ? 0 : Math.round(fallbackScore * 100);
-    console.log('[ats] used fallback token overlap', { fallbackTerms: fallback.length, score });
-  } else {
-    const weightSum = parts.reduce((sum, part) => sum + part.weight, 0);
-    const weighted = parts.reduce((sum, part) => sum + part.value * part.weight, 0) / weightSum;
-    score = Math.round(Math.max(0, Math.min(100, weighted * 100)));
-    console.log('[ats] weighted parts', {
-      parts: parts.map((part) => ({
-        label: part.label,
-        weight: part.weight,
-        pct: Math.round(part.value * 100),
-      })),
-      score,
-    });
-  }
-
-  console.log('[ats] final rounded score', score);
-  return score;
+export function computeAtsMatchScore(resumeText: string, job: AtsJobMatchSource): number {
+  return evaluateAtsMatch(resumeText, job).score;
 }
 
 export function scoreResumeAgainstRequirements(resumeText: string, requirements: string): number {
-  return computeAtsMatchScore(resumeText, {
-    requirements,
-    keywords: requirements,
-  });
+  return evaluateAtsMatch(resumeText, { requirements, keywords: requirements }).score;
 }

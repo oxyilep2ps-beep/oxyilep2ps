@@ -238,6 +238,9 @@ function AdminHrOverviewInner() {
                     <td className="px-2 py-3">
                       <p className="font-semibold text-white">{row.candidate_name}</p>
                       <p className="text-xs text-neutral-500">{row.candidate_email}</p>
+                      {row.ats_reason ? (
+                        <p className="mt-1 text-sm text-gray-400">{row.ats_reason}</p>
+                      ) : null}
                     </td>
                     <td className="px-2 py-3 text-neutral-300">{row.role_applied || 'General'}</td>
                     <td className="px-2 py-3">

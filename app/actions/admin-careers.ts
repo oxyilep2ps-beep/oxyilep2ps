@@ -13,10 +13,11 @@ export type JobApplicationRow = {
   status: string;
   created_at: string;
   ai_match_score: number;
+  ats_reason: string;
 };
 
 function mapRow(row: Record<string, unknown>): JobApplicationRow {
-  const scoreRaw = Number(row.ai_match_score ?? 0);
+  const scoreRaw = Number(row.ats_score ?? row.ai_match_score ?? 0);
   return {
     id: String(row.id),
     full_name: String(row.full_name ?? row.candidate_name ?? 'Unknown'),
@@ -27,6 +28,7 @@ function mapRow(row: Record<string, unknown>): JobApplicationRow {
     status: String(row.status ?? ''),
     created_at: String(row.created_at),
     ai_match_score: Number.isFinite(scoreRaw) ? Math.max(0, Math.min(100, Math.round(scoreRaw))) : 0,
+    ats_reason: String(row.ats_reason ?? '').trim(),
   };
 }
 
@@ -36,7 +38,7 @@ export async function listJobApplications(): Promise<JobApplicationRow[]> {
 
   const { data, error } = await admin
     .from('job_applications')
-    .select('id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email, ai_match_score')
+    .select('id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email, ai_match_score, ats_score, ats_reason')
     .order('created_at', { ascending: false });
 
   if (error) {

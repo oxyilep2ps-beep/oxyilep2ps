@@ -280,6 +280,9 @@ export function HrRecruitmentBoard() {
                     >
                       <p className="text-sm font-semibold">{a.full_name}</p>
                       <p className="text-[11px] text-neutral-500">{a.job_title || 'General'} · {a.email}</p>
+                      {a.ats_reason ? (
+                        <p className="mt-1 text-sm text-gray-400">{a.ats_reason}</p>
+                      ) : null}
                       <div className="mt-2 flex flex-wrap gap-1">
                         <AtsMatchBadge score={a.ai_match_score} size="sm" />
                         <span className="rounded-full bg-neutral-500/15 px-2 py-0.5 text-[10px] font-bold capitalize">
@@ -346,6 +349,9 @@ function ApplicantDrawer({
           <div>
             <p className="text-lg font-black">{applicant.full_name}</p>
             <p className="text-xs text-neutral-500">{applicant.email}</p>
+            {applicant.ats_reason ? (
+              <p className="mt-1 text-sm text-gray-400">{applicant.ats_reason}</p>
+            ) : null}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <AtsMatchBadge score={applicant.ai_match_score} />
               {applicant.resume_url ? (

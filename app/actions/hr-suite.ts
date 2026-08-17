@@ -5,7 +5,7 @@ import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { removeResumeFiles } from '@/lib/hr/resume-storage';
 import { matchesAtsTab } from '@/lib/hr/ats-application-status';
-import { computeAtsMatchScore } from '@/lib/hr/ats-match-score';
+import { evaluateAtsMatch } from '@/lib/hr/ats-match-score';
 import { scoreResumeFromStorage } from '@/lib/hr/score-resume-from-storage';
 import { normalizeWorkingModel } from '@/lib/hr/working-model';
 import { parseJobPostingPayload } from '@/lib/hr/job-schema';
@@ -72,7 +72,8 @@ function mapApplicant(row: Record<string, unknown>, jobTitle?: string): JobAppli
     email: String(row.email),
     phone: (row.phone as string | null) ?? null,
     resume_url: (row.resume_url as string | null) ?? null,
-    ai_match_score: Number(row.ai_match_score ?? 0),
+    ai_match_score: Number(row.ats_score ?? row.ai_match_score ?? 0),
+    ats_reason: (row.ats_reason as string | null) ?? null,
     stage: String(row.stage) as ApplicantStage,
     background_check_status: String(row.background_check_status) as BackgroundCheckStatus,
     notes: (row.notes as string | null) ?? null,
@@ -473,14 +474,17 @@ export async function createJobApplicant(input: {
 
   let resumeText = String(input.resume_text ?? '').trim();
   let score = 0;
+  let reason = '';
   if (resumeText.length >= 20) {
-    score = computeAtsMatchScore(resumeText, {
+    const evaluated = evaluateAtsMatch(resumeText, {
       ai_match_keywords: job?.ai_match_keywords,
       ai_keywords: job?.ai_keywords,
       requirements: job?.requirements,
       description: job?.description,
       responsibilities: job?.responsibilities,
     });
+    score = evaluated.score;
+    reason = evaluated.reason;
   } else {
     const scored = await scoreResumeFromStorage(admin, {
       resumeUrl: input.resume_url,
@@ -488,6 +492,7 @@ export async function createJobApplicant(input: {
     });
     resumeText = scored.resumeText;
     score = scored.score;
+    reason = scored.reason;
   }
   score = Math.round(Math.max(0, Math.min(100, score)));
 
@@ -500,6 +505,8 @@ export async function createJobApplicant(input: {
       phone: input.phone ?? null,
       resume_url: input.resume_url ?? null,
       ai_match_score: score,
+      ats_score: score,
+      ats_reason: reason,
       stage: 'applied',
       source: input.source ?? 'direct',
       duplicate_flag: duplicate,

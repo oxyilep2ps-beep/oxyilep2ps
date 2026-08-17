@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { scoreResumeFromStorage } from '@/lib/hr/score-resume-from-storage';
+import { persistAtsScore, scoreResumeFromStorage } from '@/lib/hr/score-resume-from-storage';
 import { sendApplicationReceivedEmail } from '@/lib/email/send-application-received';
 import type { AtsJobMatchSource } from '@/lib/hr/ats-match-score';
 
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     const { data: existing } = await admin.from('job_applicants').select('id').ilike('email', email).limit(1);
     const duplicate = (existing?.length ?? 0) > 0;
 
-    const { score, resumeText } = await scoreResumeFromStorage(admin, {
+    const { score, reason, resumeText } = await scoreResumeFromStorage(admin, {
       resumeUrl: resume_url,
       job: jobMatchSource,
       fallbackBuffer: buffer,
@@ -122,6 +122,7 @@ export async function POST(request: Request) {
       resumeUrl: resume_url,
       extractedChars: resumeText.length,
       ai_match_score,
+      reason,
     });
 
     // Public applications table — source of truth for /careers apply
@@ -135,6 +136,8 @@ export async function POST(request: Request) {
       role_applied: jobTitle,
       resume_url,
       ai_match_score,
+      ats_score: ai_match_score,
+      ats_reason: reason,
       status: 'Applied',
     };
 
@@ -144,8 +147,8 @@ export async function POST(request: Request) {
       .select('id')
       .maybeSingle();
     if (appError) {
-      console.error('[ats] insert with ai_match_score failed', appError.message);
-      const { ai_match_score: _score, ...withoutScore } = applicationInsert;
+      console.error('[ats] insert with ats fields failed', appError.message);
+      const { ats_score: _atsScore, ats_reason: _reason, ai_match_score: _score, ...withoutScore } = applicationInsert;
       const { data: retryRow, error: retryError } = await admin
         .from('job_applications')
         .insert(withoutScore)
@@ -164,34 +167,49 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: appError.message }, { status: 500 });
         }
       } else if (retryRow?.id) {
-        const { error: scoreUpdateError } = await admin
-          .from('job_applications')
-          .update({ ai_match_score })
-          .eq('id', retryRow.id);
-        console.log('[ats] persisted score via follow-up update', {
-          id: retryRow.id,
-          ai_match_score,
-          error: scoreUpdateError?.message,
-        });
+        await persistAtsScore(admin, 'job_applications', retryRow.id, ai_match_score, reason);
       }
-    } else {
-      console.log('[ats] saved job_applications row', { id: inserted?.id, ai_match_score });
+    } else if (inserted?.id) {
+      console.log('[ats] saved job_applications row', { id: inserted.id, ai_match_score, reason });
     }
 
     // ATS Kanban dual-write
-    await admin.from('job_applicants').insert({
-      job_id: resolvedJobId,
-      full_name,
-      email,
-      phone: phone || null,
-      linkedin_url: linkedin || null,
-      resume_url,
-      ai_match_score,
-      stage: 'applied',
-      source: 'careers_page',
-      duplicate_flag: duplicate,
-      notes: linkedin ? `LinkedIn: ${linkedin}` : null,
-    });
+    const { data: applicantRow, error: applicantError } = await admin
+      .from('job_applicants')
+      .insert({
+        job_id: resolvedJobId,
+        full_name,
+        email,
+        phone: phone || null,
+        linkedin_url: linkedin || null,
+        resume_url,
+        ai_match_score,
+        ats_score: ai_match_score,
+        ats_reason: reason,
+        stage: 'applied',
+        source: 'careers_page',
+        duplicate_flag: duplicate,
+        notes: linkedin ? `LinkedIn: ${linkedin}` : null,
+      })
+      .select('id')
+      .maybeSingle();
+    if (applicantError) {
+      await admin.from('job_applicants').insert({
+        job_id: resolvedJobId,
+        full_name,
+        email,
+        phone: phone || null,
+        linkedin_url: linkedin || null,
+        resume_url,
+        ai_match_score,
+        stage: 'applied',
+        source: 'careers_page',
+        duplicate_flag: duplicate,
+        notes: linkedin ? `LinkedIn: ${linkedin}` : null,
+      });
+    } else if (applicantRow?.id) {
+      await persistAtsScore(admin, 'job_applicants', applicantRow.id, ai_match_score, reason);
+    }
 
     revalidatePath('/hr/recruitment');
     revalidatePath('/hr');

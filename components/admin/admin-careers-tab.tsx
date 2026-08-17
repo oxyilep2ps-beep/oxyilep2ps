@@ -56,6 +56,9 @@ export function AdminCareersTab() {
                   <p className="mt-1 text-xs text-neutral-500">
                     {row.email} · {row.phone}
                   </p>
+                  {row.ats_reason ? (
+                    <p className="mt-1 text-sm text-gray-400">{row.ats_reason}</p>
+                  ) : null}
                   <p className="mt-1 text-xs text-neutral-400">
                     {new Date(row.created_at).toLocaleString('en-GB')}
                   </p>

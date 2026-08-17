@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { ExternalLink, Search, Trash2 } from 'lucide-react';
+import { ExternalLink, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { AuthToast } from '@/components/auth-toast';
 import { AtsEmailCandidateModal } from '@/components/hr/ats-email-candidate-modal';
 import { AtsMatchBadge } from '@/components/hr/ats-match-badge';
@@ -37,6 +37,7 @@ export function AtsApplicationsPanel({
     row: AtsApplication;
     intent: 'Interview' | 'Rejected';
   } | null>(null);
+  const [rescoring, setRescoring] = useState(false);
 
   useEffect(() => {
     setRows(applications);
@@ -86,6 +87,24 @@ export function AtsApplicationsPanel({
         .catch(() => {
           setRows((cur) => cur.map((r) => (r.id === row.id ? { ...r, status: previous } : r)));
         });
+    });
+  };
+
+  const rescoreZero = () => {
+    setRescoring(true);
+    startTransition(() => {
+      void fetch('/api/hr/ats/rescore', { method: 'POST' })
+        .then(async (res) => {
+          const data = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+          if (!res.ok || data.error) {
+            setToast({ message: data.error || 'Could not recalculate ATS scores.', tone: 'error' });
+            return;
+          }
+          setToast({ message: data.message || 'ATS scores updated.', tone: 'success' });
+          await onChanged();
+        })
+        .catch(() => setToast({ message: 'Could not recalculate ATS scores.', tone: 'error' }))
+        .finally(() => setRescoring(false));
     });
   };
 
@@ -172,6 +191,15 @@ export function AtsApplicationsPanel({
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
         </select>
+        <button
+          type="button"
+          disabled={pending || rescoring}
+          onClick={rescoreZero}
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-3 py-2 text-[11px] font-bold text-[#F97316] hover:bg-[#F97316]/20 disabled:opacity-60"
+        >
+          <RefreshCw size={12} className={rescoring ? 'animate-spin' : undefined} />
+          Recalculate 0% scores
+        </button>
       </div>
 
       {visible.length === 0 ? (
@@ -188,6 +216,9 @@ export function AtsApplicationsPanel({
                   <div className="min-w-0">
                     <p className="font-bold text-white">{row.candidate_name}</p>
                     <p className="text-sm text-neutral-400">{row.candidate_email}</p>
+                    {row.ats_reason ? (
+                      <p className="mt-1 text-sm text-gray-400">{row.ats_reason}</p>
+                    ) : null}
                     <p className="mt-1 text-xs text-neutral-500">
                       {row.role_applied || 'General'} ·{' '}
                       {new Date(row.created_at).toLocaleString('en-GB')}
