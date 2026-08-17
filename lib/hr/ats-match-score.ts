@@ -207,6 +207,7 @@ export function buildAtsReason(input: {
 }): string {
   if (input.resumeEmpty) return 'Could not extract resume text.';
   if (input.noKeywords) return 'No job keywords available to match.';
+  const foundList = input.matched.slice(0, 4).map(formatKeyword).join(', ');
   const missingList = input.missing.slice(0, 4).map(formatKeyword).join(', ');
   if (input.matched.length === 0) {
     return missingList
@@ -214,12 +215,14 @@ export function buildAtsReason(input: {
       : 'Poor match. Resume did not match the job description.';
   }
   if (input.score >= 75) {
-    return missingList ? `Strong match. Missing: ${missingList}` : 'Strong match. All target keywords found.';
+    return foundList ? `Strong match. Found: ${foundList}` : 'Strong match. All target keywords found.';
   }
   if (input.score >= 45) {
-    return missingList ? `Partial match. Missing: ${missingList}` : 'Partial match.';
+    return foundList
+      ? `Partial match. Found: ${foundList}${missingList ? `. Missing: ${missingList}` : ''}`
+      : 'Partial match.';
   }
-  return missingList ? `Poor match. Missing: ${missingList}` : 'Poor match. Resume did not match the job description.';
+  return missingList ? `Poor match. Missing: ${missingList}` : `Poor match. Found: ${foundList}`;
 }
 
 /**

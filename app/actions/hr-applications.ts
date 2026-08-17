@@ -4,8 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { ATS_APPLICATION_STATUSES, type AtsApplicationStatus } from '@/lib/hr/ats-application-status';
-import { JOB_MATCH_SELECT, hydrateAtsScores } from '@/lib/hr/rescore-zero-applications';
+import { JOB_MATCH_SELECT, readAtsReason, rescoreZeroAtsApplications } from '@/lib/hr/rescore-zero-applications';
 import { removeResumeFiles } from '@/lib/hr/resume-storage';
+
+export const maxDuration = 300;
 
 export type AtsApplication = {
   id: string;
@@ -36,7 +38,7 @@ function mapApplication(row: Record<string, unknown>): AtsApplication {
     status: String(row.status ?? 'New'),
     created_at: String(row.created_at),
     ai_match_score: Number.isFinite(scoreRaw) ? Math.max(0, Math.min(100, Math.round(scoreRaw))) : 0,
-    ats_reason: String(row.ats_reason ?? '').trim(),
+    ats_reason: readAtsReason(row),
   };
 }
 
@@ -55,8 +57,38 @@ export async function listAtsApplications(): Promise<AtsApplication[]> {
     rows = (fallback.data ?? []) as Record<string, unknown>[];
   }
 
-  await hydrateAtsScores(admin, rows, { limit: 16, concurrency: 4 });
   return rows.map((r) => mapApplication(r));
+}
+
+export async function recalculateAllZeroScores(): Promise<{
+  ok: boolean;
+  message?: string;
+  error?: string;
+  scanned: number;
+  updated: number;
+  failed: number;
+}> {
+  try {
+    await assertHrOrAdmin();
+    const admin = createAdminClient();
+    const result = await rescoreZeroAtsApplications(admin);
+    revalidateAts();
+    return {
+      ok: true,
+      scanned: result.scanned,
+      updated: result.updated,
+      failed: result.failed,
+      message:
+        result.scanned === 0
+          ? 'No 0% resumes left to score.'
+          : `Updated ${result.updated} of ${result.scanned} resumes across all tabs${
+              result.failed ? ` (${result.failed} failed)` : ''
+            }.`,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not recalculate ATS scores.';
+    return { ok: false, error: message, scanned: 0, updated: 0, failed: 0 };
+  }
 }
 
 export async function listRecentAtsApplications(limit = 20): Promise<AtsApplication[]> {

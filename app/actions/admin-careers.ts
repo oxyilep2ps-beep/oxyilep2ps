@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
-import { hydrateAtsScores } from '@/lib/hr/rescore-zero-applications';
+import { readAtsReason } from '@/lib/hr/rescore-zero-applications';
 
 export type JobApplicationRow = {
   id: string;
@@ -29,7 +29,7 @@ function mapRow(row: Record<string, unknown>): JobApplicationRow {
     status: String(row.status ?? ''),
     created_at: String(row.created_at),
     ai_match_score: Number.isFinite(scoreRaw) ? Math.max(0, Math.min(100, Math.round(scoreRaw))) : 0,
-    ats_reason: String(row.ats_reason ?? '').trim(),
+    ats_reason: readAtsReason(row),
   };
 }
 
@@ -39,7 +39,7 @@ export async function listJobApplications(): Promise<JobApplicationRow[]> {
 
   const { data, error } = await admin
     .from('job_applications')
-    .select('id, job_id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email, ai_match_score, ats_score, ats_reason')
+    .select('id, job_id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email, ai_match_score, ats_score, ats_reason, ats_reasoning')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -48,11 +48,7 @@ export async function listJobApplications(): Promise<JobApplicationRow[]> {
       .select('id, job_id, full_name, email, phone, role_applied, resume_url, status, created_at, candidate_name, candidate_email')
       .order('created_at', { ascending: false });
     if (fallback.error) throw new Error(error.message);
-    const rows = (fallback.data ?? []) as Record<string, unknown>[];
-    await hydrateAtsScores(admin, rows, { limit: 16, concurrency: 4 });
-    return rows.map((r) => mapRow(r));
+    return (fallback.data ?? []).map((r) => mapRow(r as Record<string, unknown>));
   }
-  const rows = (data ?? []) as Record<string, unknown>[];
-  await hydrateAtsScores(admin, rows, { limit: 16, concurrency: 4 });
-  return rows.map((r) => mapRow(r));
+  return (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
 }

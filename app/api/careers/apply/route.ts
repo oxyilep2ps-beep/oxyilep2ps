@@ -146,6 +146,7 @@ export async function POST(request: Request) {
       ai_match_score,
       ats_score: ai_match_score,
       ats_reason: reason,
+      ats_reasoning: reason,
       status: 'Applied',
     };
 
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (appError) {
       console.error('[ats] insert with ats fields failed', appError.message);
-      const { ats_score: _atsScore, ats_reason: _reason, ai_match_score: _score, ...withoutScore } = applicationInsert;
+      const { ats_score: _atsScore, ats_reason: _reason, ats_reasoning: _reasoning, ai_match_score: _score, ...withoutScore } = applicationInsert;
       const { data: retryRow, error: retryError } = await admin
         .from('job_applications')
         .insert(withoutScore)
@@ -194,6 +195,7 @@ export async function POST(request: Request) {
         ai_match_score,
         ats_score: ai_match_score,
         ats_reason: reason,
+        ats_reasoning: reason,
         stage: 'applied',
         source: 'careers_page',
         duplicate_flag: duplicate,

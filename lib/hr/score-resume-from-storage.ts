@@ -52,6 +52,7 @@ export function atsScoreColumns(score: number, reason: string) {
     ai_match_score: ats_score,
     ats_score,
     ats_reason: reason,
+    ats_reasoning: reason,
   };
 }
 
@@ -63,23 +64,19 @@ export async function persistAtsScore(
   reason: string
 ): Promise<void> {
   const payload = atsScoreColumns(score, reason);
-  const { error } = await admin.from(table).update(payload).eq('id', id);
-  if (!error) return;
+  const attempts: Array<Record<string, string | number>> = [
+    payload,
+    { ai_match_score: payload.ai_match_score, ats_score: payload.ats_score, ats_reason: reason },
+    { ai_match_score: payload.ai_match_score, ats_score: payload.ats_score, ats_reasoning: reason },
+    { ai_match_score: payload.ai_match_score, ats_reason: reason },
+    { ats_score: payload.ats_score, ats_reasoning: reason },
+    { ai_match_score: payload.ai_match_score },
+    { ats_score: payload.ats_score },
+  ];
 
-  console.warn('[ats] full score persist failed, retrying without ats_score', table, error.message);
-  const { error: retry } = await admin
-    .from(table)
-    .update({ ai_match_score: payload.ai_match_score, ats_reason: reason })
-    .eq('id', id);
-  if (!retry) return;
-
-  console.warn('[ats] reason persist failed, writing score only', table, retry.message);
-  const { error: scoreOnly } = await admin
-    .from(table)
-    .update({ ai_match_score: payload.ai_match_score })
-    .eq('id', id);
-  if (!scoreOnly) return;
-
-  console.warn('[ats] ai_match_score persist failed, trying ats_score', table, scoreOnly.message);
-  await admin.from(table).update({ ats_score: payload.ats_score, ats_reason: reason }).eq('id', id);
+  for (const [index, fields] of attempts.entries()) {
+    const { error } = await admin.from(table).update(fields).eq('id', id);
+    if (!error) return;
+    console.warn('[ats] score persist attempt failed', { table, index, message: error.message });
+  }
 }

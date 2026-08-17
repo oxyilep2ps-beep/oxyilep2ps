@@ -19,7 +19,7 @@ type AuthToastProps = {
  */
 export function AuthToast({ open, tone, message, onClose, autoCloseMs = 12000 }: AuthToastProps) {
   useEffect(() => {
-    if (!open) return;
+    if (!open || !autoCloseMs) return;
     const timer = window.setTimeout(onClose, autoCloseMs);
     return () => window.clearTimeout(timer);
   }, [open, tone, onClose, autoCloseMs]);

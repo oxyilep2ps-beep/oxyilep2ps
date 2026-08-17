@@ -16,9 +16,13 @@ function sanitizeLike(value: string): string {
   return value.replace(/[%_]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+export function readAtsReason(row: Record<string, unknown>): string {
+  return String(row.ats_reasoning ?? row.ats_reason ?? '').trim();
+}
+
 export function needsAtsRescore(row: Record<string, unknown>): boolean {
   const score = Number(row.ats_score ?? row.ai_match_score ?? 0);
-  const reason = String(row.ats_reason ?? '').trim().toLowerCase();
+  const reason = readAtsReason(row).toLowerCase();
   if (!row.resume_url) return false;
   if (!Number.isFinite(score) || score <= 0) return true;
   if (!reason) return true;
@@ -63,6 +67,7 @@ export async function resolveJobMatchSource(
   return {
     title: job?.title || roleApplied,
     role_applied: roleApplied,
+    keywords: job?.ai_match_keywords,
     ai_match_keywords: job?.ai_match_keywords,
     ai_keywords: job?.ai_keywords,
     requirements: job?.requirements,
@@ -85,7 +90,8 @@ async function persistLinkedApplicants(
   }
 }
 
-export async function scoreAndPersistApplicationRow(
+/** Score one application resume vs its job keywords and persist. */
+export async function calculateAtsScore(
   admin: SupabaseClient,
   row: Record<string, unknown>
 ): Promise<{ score: number; reason: string }> {
@@ -97,6 +103,7 @@ export async function scoreAndPersistApplicationRow(
   row.ai_match_score = score;
   row.ats_score = score;
   row.ats_reason = reason;
+  row.ats_reasoning = reason;
 
   const id = String(row.id ?? '');
   if (id) {
@@ -106,77 +113,75 @@ export async function scoreAndPersistApplicationRow(
   return { score, reason };
 }
 
-export async function hydrateAtsScores(
-  admin: SupabaseClient,
-  rows: Record<string, unknown>[],
-  opts?: { limit?: number; concurrency?: number }
-): Promise<number> {
-  const limit = Math.max(1, Math.min(opts?.limit ?? 12, 40));
-  const concurrency = Math.max(1, Math.min(opts?.concurrency ?? 4, 8));
-  const zeros = rows.filter(needsAtsRescore).slice(0, limit);
-  if (!zeros.length) return 0;
+export const scoreAndPersistApplicationRow = calculateAtsScore;
 
-  console.log('[ats] hydrating scores on list', { count: zeros.length });
-  let updated = 0;
-  for (let i = 0; i < zeros.length; i += concurrency) {
-    const chunk = zeros.slice(i, i + concurrency);
-    const results = await Promise.allSettled(chunk.map((row) => scoreAndPersistApplicationRow(admin, row)));
-    updated += results.filter((item) => item.status === 'fulfilled').length;
+async function fetchAllApplicationsWithResumes(
+  admin: SupabaseClient
+): Promise<Record<string, unknown>[]> {
+  const pageSize = 200;
+  const rows: Record<string, unknown>[] = [];
+
+  for (let from = 0; from < 5000; from += pageSize) {
+    const joined = await admin
+      .from('job_applications')
+      .select(`*, job_postings(${JOB_MATCH_SELECT})`)
+      .not('resume_url', 'is', null)
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    const page =
+      joined.error
+        ? await admin
+            .from('job_applications')
+            .select('*')
+            .not('resume_url', 'is', null)
+            .order('created_at', { ascending: false })
+            .range(from, from + pageSize - 1)
+        : joined;
+
+    if (page.error) {
+      console.error('[ats] global list failed', page.error.message);
+      throw new Error(page.error.message);
+    }
+
+    const batch = (page.data ?? []) as Record<string, unknown>[];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
   }
-  return updated;
+
+  return rows;
 }
 
 export async function rescoreZeroAtsApplications(
-  admin: SupabaseClient,
-  opts?: { limit?: number }
+  admin: SupabaseClient
 ): Promise<{ scanned: number; updated: number; failed: number; errors: string[] }> {
-  const limit = Math.max(1, Math.min(opts?.limit ?? 200, 500));
-  const { data, error } = await admin
-    .from('job_applications')
-    .select(`*, job_postings(${JOB_MATCH_SELECT})`)
-    .not('resume_url', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const listed = await fetchAllApplicationsWithResumes(admin);
+  const rows = listed.filter(needsAtsRescore);
 
-  const listed = error
-    ? await admin
-        .from('job_applications')
-        .select('*')
-        .not('resume_url', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(limit)
-    : { data, error: null };
-
-  if (listed.error) {
-    console.error('[ats] batch list failed', listed.error.message);
-    throw new Error(listed.error.message);
-  }
-
-  const rows = (listed.data ?? []).filter((row) => needsAtsRescore(row as Record<string, unknown>)) as Record<
-    string,
-    unknown
-  >[];
-  console.log('[ats] batch rescore candidates', { found: rows.length });
+  console.log('[ats] global rescore candidates', {
+    withResume: listed.length,
+    needingScore: rows.length,
+  });
 
   let updated = 0;
   let failed = 0;
   const errors: string[] = [];
-  const concurrency = 4;
+  const concurrency = 2;
 
   for (let i = 0; i < rows.length; i += concurrency) {
     const chunk = rows.slice(i, i + concurrency);
-    const results = await Promise.allSettled(chunk.map((row) => scoreAndPersistApplicationRow(admin, row)));
+    const results = await Promise.allSettled(chunk.map((row) => calculateAtsScore(admin, row)));
     for (let index = 0; index < results.length; index += 1) {
       const result = results[index];
       const id = String(chunk[index]?.id ?? '');
       if (result.status === 'fulfilled') {
         updated += 1;
-        console.log('[ats] batch updated', { id, score: result.value.score, reason: result.value.reason });
+        console.log('[ats] global updated', { id, score: result.value.score, reason: result.value.reason });
       } else {
         failed += 1;
         const message = result.reason instanceof Error ? result.reason.message : 'Unknown scoring error';
         errors.push(`${id}: ${message}`);
-        console.error('[ats] batch row failed', id, result.reason);
+        console.error('[ats] global row failed', id, result.reason);
       }
     }
   }

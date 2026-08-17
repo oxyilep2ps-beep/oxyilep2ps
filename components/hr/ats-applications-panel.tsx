@@ -5,7 +5,7 @@ import { ExternalLink, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { AuthToast } from '@/components/auth-toast';
 import { AtsEmailCandidateModal } from '@/components/hr/ats-email-candidate-modal';
 import { AtsMatchBadge } from '@/components/hr/ats-match-badge';
-import { deleteJobApplication, updateJobApplicationStatus, type AtsApplication } from '@/app/actions/hr-applications';
+import { deleteJobApplication, recalculateAllZeroScores, updateJobApplicationStatus, type AtsApplication } from '@/app/actions/hr-applications';
 import {
   ATS_APPLICATION_STATUSES,
   ATS_PIPELINE_TABS,
@@ -92,11 +92,11 @@ export function AtsApplicationsPanel({
 
   const rescoreZero = () => {
     setRescoring(true);
+    setToast({ message: 'Scoring every 0% resume across all tabs…', tone: 'success' });
     startTransition(() => {
-      void fetch('/api/hr/ats/rescore', { method: 'POST' })
-        .then(async (res) => {
-          const data = (await res.json()) as { ok?: boolean; message?: string; error?: string };
-          if (!res.ok || data.error) {
+      void recalculateAllZeroScores()
+        .then(async (data) => {
+          if (!data.ok || data.error) {
             setToast({ message: data.error || 'Could not recalculate ATS scores.', tone: 'error' });
             return;
           }
@@ -198,7 +198,7 @@ export function AtsApplicationsPanel({
           className="inline-flex items-center gap-1.5 rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-3 py-2 text-[11px] font-bold text-[#F97316] hover:bg-[#F97316]/20 disabled:opacity-60"
         >
           <RefreshCw size={12} className={rescoring ? 'animate-spin' : undefined} />
-          Recalculate 0% scores
+          {rescoring ? 'Scoring all resumes…' : 'Recalculate 0% scores'}
         </button>
       </div>
 
@@ -216,9 +216,9 @@ export function AtsApplicationsPanel({
                   <div className="min-w-0">
                     <p className="font-bold text-white">{row.candidate_name}</p>
                     <p className="text-sm text-neutral-400">{row.candidate_email}</p>
-                    {row.ats_reason ? (
-                      <p className="mt-1 text-sm text-gray-400">{row.ats_reason}</p>
-                    ) : null}
+                    <p className="mt-1 text-sm text-gray-400">
+                      {row.ats_reason || 'Click recalculate to analyze resume.'}
+                    </p>
                     <p className="mt-1 text-xs text-neutral-500">
                       {row.role_applied || 'General'} ·{' '}
                       {new Date(row.created_at).toLocaleString('en-GB')}
@@ -296,7 +296,7 @@ export function AtsApplicationsPanel({
         tone={toast?.tone ?? 'success'}
         message={toast?.message ?? ''}
         onClose={() => setToast(null)}
-        autoCloseMs={4500}
+        autoCloseMs={rescoring ? 0 : 4500}
       />
     </div>
   );
