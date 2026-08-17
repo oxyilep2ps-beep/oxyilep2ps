@@ -3,10 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { extractResumeText } from '@/lib/hr/extract-resume-text';
-import { removeResumeFiles, resumeStoragePathFromUrl } from '@/lib/hr/resume-storage';
+import { removeResumeFiles } from '@/lib/hr/resume-storage';
 import { matchesAtsTab } from '@/lib/hr/ats-application-status';
 import { computeAtsMatchScore } from '@/lib/hr/ats-match-score';
+import { scoreResumeFromStorage } from '@/lib/hr/score-resume-from-storage';
 import { normalizeWorkingModel } from '@/lib/hr/working-model';
 import { parseJobPostingPayload } from '@/lib/hr/job-schema';
 import {
@@ -136,17 +136,6 @@ export async function listJobPostings() {
   const { data, error } = await admin.from('job_postings').select('*').order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapJob(r as Record<string, unknown>));
-}
-
-async function extractResumeFromStorage(
-  admin: ReturnType<typeof createAdminClient>,
-  resumeUrl: string | null | undefined
-): Promise<string> {
-  const path = resumeStoragePathFromUrl(resumeUrl);
-  if (!path) return '';
-  const { data } = await admin.storage.from('resumes').download(path);
-  if (!data) return '';
-  return extractResumeText(Buffer.from(await data.arrayBuffer()), { fileName: path });
 }
 
 function durationMonthsFromInput(input: {
@@ -483,21 +472,24 @@ export async function createJobApplicant(input: {
     : { data: null };
 
   let resumeText = String(input.resume_text ?? '').trim();
-  if (resumeText.length < 40 && input.resume_url) {
-    try {
-      resumeText = (await extractResumeFromStorage(admin, input.resume_url)) || resumeText;
-    } catch {
-      // Score 0 if the stored file cannot be read.
-    }
+  let score = 0;
+  if (resumeText.length >= 20) {
+    score = computeAtsMatchScore(resumeText, {
+      ai_match_keywords: job?.ai_match_keywords,
+      ai_keywords: job?.ai_keywords,
+      requirements: job?.requirements,
+      description: job?.description,
+      responsibilities: job?.responsibilities,
+    });
+  } else {
+    const scored = await scoreResumeFromStorage(admin, {
+      resumeUrl: input.resume_url,
+      job: job ?? {},
+    });
+    resumeText = scored.resumeText;
+    score = scored.score;
   }
-
-  const score = computeAtsMatchScore(resumeText, {
-    ai_match_keywords: job?.ai_match_keywords,
-    ai_keywords: job?.ai_keywords,
-    requirements: job?.requirements,
-    description: job?.description,
-    responsibilities: job?.responsibilities,
-  });
+  score = Math.round(Math.max(0, Math.min(100, score)));
 
   const { data, error } = await admin
     .from('job_applicants')

@@ -126,47 +126,81 @@ function hasPhrase(hay: string, phrase: string): boolean {
 
 function coverage(hay: string, terms: string[]): number | null {
   if (!terms.length) return null;
-  const hits = terms.filter((term) => hasPhrase(hay, term)).length;
-  return hits / terms.length;
+  const matched = terms.filter((term) => hasPhrase(hay, term));
+  console.log('[ats] coverage', {
+    terms: terms.length,
+    hits: matched.length,
+    matched: matched.slice(0, 20),
+    missed: terms.filter((term) => !matched.includes(term)).slice(0, 20),
+  });
+  return matched.length / terms.length;
 }
 
 /**
  * Deterministic 0–100 ATS match: resume text vs Match Keywords + job description.
- * No random component. Empty / unreadable resumes score 0.
+ * Comparison is always case-insensitive. Empty / unreadable resumes score 0.
  */
 export function computeAtsMatchScore(resumeText: string, job: AtsJobMatchSource): number {
   const resume = String(resumeText ?? '')
     .replace(/\u0000/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  if (resume.length < 40) return 0;
+  const resumeLower = resume.toLowerCase();
+  console.log('[ats] computeAtsMatchScore input', {
+    resumeChars: resumeLower.length,
+    resumePreview: resumeLower.slice(0, 500),
+    keywordsRaw: job.ai_match_keywords || job.ai_keywords || job.keywords || '',
+    requirementsChars: String(job.requirements ?? '').length,
+    descriptionChars: String(job.description ?? '').length,
+  });
+  if (resumeLower.length < 20) {
+    console.warn('[ats] resume text too short to score — returning 0');
+    return 0;
+  }
 
-  const hay = haystack(resume);
+  const hay = haystack(resumeLower);
   const keywordSource = [job.keywords, job.ai_match_keywords, job.ai_keywords]
     .filter(Boolean)
-    .join(', ');
+    .join(', ')
+    .toLowerCase();
   const keywords = [...new Set(parsePhrases(keywordSource))];
-  const requirements = String(job.requirements ?? '').trim();
-  const description = [job.description, job.responsibilities].filter(Boolean).join('\n');
+  const requirements = String(job.requirements ?? '').trim().toLowerCase();
+  const description = [job.description, job.responsibilities]
+    .filter(Boolean)
+    .join('\n')
+    .toLowerCase();
 
-  const parts: Array<{ weight: number; value: number }> = [];
+  const parts: Array<{ weight: number; value: number; label: string }> = [];
   const keywordScore = coverage(hay, keywords);
   const reqScore = coverage(hay, uniqueTerms(requirements, 40));
   const descScore = coverage(hay, uniqueTerms(description, 40));
 
-  if (keywordScore != null) parts.push({ weight: 0.5, value: keywordScore });
-  if (reqScore != null) parts.push({ weight: 0.3, value: reqScore });
-  if (descScore != null) parts.push({ weight: 0.2, value: descScore });
+  if (keywordScore != null) parts.push({ weight: 0.5, value: keywordScore, label: 'keywords' });
+  if (reqScore != null) parts.push({ weight: 0.3, value: reqScore, label: 'requirements' });
+  if (descScore != null) parts.push({ weight: 0.2, value: descScore, label: 'description' });
 
+  let score = 0;
   if (!parts.length) {
     const fallback = uniqueTerms([keywordSource, requirements, description].join(' '), 50);
-    const score = coverage(hay, fallback);
-    return score == null ? 0 : Math.round(score * 100);
+    const fallbackScore = coverage(hay, fallback);
+    score = fallbackScore == null ? 0 : Math.round(fallbackScore * 100);
+    console.log('[ats] used fallback token overlap', { fallbackTerms: fallback.length, score });
+  } else {
+    const weightSum = parts.reduce((sum, part) => sum + part.weight, 0);
+    const weighted = parts.reduce((sum, part) => sum + part.value * part.weight, 0) / weightSum;
+    score = Math.round(Math.max(0, Math.min(100, weighted * 100)));
+    console.log('[ats] weighted parts', {
+      parts: parts.map((part) => ({
+        label: part.label,
+        weight: part.weight,
+        pct: Math.round(part.value * 100),
+      })),
+      score,
+    });
   }
 
-  const weightSum = parts.reduce((sum, part) => sum + part.weight, 0);
-  const weighted = parts.reduce((sum, part) => sum + part.value * part.weight, 0) / weightSum;
-  return Math.round(Math.max(0, Math.min(100, weighted * 100)));
+  console.log('[ats] final rounded score', score);
+  return score;
 }
 
 export function scoreResumeAgainstRequirements(resumeText: string, requirements: string): number {

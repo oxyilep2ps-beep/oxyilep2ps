@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeAtsMatchScore } from '@/lib/hr/ats-match-score';
-import { extractResumeText } from '@/lib/hr/extract-resume-text';
+import { scoreResumeFromStorage } from '@/lib/hr/score-resume-from-storage';
 import { sendApplicationReceivedEmail } from '@/lib/email/send-application-received';
+import type { AtsJobMatchSource } from '@/lib/hr/ats-match-score';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
     let jobTitle = role_applied || 'General';
     let resolvedJobId: string | null = job_id || null;
-    let jobMatchSource: Parameters<typeof computeAtsMatchScore>[1] = {};
+    let jobMatchSource: AtsJobMatchSource = {};
 
     if (resolvedJobId) {
       const { data: job } = await admin
@@ -86,8 +86,8 @@ export async function POST(request: Request) {
         )
         .eq('id', resolvedJobId)
         .maybeSingle();
-      if (job && (job.is_published === true || job.status === 'open')) {
-        jobTitle = String(job.title);
+      if (job) {
+        jobTitle = String(job.title || jobTitle);
         jobMatchSource = {
           ai_match_keywords: job.ai_match_keywords,
           ai_keywords: job.ai_keywords,
@@ -95,19 +95,34 @@ export async function POST(request: Request) {
           description: job.description,
           responsibilities: job.responsibilities,
         };
-      } else if (!job) {
+        console.log('[ats] loaded job for scoring', {
+          jobId: resolvedJobId,
+          title: jobTitle,
+          keywords: job.ai_match_keywords || job.ai_keywords,
+        });
+      } else {
         resolvedJobId = null;
+        console.warn('[ats] job_id not found, scoring without job keywords', job_id);
       }
     }
 
     const { data: existing } = await admin.from('job_applicants').select('id').ilike('email', email).limit(1);
     const duplicate = (existing?.length ?? 0) > 0;
 
-    const resumeText = await extractResumeText(buffer, {
+    const { score, resumeText } = await scoreResumeFromStorage(admin, {
+      resumeUrl: resume_url,
+      job: jobMatchSource,
+      fallbackBuffer: buffer,
       fileName: file.name,
       mimeType: contentType,
     });
-    const ai_match_score = computeAtsMatchScore(resumeText, jobMatchSource);
+    const ai_match_score = Math.round(Math.max(0, Math.min(100, score)));
+    console.log('[ats] apply route score ready to persist', {
+      email,
+      resumeUrl: resume_url,
+      extractedChars: resumeText.length,
+      ai_match_score,
+    });
 
     // Public applications table — source of truth for /careers apply
     const applicationInsert = {
@@ -123,10 +138,19 @@ export async function POST(request: Request) {
       status: 'Applied',
     };
 
-    const { error: appError } = await admin.from('job_applications').insert(applicationInsert);
+    const { data: inserted, error: appError } = await admin
+      .from('job_applications')
+      .insert(applicationInsert)
+      .select('id')
+      .maybeSingle();
     if (appError) {
+      console.error('[ats] insert with ai_match_score failed', appError.message);
       const { ai_match_score: _score, ...withoutScore } = applicationInsert;
-      const { error: retryError } = await admin.from('job_applications').insert(withoutScore);
+      const { data: retryRow, error: retryError } = await admin
+        .from('job_applications')
+        .insert(withoutScore)
+        .select('id')
+        .maybeSingle();
       if (retryError) {
         const { error: legacyError } = await admin.from('job_applications').insert({
           full_name,
@@ -139,7 +163,19 @@ export async function POST(request: Request) {
         if (legacyError) {
           return NextResponse.json({ error: appError.message }, { status: 500 });
         }
+      } else if (retryRow?.id) {
+        const { error: scoreUpdateError } = await admin
+          .from('job_applications')
+          .update({ ai_match_score })
+          .eq('id', retryRow.id);
+        console.log('[ats] persisted score via follow-up update', {
+          id: retryRow.id,
+          ai_match_score,
+          error: scoreUpdateError?.message,
+        });
       }
+    } else {
+      console.log('[ats] saved job_applications row', { id: inserted?.id, ai_match_score });
     }
 
     // ATS Kanban dual-write

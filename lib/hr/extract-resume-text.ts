@@ -22,8 +22,25 @@ function extractPrintableStrings(buffer: Buffer): string {
 }
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  const { extractText } = await import('unpdf');
-  const result = await extractText(new Uint8Array(buffer), { mergePages: true });
+  const { PDFParse } = await import('pdf-parse');
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    const result = await parser.getText();
+    const text = String(result?.text ?? '').replace(/\s+/g, ' ').trim();
+    console.log('[ats] pdf-parse pages/text', {
+      pages: result?.total ?? result?.pages?.length,
+      chars: text.length,
+    });
+    return text;
+  } finally {
+    await parser.destroy().catch(() => undefined);
+  }
+}
+
+async function extractPdfTextFallback(buffer: Buffer): Promise<string> {
+  const { extractText, getDocumentProxy } = await import('unpdf');
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const result = await extractText(pdf, { mergePages: true });
   return String(result.text ?? '').replace(/\s+/g, ' ').trim();
 }
 
@@ -36,13 +53,14 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
 }
 
 function looksLikePdf(buffer: Buffer, fileName: string, mimeType: string): boolean {
-  if (mimeType.includes('pdf') || fileName.endsWith('.pdf')) return true;
+  const name = fileName.toLowerCase();
+  if (mimeType.includes('pdf') || name.endsWith('.pdf')) return true;
   return buffer.slice(0, 5).toString('utf8') === '%PDF-';
 }
 
-function looksLikeDocx(buffer: Buffer, fileName: string, mimeType: string): boolean {
-  if (mimeType.includes('wordprocessingml') || fileName.endsWith('.docx')) return true;
-  return buffer.slice(0, 2).toString('utf8') === 'PK' && fileName.endsWith('.docx');
+function looksLikeDocx(fileName: string, mimeType: string): boolean {
+  const name = fileName.toLowerCase();
+  return mimeType.includes('wordprocessingml') || name.endsWith('.docx');
 }
 
 export async function extractResumeText(
@@ -51,32 +69,44 @@ export async function extractResumeText(
 ): Promise<string> {
   const fileName = String(meta?.fileName ?? '').toLowerCase();
   const mimeType = String(meta?.mimeType ?? '').toLowerCase();
+  console.log('[ats] extractResumeText start', {
+    fileName,
+    mimeType,
+    bytes: buffer.length,
+    header: buffer.slice(0, 8).toString('utf8'),
+  });
 
-  try {
-    if (looksLikePdf(buffer, fileName, mimeType)) {
+  if (looksLikePdf(buffer, fileName, mimeType)) {
+    try {
       const text = await extractPdfText(buffer);
-      if (text.length >= 40) return text;
-    }
-    if (looksLikeDocx(buffer, fileName, mimeType) || fileName.endsWith('.doc')) {
-      if (fileName.endsWith('.docx') || mimeType.includes('wordprocessingml')) {
-        const text = await extractDocxText(buffer);
-        if (text.length >= 40) return text;
+      if (text.length >= 20) {
+        console.log('[ats] extracted PDF text preview', text.slice(0, 800));
+        return text;
       }
+      console.warn('[ats] pdf-parse returned too little text, trying unpdf fallback', { chars: text.length });
+    } catch (err) {
+      console.error('[ats] pdf-parse failed', err);
     }
-  } catch {
-    // Fall through to binary string scan so scoring still runs.
+    try {
+      const fallback = await extractPdfTextFallback(buffer);
+      console.log('[ats] unpdf fallback chars', fallback.length, fallback.slice(0, 400));
+      if (fallback.length >= 20) return fallback;
+    } catch (err) {
+      console.error('[ats] unpdf fallback failed', err);
+    }
   }
 
-  return extractPrintableStrings(buffer);
-}
+  if (looksLikeDocx(fileName, mimeType)) {
+    try {
+      const text = await extractDocxText(buffer);
+      console.log('[ats] extracted DOCX text preview', text.slice(0, 800));
+      if (text.length >= 20) return text;
+    } catch (err) {
+      console.error('[ats] mammoth DOCX extract failed', err);
+    }
+  }
 
-export async function extractResumeTextFromBlob(
-  blob: Blob,
-  meta?: { fileName?: string; mimeType?: string }
-): Promise<string> {
-  const buffer = Buffer.from(await blob.arrayBuffer());
-  return extractResumeText(buffer, {
-    fileName: meta?.fileName,
-    mimeType: meta?.mimeType || blob.type,
-  });
+  const scanned = extractPrintableStrings(buffer);
+  console.warn('[ats] binary string scan fallback', { chars: scanned.length, preview: scanned.slice(0, 400) });
+  return scanned;
 }

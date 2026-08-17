@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { assertHrOrAdmin } from '@/lib/auth/assert-hr';
 import { ATS_APPLICATION_STATUSES, type AtsApplicationStatus } from '@/lib/hr/ats-application-status';
 import { removeResumeFiles } from '@/lib/hr/resume-storage';
+import { scoreResumeFromStorage } from '@/lib/hr/score-resume-from-storage';
 
 export type AtsApplication = {
   id: string;
@@ -42,14 +43,79 @@ export async function listAtsApplications(): Promise<AtsApplication[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('job_applications')
-    .select('*, job_postings(title)')
+    .select(
+      '*, job_postings(title, requirements, ai_match_keywords, ai_keywords, description, responsibilities)'
+    )
     .order('created_at', { ascending: false });
-  if (error) {
-    const fallback = await admin.from('job_applications').select('*').order('created_at', { ascending: false });
-    if (fallback.error) throw new Error(fallback.error.message);
-    return (fallback.data ?? []).map((r) => mapApplication(r as Record<string, unknown>));
-  }
-  return (data ?? []).map((r) => mapApplication(r as Record<string, unknown>));
+  const rows = error
+    ? await (async () => {
+        const fallback = await admin.from('job_applications').select('*').order('created_at', { ascending: false });
+        if (fallback.error) throw new Error(fallback.error.message);
+        return (fallback.data ?? []) as Record<string, unknown>[];
+      })()
+    : ((data ?? []) as Record<string, unknown>[]);
+
+  const pending = rows
+    .filter((row) => Number(row.ai_match_score ?? 0) <= 0 && Boolean(row.resume_url))
+    .slice(0, 5);
+
+  await Promise.all(
+    pending.map(async (row) => {
+      const joined = row.job_postings as
+        | {
+            requirements?: string;
+            ai_match_keywords?: string;
+            ai_keywords?: string;
+            description?: string;
+            responsibilities?: string;
+          }
+        | Array<{
+            requirements?: string;
+            ai_match_keywords?: string;
+            ai_keywords?: string;
+            description?: string;
+            responsibilities?: string;
+          }>
+        | null;
+      let job: {
+        requirements?: string;
+        ai_match_keywords?: string;
+        ai_keywords?: string;
+        description?: string;
+        responsibilities?: string;
+      } | null = Array.isArray(joined) ? joined[0] ?? null : joined;
+      if (!job && row.job_id) {
+        const { data: posting } = await admin
+          .from('job_postings')
+          .select('requirements, ai_match_keywords, ai_keywords, description, responsibilities')
+          .eq('id', String(row.job_id))
+          .maybeSingle();
+        job = posting;
+      }
+      try {
+        const { score, resumeText } = await scoreResumeFromStorage(admin, {
+          resumeUrl: String(row.resume_url ?? ''),
+          job: job ?? {},
+        });
+        row.ai_match_score = score;
+        if (resumeText.length >= 20 && row.id) {
+          const { error: updateError } = await admin
+            .from('job_applications')
+            .update({ ai_match_score: score })
+            .eq('id', String(row.id));
+          console.log('[ats] backfilled stored score', {
+            id: row.id,
+            score,
+            error: updateError?.message,
+          });
+        }
+      } catch (err) {
+        console.error('[ats] backfill failed', row.id, err);
+      }
+    })
+  );
+
+  return rows.map((r) => mapApplication(r));
 }
 
 export async function listRecentAtsApplications(limit = 20): Promise<AtsApplication[]> {
