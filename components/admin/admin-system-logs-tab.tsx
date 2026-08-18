@@ -25,7 +25,7 @@ export function AdminSystemLogsTab() {
   }, [load]);
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="space-y-6">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Audit</p>
         <h2 className="text-xl font-black text-neutral-950 dark:text-white">System Logs</h2>

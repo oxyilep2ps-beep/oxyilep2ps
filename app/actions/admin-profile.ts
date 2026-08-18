@@ -21,24 +21,27 @@ export async function getAdminProfile(): Promise<AdminProfileRow | null> {
 
   const { data: authProfile } = await admin
     .from('profiles')
-    .select('full_legal_name, email')
+    .select('full_legal_name, email, avatar_url')
     .eq('id', user.id)
     .maybeSingle();
 
   if (row) {
     return {
       ...(row as AdminProfileRow),
-      email: authProfile?.email as string | undefined,
+      display_name:
+        (row as AdminProfileRow).display_name ?? (authProfile?.full_legal_name as string) ?? null,
+      avatar_url: (row as AdminProfileRow).avatar_url ?? (authProfile?.avatar_url as string | null) ?? null,
+      email: (authProfile?.email as string | undefined) || user.email || undefined,
     };
   }
 
   return {
     id: user.id,
     display_name: (authProfile?.full_legal_name as string) ?? null,
-    avatar_url: null,
+    avatar_url: (authProfile?.avatar_url as string | null) ?? null,
     cover_url: null,
     bio: null,
-    email: authProfile?.email as string | undefined,
+    email: (authProfile?.email as string | undefined) || user.email || undefined,
   };
 }
 

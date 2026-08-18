@@ -33,6 +33,14 @@ html.dark body {
   @apply border border-white/60 bg-white/70 shadow-glass backdrop-blur-md dark:border-white/10 dark:bg-white/10;
 }
 
+/* AdminLayoutV2 surfaces. Revert with the V2 layout swap. */
+.admin-layout-v2 .glass-card {
+  border-color: #1f2937;
+  background-color: #111111;
+  box-shadow: none;
+  backdrop-filter: blur(10px);
+}
+
 .section-heading {
   @apply text-3xl font-black tracking-tight text-neutral-950 dark:text-white md:text-5xl lg:text-6xl;
 }

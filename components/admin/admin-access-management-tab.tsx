@@ -195,7 +195,7 @@ export function AdminAccessManagementTab() {
   const platformUsers = tab === 'borrowers' ? borrowers : investors;
 
   return (
-    <div className="w-full min-w-0 space-y-8 overflow-x-auto pb-28">
+    <div className="w-full min-w-0 space-y-8 overflow-x-auto">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Security</p>
         <h1 className="mt-1 text-2xl font-black text-neutral-950 dark:text-white">Access Management</h1>

@@ -40,7 +40,7 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
       {children}
       {toast ? (
         <div
-          className="pointer-events-none fixed right-4 top-20 z-[90] w-[min(100vw-2rem,22rem)]"
+          className="pointer-events-none fixed right-4 top-16 z-[90] w-[min(100vw-2rem,22rem)]"
           role="status"
           aria-live="polite"
         >
@@ -104,7 +104,7 @@ export function AdminNotificationBell() {
 
   if (counts.total <= 0) {
     return (
-      <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-neutral-400">
+      <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-800 text-neutral-400">
         <Bell size={16} />
       </span>
     );
@@ -115,7 +115,7 @@ export function AdminNotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-500"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#F97316]/40 bg-[#F97316]/10 text-[#F97316]"
         aria-label={`${counts.total} pending notifications`}
       >
         <Bell size={16} />

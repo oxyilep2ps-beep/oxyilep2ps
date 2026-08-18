@@ -55,7 +55,7 @@ export function AdminFraudRadarTab() {
   };
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="space-y-6">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Sentinel</p>
         <h2 className="text-xl font-black text-neutral-950 dark:text-white">Fraud Radar</h2>

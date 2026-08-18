@@ -71,7 +71,7 @@ export function AdminEmailBroadcastTab() {
   };
 
   return (
-    <div className="space-y-8 pb-28">
+    <div className="space-y-8">
       <div>
         <div className="flex items-center gap-2">
           <Megaphone className="text-brand-500" size={22} />
