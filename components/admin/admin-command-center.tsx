@@ -34,8 +34,9 @@ import {
 } from '@/app/actions/admin-platform';
 
 const ROLE_COLORS = ['#F97316', '#FB923C'];
-const CARD = 'rounded-2xl border border-gray-800 bg-[#111]';
-const AXIS = { fill: '#9ca3af', fontSize: 11 };
+const CARD =
+  'rounded-2xl border border-gray-200 bg-white/80 dark:border-gray-800 dark:bg-[#111]/80';
+const AXIS = { fill: '#6b7280', fontSize: 11 };
 
 function fmtCount(n: number) {
   return new Intl.NumberFormat('en-GB').format(n);
@@ -155,8 +156,8 @@ export function AdminCommandCenter() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-white">Dashboard</h1>
-          <p className="mt-1 text-sm text-neutral-500">
+          <h1 className="text-3xl font-black tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Live analytics, Web3 monitoring, and platform-wide emergency controls.
           </p>
         </div>
@@ -171,7 +172,7 @@ export function AdminCommandCenter() {
           </button>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-800 bg-transparent px-4 py-2.5 text-sm font-semibold text-neutral-300 transition hover:border-[#F97316]/40 hover:text-white"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-transparent px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#F97316]/40 hover:text-gray-900 dark:border-gray-800 dark:text-gray-300 dark:hover:text-white"
           >
             <ExternalLink size={16} />
             View public site
@@ -180,7 +181,7 @@ export function AdminCommandCenter() {
       </div>
 
       {error && (
-        <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</p>
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">{error}</p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -197,16 +198,16 @@ export function AdminCommandCenter() {
               href={card.href}
               aria-label={`Open ${card.label}`}
               className={`absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full ${
-                card.featured ? 'bg-white/15 text-white' : 'bg-white/5 text-neutral-400 hover:text-[#F97316]'
+                card.featured ? 'bg-white/15 text-white' : 'bg-gray-100 text-gray-500 hover:text-[#F97316] dark:bg-white/5 dark:text-gray-400'
               }`}
             >
               <ArrowUpRight size={16} />
             </Link>
-            <p className={`text-xs font-semibold uppercase tracking-wider ${card.featured ? 'text-white/80' : 'text-neutral-500'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wider ${card.featured ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>
               {card.label}
             </p>
-            <p className="mt-3 text-3xl font-black tracking-tight">{card.value}</p>
-            <p className={`mt-3 text-xs ${card.featured ? 'text-white/80' : 'text-neutral-500'}`}>{card.hint}</p>
+            <p className={`mt-3 text-3xl font-black tracking-tight ${card.featured ? 'text-white' : 'text-gray-900 dark:text-white'}`}>{card.value}</p>
+            <p className={`mt-3 text-xs ${card.featured ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>{card.hint}</p>
           </article>
         ))}
       </div>
@@ -226,7 +227,7 @@ export function AdminCommandCenter() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-2 flex justify-center gap-4 text-xs text-neutral-400">
+          <div className="mt-2 flex justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
             {roleData.map((d, i) => (
               <span key={d.name} className="flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full" style={{ background: ROLE_COLORS[i] }} />
@@ -248,7 +249,7 @@ export function AdminCommandCenter() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-2 text-xs text-neutral-500">
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             {metrics?.handshakeCount ?? 0} active handshakes on platform
           </p>
         </div>
@@ -258,26 +259,26 @@ export function AdminCommandCenter() {
         <div className={`${CARD} p-5`}>
           <div className="flex items-center gap-2">
             <Wallet size={18} className="text-[#F97316]" />
-            <p className="text-sm font-bold text-white">Web3 Monitor — {web3?.network}</p>
+            <p className="text-sm font-bold text-gray-900 dark:text-white">Web3 Monitor — {web3?.network}</p>
           </div>
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between">
-              <dt className="text-neutral-500">Gas Price</dt>
-              <dd className="font-semibold text-white">{web3?.gasPriceGwei} gwei</dd>
+              <dt className="text-gray-500 dark:text-gray-400">Gas Price</dt>
+              <dd className="font-semibold text-gray-900 dark:text-white">{web3?.gasPriceGwei} gwei</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-neutral-500">Admin Wallet MATIC</dt>
-              <dd className={`font-semibold ${web3?.lowBalance ? 'text-red-400' : 'text-white'}`}>
+              <dt className="text-gray-500 dark:text-gray-400">Admin Wallet MATIC</dt>
+              <dd className={`font-semibold ${web3?.lowBalance ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
                 {web3?.adminWalletBalance}
                 {web3?.lowBalance && (
-                  <span className="ml-2 inline-flex items-center gap-1 text-xs text-red-400">
+                  <span className="ml-2 inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
                     <AlertTriangle size={12} /> Low balance
                   </span>
                 )}
               </dd>
             </div>
             {web3?.walletAddress && (
-              <div className="break-all text-xs text-neutral-500">{web3.walletAddress}</div>
+              <div className="break-all text-xs text-gray-500 dark:text-gray-400">{web3.walletAddress}</div>
             )}
           </dl>
         </div>
@@ -291,16 +292,16 @@ export function AdminCommandCenter() {
         >
           <div className="flex items-center gap-2">
             <ShieldAlert size={18} className="text-red-500" />
-            <p className="text-sm font-bold text-red-400">Master Kill Switch</p>
+            <p className="text-sm font-bold text-red-600 dark:text-red-400">Master Kill Switch</p>
           </div>
-          <p className="mt-2 text-xs text-neutral-400">
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
             When active, all &quot;Initiate Handshake&quot; / proposal actions are disabled platform-wide.
           </p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
             Status: {settings?.emergency_kill_switch_active ? 'PAUSED' : 'OPERATIONAL'}
           </p>
           {confirmKill && !settings?.emergency_kill_switch_active && (
-            <p className="mt-3 rounded-lg bg-red-600/10 px-3 py-2 text-xs font-semibold text-red-400">
+            <p className="mt-3 rounded-lg bg-red-600/10 px-3 py-2 text-xs font-semibold text-red-700 dark:text-red-400">
               Confirm emergency pause? This will block all new handshake proposals.
             </p>
           )}
@@ -321,7 +322,7 @@ export function AdminCommandCenter() {
             <button
               type="button"
               onClick={() => setConfirmKill(false)}
-              className="mt-2 w-full text-xs text-neutral-500 underline"
+              className="mt-2 w-full text-xs text-gray-500 underline dark:text-gray-400"
             >
               Cancel
             </button>

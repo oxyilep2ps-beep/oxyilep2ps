@@ -88,7 +88,7 @@ export function AdminAnnouncementsTab() {
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-xl border border-white/40 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-brand-500/40 dark:border-white/10 dark:bg-black/40"
+            className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-3 text-gray-900 outline-none placeholder:text-gray-500 focus:ring-2 focus:ring-brand-500/40 dark:border-gray-700 dark:text-white dark:placeholder:text-gray-400"
             placeholder="e.g. New handshake & chat features live"
           />
         </label>
@@ -99,7 +99,7 @@ export function AdminAnnouncementsTab() {
             rows={4}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="w-full rounded-xl border border-white/40 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-brand-500/40 dark:border-white/10 dark:bg-black/40"
+            className="w-full rounded-xl border border-gray-300 bg-transparent px-4 py-3 text-gray-900 outline-none placeholder:text-gray-500 focus:ring-2 focus:ring-brand-500/40 dark:border-gray-700 dark:text-white dark:placeholder:text-gray-400"
             placeholder="Write the update for approved users…"
           />
         </label>

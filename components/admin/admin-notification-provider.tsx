@@ -104,7 +104,7 @@ export function AdminNotificationBell() {
 
   if (counts.total <= 0) {
     return (
-      <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-800 text-neutral-400">
+      <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400">
         <Bell size={16} />
       </span>
     );
@@ -124,8 +124,8 @@ export function AdminNotificationBell() {
         </span>
       </button>
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 rounded-xl border border-neutral-800 bg-[#0A0A0A] p-3 text-xs text-neutral-300 shadow-xl shadow-black/40">
-          <p className="font-bold text-white">Pending verification</p>
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-56 rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-xl dark:border-neutral-800 dark:bg-[#0A0A0A] dark:text-neutral-300 dark:shadow-black/40">
+          <p className="font-bold text-gray-900 dark:text-white">Pending verification</p>
           <ul className="mt-2 space-y-1">
             <li>Blogs: {counts.blogs}</li>
             <li>Social: {counts.social}</li>

@@ -154,8 +154,8 @@ function AdminHrOverviewInner() {
   return (
     <div className="cms-fade-in space-y-6 pb-8">
       <div>
-        <h2 className="text-xl font-black text-white">Executive HR Overview</h2>
-        <p className="mt-1 text-sm text-neutral-400">
+        <h2 className="text-xl font-black text-gray-900 dark:text-white">Executive HR Overview</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Headcount burn, attrition risk, ATS pipeline, and budget approvals — all figures in £ GBP.
         </p>
       </div>
@@ -171,7 +171,7 @@ function AdminHrOverviewInner() {
         <Card label="Referral bonuses pending" value={formatGbp(overview.referralPendingGbp)} />
       </div>
 
-      <section className="space-y-3 rounded-2xl border border-neutral-800 bg-black p-4">
+      <section className="space-y-3 rounded-2xl border border-gray-200 bg-white/80 p-4 dark:border-gray-800 dark:bg-[#111]/80">
         <h3 className="text-sm font-black uppercase tracking-wider text-[#F97316]">Recruitment & ATS Pipeline</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <AtsMetric label="Total Applications" value={pipeline.total} />
@@ -181,12 +181,12 @@ function AdminHrOverviewInner() {
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-neutral-800 bg-black p-4">
+      <section className="space-y-3 rounded-2xl border border-gray-200 bg-white/80 p-4 dark:border-gray-800 dark:bg-[#111]/80">
         <h3 className="text-sm font-black uppercase tracking-wider text-[#F97316]">Recent Candidate Activity</h3>
         <div
           role="tablist"
           aria-label="Candidate status filter"
-          className="-mx-1 flex gap-1 overflow-x-auto border-b border-neutral-800 px-1 pb-px"
+          className="-mx-1 flex gap-1 overflow-x-auto border-b border-gray-200 px-1 pb-px dark:border-gray-800"
         >
           {adminFilterTabs.map((item) => {
             const active = candidateTab === item.id;
@@ -199,14 +199,14 @@ function AdminHrOverviewInner() {
                 onClick={() => setCandidateTab(item.id)}
                 className={cn(
                   'relative shrink-0 rounded-t-xl px-3 py-2.5 text-[12px] font-bold transition sm:px-4',
-                  active ? 'text-[#F97316]' : 'text-neutral-500 hover:text-neutral-200'
+                  active ? 'text-[#F97316]' : 'text-gray-500 hover:text-gray-900 dark:hover:text-neutral-200'
                 )}
               >
                 {item.label}
                 <span
                   className={cn(
                     'ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-black',
-                    active ? 'bg-[#F97316]/20 text-[#F97316]' : 'bg-neutral-900 text-neutral-500'
+                    active ? 'bg-[#F97316]/20 text-[#F97316]' : 'bg-gray-100 text-gray-500 dark:bg-neutral-900 dark:text-neutral-500'
                   )}
                 >
                   {candidateTabCounts[item.id]}
@@ -402,9 +402,9 @@ function AdminHrOverviewInner() {
           <p className="text-sm text-neutral-500">No headcount requests.</p>
         ) : (
           headcount.map((h) => (
-            <div key={h.id} className="glass-card flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-black p-4">
+            <div key={h.id} className="glass-card flex flex-wrap items-center justify-between gap-2 rounded-2xl p-4">
               <div>
-                <p className="font-semibold text-white">{h.title}</p>
+                <p className="font-semibold text-gray-900 dark:text-white">{h.title}</p>
                 <p className="text-xs text-neutral-500">
                   {h.department} · Budget {formatGbp(h.salary_budget_gbp)} · {h.status}
                 </p>
@@ -516,18 +516,18 @@ function AdminHrOverviewInner() {
 
 function Card({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    <div className="glass-card rounded-2xl bg-black p-4">
+    <div className="glass-card rounded-2xl p-4">
       <p className="text-[11px] font-bold uppercase tracking-wider text-[#F97316]">{label}</p>
-      <p className={`mt-2 text-xl font-black ${warn ? 'text-amber-500' : 'text-white'}`}>{value}</p>
+      <p className={`mt-2 text-xl font-black ${warn ? 'text-amber-500' : 'text-gray-900 dark:text-white'}`}>{value}</p>
     </div>
   );
 }
 
 function AtsMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-neutral-950">
       <p className="text-[11px] font-bold uppercase tracking-wider text-[#F97316]">{label}</p>
-      <p className="mt-2 text-2xl font-black text-white">{value}</p>
+      <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">{value}</p>
     </div>
   );
 }

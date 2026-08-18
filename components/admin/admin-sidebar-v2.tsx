@@ -22,6 +22,9 @@ function NavBadge({ count }: { count: number }) {
   );
 }
 
+const NAV_IDLE =
+  'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white';
+
 export function AdminSidebarV2({
   open,
   onClose,
@@ -41,28 +44,28 @@ export function AdminSidebarV2({
         aria-label="Close sidebar"
         onClick={onClose}
         className={cn(
-          'fixed inset-0 z-40 bg-black/60 lg:hidden',
+          'fixed inset-0 z-40 bg-black/40 dark:bg-black/60 lg:hidden',
           open ? 'block' : 'hidden'
         )}
       />
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-gray-800 bg-[#0a0a0a] transition-transform duration-300 lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-gray-200 bg-white/90 backdrop-blur-xl transition-transform duration-300 dark:border-gray-800 dark:bg-[#0a0a0a]/90 lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-gray-800 px-5 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800">
           <Link href="/admin-dashboard/command" className="flex min-w-0 items-center gap-3" onClick={onClose}>
             <Logo size="sm" href="" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-black text-white">Oxyile</p>
+              <p className="truncate text-sm font-black text-gray-900 dark:text-white">Oxyile</p>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#F97316]">Admin</p>
             </div>
           </Link>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-neutral-400 hover:text-white lg:hidden"
+            className="rounded-lg p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white lg:hidden"
             aria-label="Close menu"
           >
             <X size={18} />
@@ -72,7 +75,7 @@ export function AdminSidebarV2({
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
           {ADMIN_NAV_GROUPS.map((group) => (
             <div key={group.heading}>
-              <p className="px-3 pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
+              <p className="px-3 pb-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
                 {group.heading}
               </p>
               <ul className="space-y-0.5">
@@ -87,9 +90,7 @@ export function AdminSidebarV2({
                         onClick={onClose}
                         className={cn(
                           'relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
-                          active
-                            ? 'bg-[#F97316]/10 text-[#F97316]'
-                            : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                          active ? 'bg-[#F97316]/10 text-[#F97316]' : NAV_IDLE
                         )}
                       >
                         {active ? (
@@ -107,13 +108,13 @@ export function AdminSidebarV2({
           ))}
         </nav>
 
-        <div className="space-y-3 border-t border-gray-800 p-3">
-          <div className="rounded-2xl border border-gray-800 bg-[#111] p-3">
-            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-white">
+        <div className="space-y-3 border-t border-gray-200 p-3 dark:border-gray-800">
+          <div className="rounded-2xl border border-gray-200 bg-gray-50/90 p-3 dark:border-gray-800 dark:bg-[#111]/90">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-gray-900 dark:text-white">
               <Download size={14} className="text-[#F97316]" />
               Download our Mobile App
             </div>
-            <p className="mb-3 text-[11px] leading-relaxed text-neutral-500">
+            <p className="mb-3 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
               Install Oxyile for faster admin alerts on the go.
             </p>
             <InstallAppButton layout="menu" className="h-9 text-[11px]" />
@@ -130,7 +131,7 @@ export function AdminSidebarV2({
                     onClick={onClose}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
-                      active ? 'bg-[#F97316]/10 text-[#F97316]' : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                      active ? 'bg-[#F97316]/10 text-[#F97316]' : NAV_IDLE
                     )}
                   >
                     <Icon size={16} />
@@ -143,7 +144,7 @@ export function AdminSidebarV2({
               <Link
                 href="/"
                 onClick={onClose}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-400 transition hover:bg-white/5 hover:text-white"
+                className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition', NAV_IDLE)}
               >
                 <ExternalLink size={16} />
                 View Public Site
@@ -153,7 +154,10 @@ export function AdminSidebarV2({
               <button
                 type="button"
                 onClick={onSignOut}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-neutral-400 transition hover:bg-white/5 hover:text-white"
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
+                  NAV_IDLE
+                )}
               >
                 <LogOut size={16} />
                 Logout
