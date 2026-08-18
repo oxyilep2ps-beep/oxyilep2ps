@@ -23,7 +23,7 @@ export async function sendStatusEmail(payload: StatusEmailPayload): Promise<{ ok
   const body =
     status === UserStatus.APPROVED
       ? `Dear ${fullLegalName},\n\nYour Oxyile account has been approved. You may now sign in and access the platform.\n\nRegards,\nOxyile Compliance Team`
-      : `Dear ${fullLegalName},\n\nThank you for your interest in Oxyile. After review we are unable to approve your application at this time. Contact oxyilemoneyquest.support@gmail.com for details.\n\nRegards,\nOxyile Compliance Team`;
+      : `Dear ${fullLegalName},\n\nThank you for your interest in Oxyile. After review we are unable to approve your application at this time. Contact careers.oxyile@gmail.com for details.\n\nRegards,\nOxyile Compliance Team`;
 
   // Production: replace with real SMTP transport
   if (process.env.SMTP_HOST && process.env.EMAIL_FROM) {

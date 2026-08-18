@@ -60,7 +60,7 @@ function getHtml(payload: ReviewEmailPayload): string {
           <p style="margin:20px 0;padding:16px 18px;border-radius:16px;background:rgba(255,129,74,.12);border:1px solid rgba(255,129,74,.28)">
             <strong style="color:#ffb08a">${reason}</strong>
           </p>
-          <p style="margin-bottom:0">If you have questions, please contact support.</p>
+          <p style="margin-bottom:0">If you have questions about your application, email careers.oxyile@gmail.com.</p>
         </div>
       </div>
     </div>
@@ -91,7 +91,7 @@ export async function sendReviewEmail(
   const resend = new Resend(apiKey);
   const { data, error } = await resend.emails.send({
     from,
-    replyTo: 'oxyilemoneyquest.support@gmail.com',
+    replyTo: 'careers.oxyile@gmail.com',
     to: [to],
     subject,
     html,

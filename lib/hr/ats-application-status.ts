@@ -62,7 +62,7 @@ export function matchesAtsTab(raw: string | null | undefined, tab: AtsPipelineTa
 }
 
 export const INTERVIEW_EMAIL_TEMPLATE =
-  'We loved your profile and would like to invite you for an interview. Please let us know your availability for a quick introductory call next week.';
+  'Hi there,\n\nGreat news! We absolutely loved your profile and are thrilled to invite you to the next step of our hiring process: an interview with the Oxyile team! 🎉\n\nWe were really impressed by your background and think you could be a fantastic fit for this role. We would love to get to know you better, discuss your experience, and share more about what we are building.\n\nPlease let us know your availability for a quick introductory call next week. You can simply reply to this email with your preferred dates and times.\n\nLooking forward to speaking with you soon!\n\nWarm regards,\nThe Oxyile Team';
 
 export const REJECTION_EMAIL_TEMPLATE =
   'Hi there,\n\nThank you for taking the time to apply to Oxyile. We truly appreciate your interest in joining our team.\n\nAfter careful consideration, we have decided to move forward with other candidates for this particular role. The competition was incredibly strong, and this was a difficult decision.\n\nWe would love to stay connected! We frequently have new openings, so please keep an eye on the Oxyile Careers page and feel free to apply again in the future.\n\nWishing you the best of luck in your career journey.\n\nBest regards,\nThe Oxyile Team';

@@ -19,7 +19,7 @@ function escapeHtml(value: string): string {
 }
 
 function brandedCandidateHtml(message: string): string {
-  const logoUrl = 'https://yourdomain.com/logo.png';
+  const logoUrl = 'https://yourdomain.com/static-logo.png';
   const body = escapeHtml(message).replace(/\n/g, '<br/>');
   return `
 <!DOCTYPE html>
@@ -29,7 +29,7 @@ function brandedCandidateHtml(message: string): string {
   <div style="background:#000000;color:#f8f5ef;font-family:Inter,Arial,Helvetica,sans-serif;padding:32px">
     <div style="max-width:640px;margin:0 auto;border:1px solid rgba(249,115,22,.28);border-radius:24px;overflow:hidden;background:#0a0a0a">
       <div style="padding:24px 32px;border-bottom:1px solid rgba(249,115,22,.25);text-align:center">
-        <img src="${logoUrl}" alt="Oxyile" width="160" height="48" style="height:48px;width:auto;max-width:180px;display:inline-block" />
+        <img src="${logoUrl}" alt="Oxyile" width="150" style="height:auto;max-width:150px;display:inline-block" />
         <p style="margin:12px 0 0;color:#F97316;font-size:11px;letter-spacing:.28em;text-transform:uppercase;font-weight:800">Oxyile People</p>
       </div>
       <div style="padding:32px;font-size:16px;line-height:1.7;color:#f2eee6">
@@ -38,8 +38,8 @@ function brandedCandidateHtml(message: string): string {
           Kind regards,<br/>Oxyile People Team
         </p>
         <p style="margin:28px 0 0;padding-top:20px;border-top:1px solid rgba(249,115,22,.22);font-size:13px;line-height:1.7;color:#c4beb4">
-          Note: This is an automated notification. If you have questions regarding your application or need support, please click &#39;Reply&#39; to contact our team, or email us directly at
-          <a href="mailto:oxyilemoneyquest.support@gmail.com" style="color:#F97316;text-decoration:underline;font-weight:600">oxyilemoneyquest.support@gmail.com</a>.
+          If you have any questions, simply reply to this email to reach our support team at
+          <a href="mailto:careers.oxyile@gmail.com" style="color:#F97316;text-decoration:underline;font-weight:600">careers.oxyile@gmail.com</a>.
         </p>
       </div>
     </div>
@@ -79,11 +79,11 @@ export async function sendCandidateEmail(input: {
     const resend = new Resend(apiKey);
     const result = await resend.emails.send({
       from: 'Oxyile Careers <no-reply@oxyile.com>',
-      replyTo: 'oxyilemoneyquest.support@gmail.com',
+      replyTo: 'careers.oxyile@gmail.com',
       to: [to],
       subject,
       html: brandedCandidateHtml(message),
-      text: `${message}\n\nKind regards,\nOxyile People Team\n\nNote: This is an automated notification. If you have questions regarding your application or need support, please click 'Reply' to contact our team, or email us directly at oxyilemoneyquest.support@gmail.com.`,
+      text: `${message}\n\nKind regards,\nOxyile People Team\n\nIf you have any questions, simply reply to this email to reach our support team at careers.oxyile@gmail.com.`,
     });
 
     if (result.error) {
