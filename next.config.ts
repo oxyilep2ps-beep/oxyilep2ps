@@ -6,7 +6,7 @@ import type { NextConfig } from 'next';
  * next.config changes.
  */
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['ethers', 'unpdf', 'mammoth', 'pdf-parse', 'pdfjs-dist'],
+  serverExternalPackages: ['ethers', 'unpdf', 'mammoth', 'pdf-parse', 'pdfjs-dist', 'web-push'],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
     // Next.js 15 still nests serverActions under experimental in this project.

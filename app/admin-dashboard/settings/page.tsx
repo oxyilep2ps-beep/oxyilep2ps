@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LogOut, User } from 'lucide-react';
 import { AdminAnnouncementsTab } from '@/components/admin/admin-announcements-tab';
+import { AdminTerminalCommandGuide } from '@/components/admin/admin-terminal-command-guide';
 import { createClient } from '@/lib/supabase/client';
 
 export default function AdminSettingsPage() {
@@ -52,6 +53,8 @@ export default function AdminSettingsPage() {
       </div>
 
       <AdminAnnouncementsTab />
+
+      <AdminTerminalCommandGuide />
 
       <div className="glass-card rounded-2xl p-6">
         <h2 className="text-lg font-bold text-neutral-950 dark:text-white">Session</h2>

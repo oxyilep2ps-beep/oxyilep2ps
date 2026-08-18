@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { inviteGuarantor } from '@/app/actions/marketplace';
+import { notifyChatMessagePush } from '@/app/actions/sendPushNotification';
 import { CollateralFormSection } from '@/components/collateral-form-section';
 import type { HandshakeRow } from '@/lib/chat/types';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
@@ -130,6 +131,10 @@ export function HandshakePanel({
             sender_id: myId,
             receiver_id: peerId,
             content: `🤝 Handshake proposed: £${amt} at ${FIXED_INTEREST_RATE}% for ${dur} months.`,
+          });
+          void notifyChatMessagePush({
+            receiverId: peerId,
+            preview: 'New handshake proposal',
           });
           setAmount('');
           setDuration('');

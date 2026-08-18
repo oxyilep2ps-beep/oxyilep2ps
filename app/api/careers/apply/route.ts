@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { persistAtsScore, scoreResumeFromStorage } from '@/lib/hr/score-resume-from-storage';
 import { sendApplicationReceivedEmail } from '@/lib/email/send-application-received';
+import { dispatchAdminPush } from '@/lib/push/send';
 import type { AtsJobMatchSource } from '@/lib/hr/ats-match-score';
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -234,6 +235,13 @@ export async function POST(request: Request) {
     } catch {
       // Confirmation email must never fail the application itself.
     }
+
+    void dispatchAdminPush({
+      title: 'New Resume Uploaded',
+      body: `${full_name} applied for ${jobTitle}.`,
+      url: '/admin-dashboard/careers',
+      tag: 'resume',
+    });
 
     return NextResponse.json({ success: true, ai_match_score, resume_url });
   } catch (e) {

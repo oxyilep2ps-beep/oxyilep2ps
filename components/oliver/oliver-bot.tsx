@@ -47,18 +47,11 @@ export function OliverBot() {
   ]);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const hasBottomNav =
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/chats') ||
-    pathname.startsWith('/admin-dashboard');
+  const hasBottomNav = pathname.startsWith('/dashboard') || pathname.startsWith('/chats');
 
   const panelBottom = hasBottomNav
     ? 'bottom-[calc(5.5rem+4.5rem+env(safe-area-inset-bottom))]'
     : 'bottom-[calc(5rem+env(safe-area-inset-bottom))]';
-
-  const fabBottom = hasBottomNav
-    ? 'bottom-[calc(5.5rem+1rem+env(safe-area-inset-bottom))]'
-    : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]';
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -278,7 +271,9 @@ export function OliverBot() {
         aria-expanded={isWidgetOpen}
         className={cn(
           'pointer-events-auto fixed right-4 z-[10001] grid h-14 w-14 place-items-center rounded-full bg-brand-500 text-white shadow-glow transition hover:bg-brand-400',
-          fabBottom
+          hasBottomNav
+            ? 'bottom-[calc(5.5rem+1rem+env(safe-area-inset-bottom))]'
+            : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))] max-md:bottom-20'
         )}
       >
         {isWidgetOpen ? <X size={22} /> : <MessageCircle size={22} />}

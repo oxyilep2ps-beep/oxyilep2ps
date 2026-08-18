@@ -6,6 +6,7 @@ import { ArrowLeft, Handshake, Loader2, Send, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { inviteGuarantor } from '@/app/actions/marketplace';
 import { markConversationRead } from '@/app/actions/chat';
+import { notifyChatMessagePush } from '@/app/actions/sendPushNotification';
 import type { ChatMessage, ChatPeer, HandshakeRow, MemberRole, UserPresence } from '@/lib/chat/types';
 import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
 import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
@@ -355,6 +356,11 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
     if (insertError) {
       setText(content);
       setError(insertError.message);
+    } else {
+      void notifyChatMessagePush({
+        receiverId: peer.id,
+        preview: content.slice(0, 120),
+      });
     }
     setSending(false);
   };
@@ -413,6 +419,10 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
       sender_id: myId,
       receiver_id: peer.id,
       content: buildHandshakeMessagePayload(row.id),
+    });
+    void notifyChatMessagePush({
+      receiverId: peer.id,
+      preview: 'New handshake proposal',
     });
 
     setHandshakeMap((m) => ({ ...m, [row.id]: normalizeHandshakeRow(created as Record<string, unknown>) }));
