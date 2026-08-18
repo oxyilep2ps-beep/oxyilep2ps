@@ -113,11 +113,11 @@ export function HrRecruitmentBoard() {
   if (loading) return <HrSkeletonCards count={4} />;
 
   return (
-    <div className="cms-fade-in space-y-6 bg-black pb-8 text-white">
+    <div className="cms-fade-in space-y-6 pb-8 text-gray-900 dark:text-white">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black text-white">ATS Recruitment</h2>
-          <p className="mt-1 text-sm text-neutral-400">
+          <h2 className="text-xl font-black text-gray-900 dark:text-white">ATS Recruitment</h2>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
             Applications, kanban pipeline, AI match scores, DBS tracking, offers in £ GBP.
           </p>
         </div>
@@ -136,7 +136,7 @@ export function HrRecruitmentBoard() {
               onClick={() => setTab(t)}
               className={cn(
                 'rounded-full px-3 py-1.5 text-xs font-bold capitalize',
-                tab === t ? 'bg-[#F97316] text-white' : 'bg-neutral-900 text-neutral-400'
+                tab === t ? 'bg-[#F97316] text-white' : 'bg-gray-100 text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400'
               )}
             >
               {t === 'talent'
@@ -276,7 +276,7 @@ export function HrRecruitmentBoard() {
                       draggable
                       onDragStart={() => setDragId(a.id)}
                       onClick={() => setSelected(a)}
-                      className="w-full rounded-xl border border-white/10 bg-white/50 p-3 text-left transition hover:border-brand-300 dark:bg-black/30"
+                      className="w-full rounded-xl border border-gray-200 bg-white p-3 text-left transition hover:border-brand-300 dark:border-white/10 dark:bg-black/30"
                     >
                       <p className="text-sm font-semibold">{a.full_name}</p>
                       <p className="text-[11px] text-neutral-500">{a.job_title || 'General'} · {a.email}</p>
@@ -427,14 +427,14 @@ function ApplicantDrawer({
               type="datetime-local"
               value={interviewAt}
               onChange={(e) => setInterviewAt(e.target.value)}
-              className="mt-2 w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 dark:bg-white/5"
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 dark:border-white/20 dark:bg-white/5 dark:text-white"
             />
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Interview notes"
               rows={2}
-              className="mt-2 w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 dark:bg-white/5"
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 dark:border-white/20 dark:bg-white/5 dark:text-white"
             />
             <button
               type="button"
@@ -514,7 +514,7 @@ function ApplicantDrawer({
               type="number"
               value={offerSalary}
               onChange={(e) => setOfferSalary(e.target.value)}
-              className="mt-2 w-full rounded-xl border border-white/20 bg-black/5 px-3 py-2 dark:bg-white/5"
+              className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-gray-900 dark:border-white/20 dark:bg-white/5 dark:text-white"
             />
             <button
               type="button"

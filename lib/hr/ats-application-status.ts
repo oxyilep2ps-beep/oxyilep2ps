@@ -21,7 +21,7 @@ export const ATS_STATUS_META: Record<
   New: {
     label: 'New',
     hint: 'Fresh application',
-    className: 'border-neutral-600 bg-neutral-900 text-neutral-200',
+    className: 'border-gray-300 bg-gray-100 text-gray-800 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200',
   },
   Consider: {
     label: 'Consider',

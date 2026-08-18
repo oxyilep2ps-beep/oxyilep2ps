@@ -152,29 +152,29 @@ export function HrBottomNav() {
           type="button"
           aria-label="Close menu"
           className={cn(
-            'absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300',
+            'absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 dark:bg-black/60',
             drawerOpen ? 'opacity-100' : 'opacity-0'
           )}
           onClick={() => setDrawerOpen(false)}
         />
         <aside
           className={cn(
-            'absolute inset-y-0 right-0 flex w-[min(100vw-3rem,22rem)] flex-col border-l border-neutral-800 bg-neutral-950/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out',
+            'absolute inset-y-0 right-0 flex w-[min(100vw-3rem,22rem)] flex-col border-l border-gray-200 bg-white/95 shadow-2xl backdrop-blur-xl transition-transform duration-300 ease-out dark:border-neutral-800 dark:bg-neutral-950/95',
             drawerOpen ? 'translate-x-0' : 'translate-x-full'
           )}
           role="dialog"
           aria-modal="true"
           aria-label="More HR modules"
         >
-          <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-4">
+          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4 dark:border-neutral-800">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#F97316]">HR Portal</p>
-              <p className="text-sm font-bold text-white">All modules</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white">All modules</p>
             </div>
             <button
               type="button"
               onClick={() => setDrawerOpen(false)}
-              className="rounded-full border border-neutral-700 p-2 text-neutral-300 hover:text-white"
+              className="rounded-full border border-gray-200 p-2 text-neutral-600 hover:text-gray-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:text-white"
               aria-label="Close"
             >
               <X size={18} />
@@ -193,7 +193,7 @@ export function HrBottomNav() {
                     'flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition',
                     active
                       ? 'bg-[#F97316]/15 text-[#F97316]'
-                      : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+                      : 'text-neutral-600 hover:bg-gray-100 hover:text-gray-900 dark:text-neutral-300 dark:hover:bg-white/5 dark:hover:text-white'
                   )}
                 >
                   <Icon size={18} className="shrink-0" />
@@ -202,7 +202,7 @@ export function HrBottomNav() {
               );
             })}
           </nav>
-          <div className="border-t border-neutral-800 p-3">
+          <div className="border-t border-gray-200 p-3 dark:border-neutral-800">
             <button
               type="button"
               onClick={() => {
@@ -218,7 +218,7 @@ export function HrBottomNav() {
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-neutral-800/80 bg-neutral-950/90 pb-[calc(0.4rem+env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-md"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/90 pb-[calc(0.4rem+env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-950/90"
         aria-label="HR navigation"
       >
         {/* Desktop: Overview · ATS · People · + · Payroll · DBS · More */}
@@ -318,13 +318,13 @@ function CreateFab({
   return (
     <div ref={createRef} className="relative flex w-14 shrink-0 flex-col items-center sm:w-16">
       {open ? (
-        <div className="absolute bottom-[calc(100%+0.65rem)] left-1/2 z-50 w-[min(92vw,20rem)] -translate-x-1/2 overflow-hidden rounded-2xl border border-neutral-700 bg-black shadow-xl">
-          <p className="border-b border-neutral-800 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#F97316]">
+        <div className="absolute bottom-[calc(100%+0.65rem)] left-1/2 z-50 w-[min(92vw,20rem)] -translate-x-1/2 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-black">
+          <p className="border-b border-gray-200 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#F97316] dark:border-neutral-800">
             Quick Create
           </p>
           <button
             type="button"
-            className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-semibold text-white hover:bg-[#F97316]/10"
+            className="flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-semibold text-gray-900 hover:bg-[#F97316]/10 dark:text-white"
             onClick={() => {
               setOpen(false);
               onPostJob();
@@ -334,21 +334,21 @@ function CreateFab({
           </button>
           <button
             type="button"
-            className="flex w-full items-center gap-3 border-t border-neutral-800 px-3 py-3 text-left text-sm font-semibold text-white hover:bg-[#F97316]/10"
+            className="flex w-full items-center gap-3 border-t border-gray-200 px-3 py-3 text-left text-sm font-semibold text-gray-900 hover:bg-[#F97316]/10 dark:border-neutral-800 dark:text-white"
             onClick={() => closeAndGo(setOpen, router, '/portal/leave')}
           >
             <CalendarDays size={16} className="text-[#F97316]" /> Log Employee Leave
           </button>
           <button
             type="button"
-            className="flex w-full items-center gap-3 border-t border-neutral-800 px-3 py-3 text-left text-sm font-semibold text-white hover:bg-[#F97316]/10"
+            className="flex w-full items-center gap-3 border-t border-gray-200 px-3 py-3 text-left text-sm font-semibold text-gray-900 hover:bg-[#F97316]/10 dark:border-neutral-800 dark:text-white"
             onClick={() => closeAndGo(setOpen, router, '/portal/expenses')}
           >
             <FileSpreadsheet size={16} className="text-[#F97316]" /> Add Expense Claim
           </button>
           <button
             type="button"
-            className="flex w-full items-center gap-3 border-t border-neutral-800 px-3 py-3 text-left text-sm font-semibold text-white hover:bg-[#F97316]/10"
+            className="flex w-full items-center gap-3 border-t border-gray-200 px-3 py-3 text-left text-sm font-semibold text-gray-900 hover:bg-[#F97316]/10 dark:border-neutral-800 dark:text-white"
             onClick={() => closeAndGo(setOpen, router, '/portal/employees/new')}
           >
             <Users size={16} className="text-[#F97316]" /> + Add Employee

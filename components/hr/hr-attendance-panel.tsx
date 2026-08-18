@@ -115,7 +115,7 @@ export function HrAttendancePanel() {
         {showHolidays ? (
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {UK_BANK_HOLIDAYS_2026.map((h) => (
-              <li key={h.date} className="rounded-xl bg-white/40 px-3 py-2 text-sm dark:bg-black/30">
+              <li key={h.date} className="rounded-xl bg-gray-100 px-3 py-2 text-sm text-gray-900 dark:bg-black/30 dark:text-white">
                 <span className="font-semibold">{h.name}</span>
                 <span className="ml-2 text-xs text-neutral-500">{h.date}</span>
               </li>

@@ -1,13 +1,13 @@
-/** Shared HR / ATS form control styles — dark-theme readable selects. */
+/** Shared HR / ATS form control styles — light + dark readable selects. */
 
 export const HR_SELECT_CLASS =
-  'w-full bg-neutral-900 text-neutral-100 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 [&>option]:bg-neutral-900 [&>option]:text-neutral-100';
+  'w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-[#F97316] dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 [&>option]:bg-white [&>option]:text-gray-900 dark:[&>option]:bg-neutral-900 dark:[&>option]:text-neutral-100';
 
 export const HR_INPUT_CLASS =
-  'w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2.5 text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-orange-500';
+  'w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder:text-neutral-500 focus:outline-none focus:border-[#F97316] dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100';
 
 export const HR_TEXTAREA_CLASS =
-  'w-full rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-orange-500';
+  'w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 placeholder:text-neutral-500 focus:outline-none focus:border-[#F97316] dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100';
 
 export function employmentTypeLabel(type: string): string {
   switch (type) {

@@ -1,7 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { Menu } from 'lucide-react';
+import {
+  Briefcase,
+  ClipboardList,
+  Home,
+  Info,
+  Mail,
+  Menu,
+  MessageSquareWarning,
+  Newspaper,
+  Users,
+} from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { navLinks } from '@/lib/content';
@@ -12,6 +22,18 @@ import { InstallAppButton } from '@/components/pwa/InstallAppButton';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useNavbarAuth } from '@/lib/hooks/use-navbar-auth';
 import { cn } from '@/lib/utils';
+
+const NAV_ICONS: Record<string, typeof Home> = {
+  '/': Home,
+  '/admin-dashboard': Home,
+  '/about': Info,
+  '/blogs': Newspaper,
+  '/investors': Users,
+  '/waitlist': ClipboardList,
+  '/careers': Briefcase,
+  '/raise-complaint': MessageSquareWarning,
+  '/contact': Mail,
+};
 
 export function Navbar() {
   const pathname = usePathname();
@@ -31,8 +53,8 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-white/60 bg-white/70 backdrop-blur-md dark:border-white/10 dark:bg-white/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-md dark:border-gray-800 dark:bg-black/80">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8 lg:py-4">
           <div className="flex items-center gap-3">
             <Logo size="sm" priority href={logoHref} />
             <p className="hidden text-xs font-medium uppercase tracking-[0.32em] text-neutral-500 dark:text-neutral-300 sm:block">
@@ -43,18 +65,20 @@ export function Navbar() {
           <nav className="hidden items-center gap-1 lg:flex">
             {displayNavLinks.map((link) => {
               const active = pathname === link.href;
+              const Icon = NAV_ICONS[link.href] ?? Home;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    'rounded-full px-4 py-2 text-sm font-medium transition',
+                    'inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors duration-300',
                     active
-                      ? 'bg-brand-500/10 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
-                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950 dark:text-neutral-300 dark:hover:bg-white/5 dark:hover:text-white'
+                      ? 'bg-[#F97316]/10 text-[#F97316]'
+                      : 'text-neutral-600 hover:text-[#F97316] dark:text-neutral-300 dark:hover:text-[#F97316]'
                   )}
                 >
-                  {link.label}
+                  <Icon size={15} strokeWidth={active ? 2.4 : 2} className="shrink-0" />
+                  <span>{link.label}</span>
                 </Link>
               );
             })}

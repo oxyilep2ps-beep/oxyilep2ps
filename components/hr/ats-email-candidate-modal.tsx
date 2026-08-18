@@ -30,12 +30,12 @@ export function AtsEmailCandidateModal({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="w-full max-w-xl overflow-hidden rounded-t-3xl border border-neutral-800 bg-black shadow-2xl sm:rounded-3xl">
-        <div className="flex items-start justify-between gap-3 border-b border-neutral-800 px-5 py-4">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm dark:bg-black/75 sm:items-center sm:p-4">
+      <div className="w-full max-w-xl overflow-hidden rounded-t-3xl border border-gray-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-black sm:rounded-3xl">
+        <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-neutral-800">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#F97316]">Email Candidate</p>
-            <h3 className="mt-1 text-lg font-black text-white">{candidateName}</h3>
+            <h3 className="mt-1 text-lg font-black text-gray-900 dark:text-white">{candidateName}</h3>
             <p className="mt-1 text-xs text-neutral-400">
               {roleTitle ? `${roleTitle} · ` : ''}
               {intent === 'Interview' ? 'Interview invite' : 'Rejection note'} · branded via Resend
@@ -44,7 +44,7 @@ export function AtsEmailCandidateModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-neutral-800 p-2 text-neutral-300 hover:bg-[#F97316]/20"
+            className="rounded-full border border-gray-200 p-2 text-neutral-600 hover:bg-[#F97316]/20 dark:border-neutral-800 dark:text-neutral-300"
             aria-label="Close"
           >
             <X size={16} />
@@ -57,7 +57,7 @@ export function AtsEmailCandidateModal({
             <input
               readOnly
               value={to}
-              className="w-full cursor-not-allowed rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-sm text-neutral-300"
+              className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300"
             />
           </label>
 

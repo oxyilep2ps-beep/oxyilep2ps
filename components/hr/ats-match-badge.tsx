@@ -13,7 +13,7 @@ export function AtsMatchBadge({
       ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
       : n >= 50
         ? 'border-[#F97316]/45 bg-[#F97316]/15 text-[#F97316]'
-        : 'border-neutral-700 bg-neutral-900 text-neutral-400';
+        : 'border-gray-200 bg-gray-100 text-gray-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400';
 
   return (
     <span

@@ -69,10 +69,10 @@ export function HrSettingsPanel() {
           <p className="mt-1 text-sm text-neutral-500">Registered UK FinTech lender — offer letters & audits use this name.</p>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-800 bg-neutral-900/60 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/60">
           <div>
-            <p className="text-sm font-semibold text-neutral-100">Default currency lock</p>
-            <p className="text-xs text-neutral-400">British Pound (£ GBP) for salary, expenses, bonuses, and offers.</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-neutral-100">Default currency lock</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">British Pound (£ GBP) for salary, expenses, bonuses, and offers.</p>
           </div>
           <span className="rounded-full bg-orange-500/20 px-3 py-1 text-xs font-black uppercase tracking-wider text-orange-400">
             £ GBP · Locked
@@ -96,8 +96,8 @@ export function HrSettingsPanel() {
         />
 
         <div>
-          <p className="text-sm font-semibold text-neutral-100">UK compliance & DBS tracking</p>
-          <p className="mb-2 text-xs text-neutral-400">Default verification level for new applicants in the ATS.</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-neutral-100">UK compliance & DBS tracking</p>
+          <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">Default verification level for new applicants in the ATS.</p>
           <select
             className={HR_SELECT_CLASS}
             value={settings?.default_dbs_level ?? 'standard'}
@@ -128,10 +128,10 @@ function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/40">
       <div className="max-w-md">
-        <p className="text-sm font-semibold text-neutral-100">{title}</p>
-        <p className="text-xs text-neutral-400">{description}</p>
+        <p className="text-sm font-semibold text-gray-900 dark:text-neutral-100">{title}</p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">{description}</p>
       </div>
       <button
         type="button"
@@ -141,7 +141,7 @@ function ToggleRow({
         onClick={() => onChange(!checked)}
         className={cn(
           'relative h-8 w-14 rounded-full transition',
-          checked ? 'bg-orange-500' : 'bg-neutral-700'
+          checked ? 'bg-orange-500' : 'bg-gray-300 dark:bg-neutral-700'
         )}
       >
         <span

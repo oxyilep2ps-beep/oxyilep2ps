@@ -94,7 +94,7 @@ export function HrPayrollPanel() {
         </select>
         {selected && paye ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-white/40 p-3 text-sm dark:bg-black/30">
+            <div className="rounded-xl bg-gray-100 p-3 text-sm text-gray-900 dark:bg-black/30 dark:text-white">
               <p className="text-xs font-bold uppercase text-brand-500">Payslip vault (annual £)</p>
               <ul className="mt-2 space-y-1">
                 <li>Basic: {formatGbpPrecise(selected.salary_basic_gbp)}</li>
@@ -103,7 +103,7 @@ export function HrPayrollPanel() {
                 <li>NI (employer bookmark): {formatGbpPrecise(selected.ni_contribution)}</li>
               </ul>
             </div>
-            <div className="rounded-xl bg-white/40 p-3 text-sm dark:bg-black/30">
+            <div className="rounded-xl bg-gray-100 p-3 text-sm text-gray-900 dark:bg-black/30 dark:text-white">
               <p className="text-xs font-bold uppercase text-brand-500">PAYE estimate</p>
               <ul className="mt-2 space-y-1">
                 <li>Income tax: {formatGbp(paye.incomeTax)}</li>

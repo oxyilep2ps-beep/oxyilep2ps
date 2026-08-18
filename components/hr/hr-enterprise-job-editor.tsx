@@ -120,12 +120,12 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
   const published = Boolean(initialData?.is_published ?? (initialData?.status === 'open' && initialData?.publish_to_careers !== false));
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-neutral-800 bg-black shadow-2xl sm:rounded-3xl">
-        <div className="flex items-start justify-between gap-3 border-b border-neutral-800 px-6 py-5">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm dark:bg-black/70 sm:items-center sm:p-4">
+      <div className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-gray-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-black sm:rounded-3xl">
+        <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-6 py-5 dark:border-neutral-800">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#F97316]">Enterprise Job Editor</p>
-            <h3 className="mt-1 text-xl font-black text-neutral-100">
+            <h3 className="mt-1 text-xl font-black text-gray-900 dark:text-neutral-100">
               {editing ? 'Edit role posting' : 'Create role posting'}
             </h3>
             <p className="mt-1 text-sm text-neutral-400">
@@ -137,7 +137,7 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-neutral-800 p-2 text-neutral-300 hover:bg-orange-500/20"
+            className="rounded-full border border-gray-200 p-2 text-neutral-600 hover:bg-orange-500/20 dark:border-neutral-800 dark:text-neutral-300"
           >
             <X size={18} />
           </button>
@@ -179,16 +179,16 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
                 </select>
               </Field>
 
-              <label className="flex items-start gap-3 rounded-xl border border-neutral-800 bg-neutral-900/80 px-4 py-3 text-sm text-neutral-200">
+              <label className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-200">
                 <input
                   type="checkbox"
                   name="is_intern_to_fulltime"
                   checked={internToFullTime}
                   onChange={(e) => setInternToFullTime(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-neutral-700 accent-[#F97316]"
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-400 accent-[#F97316] dark:border-neutral-700"
                 />
                 <span>
-                  <span className="font-semibold text-neutral-100">Internship then Full-Time track</span>
+                  <span className="font-semibold text-gray-900 dark:text-neutral-100">Internship then Full-Time track</span>
                   <span className="mt-0.5 block text-[11px] text-neutral-500">
                     Public copy will read “Internship for N months, then £ salary Full-Time”.
                   </span>
@@ -248,7 +248,7 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
                   />
                 </div>
               </Field>
-              <label className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/80 px-4 py-3 text-sm text-neutral-200">
+              <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-200">
                 <input
                   type="checkbox"
                   name="publish_now"
@@ -318,11 +318,11 @@ export function HrEnterpriseJobEditor({ open, onClose, onCreated, initialData }:
             <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</p>
           ) : null}
 
-          <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-neutral-800 pt-4">
+          <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-gray-200 pt-4 dark:border-neutral-800">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-neutral-700 px-5 py-2.5 text-sm font-bold text-neutral-200 hover:bg-neutral-800"
+              className="rounded-full border border-gray-200 px-5 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
               Cancel
             </button>
@@ -352,7 +352,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs font-semibold text-neutral-300">{label}</span>
+      <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">{label}</span>
       {children}
       {error ? <span className="block text-xs text-red-400">{error}</span> : null}
     </label>
