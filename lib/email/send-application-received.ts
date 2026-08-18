@@ -28,7 +28,7 @@ export async function sendApplicationReceivedEmail(input: {
   try {
     const resend = new Resend(apiKey);
     const result = await resend.emails.send({
-      from: 'Oxyile Careers <no-reply@oxyile.com>',
+      from: 'Oxyile Careers <careers@oxyile.com>',
       replyTo: 'careers.oxyile@gmail.com',
       to: [to],
       subject: `Application Received: ${jobTitle} at Oxyile`,

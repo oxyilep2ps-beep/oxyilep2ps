@@ -84,7 +84,7 @@ export async function sendReviewEmail(
     throw new Error('Applicant email address is missing.');
   }
 
-  const from = process.env.EMAIL_FROM?.trim() || 'Oxyile <noreply@oxyile.com>';
+  const from = process.env.EMAIL_FROM?.trim() || 'Oxyile Careers <careers@oxyile.com>';
   const subject = getSubject(payload.status);
   const html = getHtml(payload);
 

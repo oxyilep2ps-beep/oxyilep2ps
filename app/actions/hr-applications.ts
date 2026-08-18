@@ -7,8 +7,6 @@ import { ATS_APPLICATION_STATUSES, type AtsApplicationStatus } from '@/lib/hr/at
 import { JOB_MATCH_SELECT, readAtsReason, rescoreZeroAtsApplications } from '@/lib/hr/rescore-zero-applications';
 import { removeResumeFiles } from '@/lib/hr/resume-storage';
 
-export const maxDuration = 300;
-
 export type AtsApplication = {
   id: string;
   job_id: string | null;
