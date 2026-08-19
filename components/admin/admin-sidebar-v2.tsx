@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { ArrowLeftRight, Building2, Download, ExternalLink, LogOut, Newspaper, Share2, SquareArrowOutUpRight, X } from 'lucide-react';
+import { ArrowLeftRight, Download, ExternalLink, LogOut, X } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { InstallAppButton } from '@/components/pwa/InstallAppButton';
 import { useAdminNotificationContext } from '@/components/admin/admin-notification-provider';
@@ -12,23 +12,13 @@ import {
   ADMIN_NAV_GROUPS,
   isAdminNavActive,
 } from '@/lib/admin/nav-config';
+import { ADMIN_VIEW_AS_PORTALS, resolveViewAsPortal } from '@/lib/admin/view-as-portals';
 import { cn } from '@/lib/utils';
-
-const VIEW_AS_PORTALS = [
-  { label: 'Admin Core', href: '/admin-dashboard', icon: SquareArrowOutUpRight, tag: 'admin' },
-  { label: 'HR Portal', href: '/hr', icon: Building2, tag: 'hr' },
-  { label: 'Blogger Portal', href: '/blogger', icon: Newspaper, tag: 'blogger' },
-  { label: 'Social Manager', href: '/social', icon: Share2, tag: 'social' },
-] as const;
 
 function ViewAsMenu({ onClose }: { onClose: () => void }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const current =
-    pathname.startsWith('/hr') ? 'hr'
-    : pathname.startsWith('/blogger') ? 'blogger'
-    : pathname.startsWith('/social') ? 'social'
-    : 'admin';
+  const current = resolveViewAsPortal(pathname);
 
   return (
     <div className="overflow-hidden rounded-xl border border-[#F97316]/20">
@@ -52,21 +42,21 @@ function ViewAsMenu({ onClose }: { onClose: () => void }) {
 
       {open && (
         <ul className="border-t border-[#F97316]/10 px-1 py-1">
-          {VIEW_AS_PORTALS.map((item) => (
-            <li key={item.tag}>
+          {ADMIN_VIEW_AS_PORTALS.map((item) => (
+            <li key={item.id}>
               <Link
                 href={item.href}
                 onClick={onClose}
                 className={cn(
                   'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition',
-                  item.tag === current
+                  item.id === current
                     ? 'bg-[#F97316]/15 text-[#F97316]'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
                 )}
               >
                 <item.icon size={13} />
                 {item.label}
-                {item.tag === current && (
+                {item.id === current && (
                   <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-[#F97316]/60">
                     Active
                   </span>

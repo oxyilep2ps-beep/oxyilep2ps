@@ -14,7 +14,6 @@ import {
   ExternalLink,
   LayoutDashboard,
   LogOut,
-  Megaphone,
   MessageCircle,
   Newspaper,
   PenSquare,
@@ -22,15 +21,15 @@ import {
   Rss,
   Settings,
   Share2,
-  SquareArrowOutUpRight,
   Star,
   User,
-  UserCog,
   Users,
   X,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { InstallAppButton } from '@/components/pwa/InstallAppButton';
+import { ADMIN_NAV_GROUPS, isAdminNavActive } from '@/lib/admin/nav-config';
+import { ADMIN_VIEW_AS_PORTALS } from '@/lib/admin/view-as-portals';
 import { cn } from '@/lib/utils';
 import type { PortalId } from '@/components/shared/universal-dashboard-layout';
 
@@ -174,30 +173,8 @@ const EMPLOYEE_NAV: NavGroup[] = [
   },
 ];
 
-// Admin portal nav re-exported from nav-config as inline to keep this file self-contained
-const ADMIN_NAV: NavGroup[] = [
-  {
-    heading: 'Menu',
-    items: [
-      { href: '/admin-dashboard/command', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-      { href: '/admin-dashboard/applications', label: 'Applications', icon: ClipboardList },
-      { href: '/admin-dashboard/waitlist', label: 'Waitlist', icon: Users },
-      { href: '/admin-dashboard/support', label: 'Support', icon: Megaphone },
-    ],
-  },
-  {
-    heading: 'Operations',
-    items: [
-      { href: '/admin-dashboard/blogs', label: 'Blogs', icon: Newspaper },
-      { href: '/admin-dashboard/social-reviews', label: 'Social', icon: Share2 },
-      { href: '/admin-dashboard/careers', label: 'Careers', icon: Briefcase },
-      { href: '/admin-dashboard/employees', label: 'Employees', icon: UserCog },
-    ],
-  },
-];
-
 const PORTAL_NAV: Record<PortalId, NavGroup[]> = {
-  admin: ADMIN_NAV,
+  admin: ADMIN_NAV_GROUPS,
   hr: HR_NAV,
   blogger: BLOGGER_NAV,
   social: SOCIAL_NAV,
@@ -228,16 +205,6 @@ const PORTAL_TITLES: Record<PortalId, { title: string; tag: string }> = {
 
 // ─── Portal Switcher (collapsible accordion — lives inside scrollable nav) ───
 
-const SWITCHER_ITEMS: { id: PortalId; label: string; href: string; icon: React.ElementType }[] = [
-  { id: 'admin', label: 'Admin Portal', href: '/admin-dashboard', icon: SquareArrowOutUpRight },
-  { id: 'hr', label: 'HR Portal', href: '/hr', icon: Building2 },
-  { id: 'blogger', label: 'Blogger Portal', href: '/blogger', icon: Newspaper },
-  { id: 'social', label: 'Social Manager', href: '/social', icon: Share2 },
-  { id: 'borrower', label: 'Borrower Portal', href: '/dashboard/borrower', icon: User },
-  { id: 'investor', label: 'Investor Portal', href: '/dashboard/investor', icon: Star },
-  { id: 'employee', label: 'Employee Portal', href: '/employee/dashboard', icon: Building2 },
-];
-
 function PortalSwitcher({ current, onClose }: { current: PortalId; onClose: () => void }) {
   const [open, setOpen] = useState(false);
 
@@ -265,7 +232,7 @@ function PortalSwitcher({ current, onClose }: { current: PortalId; onClose: () =
       {/* Accordion body — animates open/close */}
       {open && (
         <ul className="border-t border-[#F97316]/10 px-1 py-1">
-          {SWITCHER_ITEMS.map((item) => (
+          {ADMIN_VIEW_AS_PORTALS.map((item) => (
             <li key={item.id}>
               <Link
                 href={item.href}
@@ -378,7 +345,10 @@ export function UniversalSidebar({
               </p>
               <ul className="space-y-0.5">
                 {group.items.map((item) => {
-                  const active = isActive(pathname, item.href, item.exact);
+                  const active =
+                    portal === 'admin'
+                      ? isAdminNavActive(pathname, item.href, item.exact)
+                      : isActive(pathname, item.href, item.exact);
                   const Icon = item.icon;
                   return (
                     <li key={item.href}>

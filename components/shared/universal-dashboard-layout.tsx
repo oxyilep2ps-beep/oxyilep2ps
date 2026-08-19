@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { AdminHeaderV2 } from '@/components/admin/admin-header-v2';
+import { AdminSidebarV2 } from '@/components/admin/admin-sidebar-v2';
+import { AdminNotificationProvider } from '@/components/admin/admin-notification-provider';
 import { UniversalSidebar } from '@/components/shared/universal-sidebar';
 import { PortalContextProvider } from '@/components/shared/portal-context';
 import { useNavbarAuth } from '@/lib/hooks/use-navbar-auth';
@@ -31,15 +33,23 @@ export function UniversalDashboardLayout({
   const { signOut } = useNavbarAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  return (
+  const shell = (
     <div className="relative min-h-screen bg-transparent text-gray-900 dark:text-white">
-      <UniversalSidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onSignOut={() => void signOut()}
-        portal={portal}
-        isAdmin={isAdmin}
-      />
+      {portal === 'admin' ? (
+        <AdminSidebarV2
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onSignOut={() => void signOut()}
+        />
+      ) : (
+        <UniversalSidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onSignOut={() => void signOut()}
+          portal={portal}
+          isAdmin={isAdmin}
+        />
+      )}
       <div className="lg:pl-64">
         <AdminHeaderV2
           onOpenSidebar={() => setSidebarOpen(true)}
@@ -54,4 +64,10 @@ export function UniversalDashboardLayout({
       </div>
     </div>
   );
+
+  if (portal === 'admin') {
+    return <AdminNotificationProvider>{shell}</AdminNotificationProvider>;
+  }
+
+  return shell;
 }
