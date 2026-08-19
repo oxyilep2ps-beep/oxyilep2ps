@@ -5,7 +5,7 @@ import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
 import { getAuthRedirectPath } from '@/lib/auth/routing';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
-import { UniversalDashboardLayout } from '@/components/shared/universal-dashboard-layout';
+import { UniversalDashboardLayout, type PortalId } from '@/components/shared/universal-dashboard-layout';
 
 export default async function DashboardGroupLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -50,11 +50,18 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
       redirect('/feed');
     }
 
-    if (profile.role === 'BORROWER') {
-      return <UniversalDashboardLayout portal="borrower">{children}</UniversalDashboardLayout>;
-    }
-    if (profile.role === 'INVESTOR') {
-      return <UniversalDashboardLayout portal="investor">{children}</UniversalDashboardLayout>;
+    const portalByRole: Record<string, PortalId> = {
+      ADMIN: 'admin',
+      HR: 'hr',
+      BLOGGER: 'blogger',
+      SOCIAL_MANAGER: 'social',
+      BORROWER: 'borrower',
+      INVESTOR: 'investor',
+      EMPLOYEE: 'employee',
+    };
+    const portal = portalByRole[String(profile.role)] ?? null;
+    if (portal) {
+      return <UniversalDashboardLayout portal={portal} isAdmin={String(profile.role) === 'ADMIN'}>{children}</UniversalDashboardLayout>;
     }
 
     return <DashboardShell>{children}</DashboardShell>;

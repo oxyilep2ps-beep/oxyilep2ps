@@ -20,8 +20,8 @@ export function SharedProfileEditView({
         <ArrowLeft size={16} />
         {backLabel}
       </Link>
-      <h1 className="text-2xl font-black text-white">Edit Profile</h1>
-      <p className="mt-1 text-sm text-neutral-400">
+      <h1 className="text-2xl font-black text-gray-900 dark:text-white">Edit Profile</h1>
+      <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
         Update your bio, avatar, username, and details for your social presence.
       </p>
       <EditProfileSection />

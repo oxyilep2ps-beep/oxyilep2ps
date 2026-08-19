@@ -14,6 +14,8 @@ export type FeedPost = {
   author_name: string;
   author_role: string;
   author_avatar: string | null;
+  likes_count: number;
+  liked_by_me: boolean;
 };
 
 export type GroupSummary = {
@@ -53,7 +55,7 @@ function canCreatePost(role: Role) {
 }
 
 export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
-  await requireUser();
+  const user = await requireUser();
   const admin = createAdminClient();
 
   const { data: posts, error } = await admin
@@ -84,6 +86,8 @@ export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
       author_name: 'Platform Announcements',
       author_role: 'System',
       author_avatar: null,
+      likes_count: 0,
+      liked_by_me: false,
     }));
   }
 
@@ -94,6 +98,19 @@ export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
     .in('id', authorIds);
 
   const authorMap = Object.fromEntries((authors ?? []).map((a) => [String(a.id), a]));
+  const postIds = posts.map((p) => String(p.id));
+  const { data: likes } = await admin
+    .from('post_likes')
+    .select('post_id, user_id')
+    .in('post_id', postIds);
+
+  const likeCountMap: Record<string, number> = {};
+  const likedByMe = new Set<string>();
+  for (const row of likes ?? []) {
+    const key = String(row.post_id);
+    likeCountMap[key] = (likeCountMap[key] ?? 0) + 1;
+    if (String(row.user_id) === user.id) likedByMe.add(key);
+  }
 
   return posts.map((p) => {
     const author = authorMap[String(p.author_id)];
@@ -106,8 +123,38 @@ export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
       author_name: String(author?.full_legal_name ?? 'Unknown'),
       author_role: String(author?.role ?? ''),
       author_avatar: (author?.avatar_url as string | null) ?? null,
+      likes_count: likeCountMap[String(p.id)] ?? 0,
+      liked_by_me: likedByMe.has(String(p.id)),
     };
   });
+}
+
+export async function togglePostLike(postId: string) {
+  const user = await requireUser();
+  const admin = createAdminClient();
+  if (!postId || postId.startsWith('legacy-')) {
+    return { ok: false as const, error: 'Invalid post for likes.' };
+  }
+
+  const { data: post } = await admin.from('global_posts').select('id').eq('id', postId).maybeSingle();
+  if (!post) return { ok: false as const, error: 'Post not found.' };
+
+  const { data: existing } = await admin
+    .from('post_likes')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await admin.from('post_likes').delete().eq('post_id', postId).eq('user_id', user.id);
+    if (error) return { ok: false as const, error: error.message };
+    return { ok: true as const, liked: false };
+  }
+
+  const { error } = await admin.from('post_likes').insert({ post_id: postId, user_id: user.id });
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const, liked: true };
 }
 
 export async function createGlobalPost(input: { content: string; media_url?: string | null }) {

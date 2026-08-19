@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Mail, Menu, Search, X } from 'lucide-react';
 import { AdminNotificationBell } from '@/components/admin/admin-notification-provider';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { getAdminProfile } from '@/app/actions/admin-profile';
+import { getHeaderProfile } from '@/app/actions/header-profile';
 import { ADMIN_NAV_FLAT } from '@/lib/admin/nav-config';
 import { cn } from '@/lib/utils';
 
@@ -40,19 +40,23 @@ export function AdminHeaderV2({
     name: string;
     email: string;
     avatarUrl: string | null;
-  }>({ name: 'Admin', email: '', avatarUrl: null });
+  }>({ name: 'User', email: 'No email', avatarUrl: null });
   const [menuOpen, setMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void getAdminProfile().then((row) => {
-      if (!row) return;
-      setProfile({
-        name: row.display_name?.trim() || 'Admin',
-        email: row.email?.trim() || '',
-        avatarUrl: row.avatar_url,
+    void getHeaderProfile()
+      .then((row) => {
+        if (!row) return;
+        setProfile({
+          name: row.name.trim() || 'User',
+          email: row.email.trim() || 'No email',
+          avatarUrl: row.avatarUrl,
+        });
+      })
+      .catch(() => {
+        // Keep safe defaults when profile lookup fails.
       });
-    });
   }, []);
 
   useEffect(() => {
@@ -270,7 +274,7 @@ export function AdminHeaderV2({
                   {profile.name}
                 </span>
                 <span className="block max-w-[100px] truncate text-[10px] leading-tight text-gray-500 dark:text-gray-400">
-                  {profile.email || 'admin@oxyile.com'}
+                  {profile.email}
                 </span>
               </span>
             </button>

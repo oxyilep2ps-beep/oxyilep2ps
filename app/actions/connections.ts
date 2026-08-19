@@ -19,6 +19,7 @@ export type DiscoverUser = {
   full_legal_name: string;
   username: string | null;
   avatar_url: string | null;
+  bio: string | null;
   role: string;
   connection_status: ConnectionStatus;
   connection_id: string | null;
@@ -165,25 +166,25 @@ export async function listDiscoverUsers(limit = 40): Promise<DiscoverUser[]> {
   try {
     const user = await getAuthUser();
     const admin = createAdminClient();
+    const normalizedLimit = Math.max(1, Math.min(limit, 20));
+    const poolSize = Math.max(normalizedLimit * 4, 24);
 
     // Prefer approved/active members first.
     const { data: approvedProfiles, error: approvedProfilesError } = await admin
       .from('profiles')
-      .select('id, full_legal_name, username, avatar_url, role')
+      .select('id, full_legal_name, username, avatar_url, bio, role')
       .neq('id', user.id)
       .in('status', ['APPROVED', 'approved', 'VERIFIED', 'verified', 'ACTIVE', 'active'])
-      .order('full_legal_name', { ascending: true })
-      .limit(limit);
+      .limit(poolSize);
 
     let profiles = approvedProfiles;
     // Fallback: if status column values are sparse/inconsistent (or query fails), still show real users.
     if (approvedProfilesError || !profiles || profiles.length === 0) {
       const { data: fallbackProfiles, error: fallbackProfilesError } = await admin
         .from('profiles')
-        .select('id, full_legal_name, username, avatar_url, role')
+        .select('id, full_legal_name, username, avatar_url, bio, role')
         .neq('id', user.id)
-        .order('full_legal_name', { ascending: true })
-        .limit(limit);
+        .limit(poolSize);
       if (fallbackProfilesError) throw new Error(fallbackProfilesError.message);
       profiles = fallbackProfiles;
     }
@@ -205,7 +206,7 @@ export async function listDiscoverUsers(limit = 40): Promise<DiscoverUser[]> {
       };
     }
 
-    return (profiles ?? []).map((p) => {
+    const decorated = (profiles ?? []).map((p) => {
       const conn = connMap[String(p.id)];
       let connection_status: ConnectionStatus = 'none';
       let connection_id: string | null = null;
@@ -223,11 +224,17 @@ export async function listDiscoverUsers(limit = 40): Promise<DiscoverUser[]> {
         full_legal_name: String(p.full_legal_name ?? ''),
         username: (p.username as string | null) ?? null,
         avatar_url: (p.avatar_url as string | null) ?? null,
+        bio: (p.bio as string | null) ?? null,
         role: String(p.role ?? ''),
         connection_status,
         connection_id,
       };
     });
+    const shuffled = decorated
+      .map((value) => ({ value, key: Math.random() }))
+      .sort((a, b) => a.key - b.key)
+      .map((entry) => entry.value);
+    return shuffled.slice(0, normalizedLimit);
   } catch (error) {
     console.error('[listDiscoverUsers] failed', error);
     return [];

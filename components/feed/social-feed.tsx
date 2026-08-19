@@ -7,6 +7,7 @@ import {
   Building2,
   ChevronRight,
   Edit3,
+  Heart,
   Loader2,
   MessageCircle,
   Newspaper,
@@ -25,6 +26,7 @@ import {
   createGlobalPost,
   deleteGlobalPost,
   listGlobalPosts,
+  togglePostLike,
   type FeedPost,
   updateGlobalPost,
 } from '@/app/actions/social-network';
@@ -90,11 +92,15 @@ const PORTAL_MAP: Record<string, PortalConfig> = {
 function FeedPostCard({
   item,
   canManage,
+  likesBusy,
+  onToggleLike,
   onDelete,
   onEdit,
 }: {
   item: FeedPost;
   canManage: boolean;
+  likesBusy: boolean;
+  onToggleLike: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string, content: string) => void;
 }) {
@@ -105,16 +111,18 @@ function FeedPostCard({
     <motion.article
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-2xl border border-neutral-800 bg-[#111]"
+      className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-[#111]"
     >
-      <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#F97316]/20 text-[11px] font-black text-[#F97316]">
             {item.author_name.slice(0, 2).toUpperCase()}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white">{item.author_name}</p>
-            <p className="text-[10px] uppercase tracking-wide text-neutral-400">{item.author_role}</p>
+            <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{item.author_name}</p>
+            <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-neutral-400">
+              {new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+            </p>
           </div>
         </div>
         {canManage && (
@@ -122,14 +130,14 @@ function FeedPostCard({
             <button
               type="button"
               onClick={() => setEditing((v) => !v)}
-              className="rounded-lg p-1.5 text-neutral-400 transition hover:bg-[#F97316]/10 hover:text-[#F97316]"
+              className="rounded-lg p-1.5 text-gray-500 transition hover:bg-[#F97316]/10 hover:text-[#F97316] dark:text-neutral-400"
             >
               <Edit3 size={14} />
             </button>
             <button
               type="button"
               onClick={() => onDelete(item.id)}
-              className="rounded-lg p-1.5 text-neutral-400 transition hover:bg-red-500/10 hover:text-red-400"
+              className="rounded-lg p-1.5 text-gray-500 transition hover:bg-red-500/10 hover:text-red-400 dark:text-neutral-400"
             >
               <Trash2 size={14} />
             </button>
@@ -143,13 +151,13 @@ function FeedPostCard({
             <textarea
               value={nextText}
               onChange={(e) => setNextText(e.target.value)}
-              className="min-h-24 w-full rounded-xl border border-neutral-700 bg-[#0a0a0a] px-3 py-2 text-sm text-white outline-none focus:border-[#F97316]/60"
+              className="min-h-24 w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-[#F97316]/60 dark:border-gray-700 dark:text-white"
             />
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setEditing(false)}
-                className="rounded-full border border-neutral-700 px-3 py-1 text-xs font-semibold text-neutral-300"
+                className="rounded-full border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:text-neutral-300"
               >
                 Cancel
               </button>
@@ -166,11 +174,27 @@ function FeedPostCard({
             </div>
           </>
         ) : (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-200">{item.content}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-900 dark:text-gray-100">{item.content}</p>
         )}
-        <p className="text-[10px] text-neutral-500">
+        <p className="text-[10px] text-gray-500 dark:text-neutral-500">
           {new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
         </p>
+        {!item.id.startsWith('legacy-') && (
+          <button
+            type="button"
+            onClick={() => onToggleLike(item.id)}
+            disabled={likesBusy}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition',
+              item.liked_by_me
+                ? 'border-[#F97316]/40 bg-[#F97316]/10 text-[#F97316]'
+                : 'border-gray-300 text-gray-600 hover:border-[#F97316]/40 hover:text-[#F97316] dark:border-gray-700 dark:text-gray-300'
+            )}
+          >
+            <Heart size={13} className={cn(item.liked_by_me && 'fill-current')} />
+            {item.likes_count}
+          </button>
+        )}
       </div>
     </motion.article>
   );
@@ -205,7 +229,9 @@ function SuggestedUserRow({ user }: { user: DiscoverUser }) {
         <p className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
           {displayName}
         </p>
-        <p className="text-[11px] capitalize text-neutral-400">{(user.role ?? '').toLowerCase()}</p>
+        <p className="text-[11px] text-gray-500 dark:text-neutral-400">
+          {user.username ? `@${user.username}` : (user.bio ?? 'Connect to start chatting').slice(0, 42)}
+        </p>
       </div>
 
       <button
@@ -250,6 +276,7 @@ export function SocialFeed() {
   const [myId, setMyId] = useState<string>('');
   const [displayName, setDisplayName] = useState('');
   const [postText, setPostText] = useState('');
+  const [likesPendingIds, setLikesPendingIds] = useState<Record<string, boolean>>({});
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -291,7 +318,7 @@ export function SocialFeed() {
         }
 
         try {
-          const suggestRes = await listDiscoverUsers(12);
+          const suggestRes = await listDiscoverUsers(7);
           if (mounted) setSuggestions(suggestRes);
         } catch (err) {
           if (mounted) setSuggestionsError(err instanceof Error ? err.message : 'Failed to load suggestions.');
@@ -317,7 +344,7 @@ export function SocialFeed() {
   const canManageAnyPost = role === 'ADMIN';
 
   const visibleSuggestions = useMemo(
-    () => suggestions.filter((u) => u.connection_status !== 'accepted').slice(0, 10),
+    () => suggestions.filter((u) => u.connection_status !== 'accepted').slice(0, 7),
     [suggestions]
   );
 
@@ -372,7 +399,7 @@ export function SocialFeed() {
                 value={postText}
                 onChange={(e) => setPostText(e.target.value)}
                 placeholder="Share an update with everyone..."
-                className="min-h-24 w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-[#0a0a0a] dark:text-white dark:placeholder:text-neutral-500"
+                className="min-h-24 w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-[#F97316]/60 dark:border-gray-700 dark:text-white"
               />
               <div className="mt-3 flex justify-end">
                 <button
@@ -397,7 +424,7 @@ export function SocialFeed() {
 
           {/* Feed section */}
           <div>
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-neutral-400">
+            <h2 className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400">
               <Sparkles size={13} />
               Global Feed
             </h2>
@@ -414,7 +441,7 @@ export function SocialFeed() {
             ) : posts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-300 py-12 text-center dark:border-neutral-800">
                 <Sparkles size={28} className="mx-auto mb-3 text-neutral-600" />
-                <p className="text-sm text-neutral-400">No posts yet.</p>
+                <p className="text-sm text-gray-500 dark:text-neutral-400">No posts yet.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -423,6 +450,33 @@ export function SocialFeed() {
                     key={item.id}
                     item={item}
                     canManage={!item.id.startsWith('legacy-') && (canManageAnyPost || item.author_id === myId)}
+                    likesBusy={Boolean(likesPendingIds[item.id])}
+                    onToggleLike={(id) => {
+                      const prev = posts;
+                      setLikesPendingIds((curr) => ({ ...curr, [id]: true }));
+                      setPosts((curr) =>
+                        curr.map((post) =>
+                          post.id !== id
+                            ? post
+                            : {
+                                ...post,
+                                liked_by_me: !post.liked_by_me,
+                                likes_count: Math.max(0, post.likes_count + (post.liked_by_me ? -1 : 1)),
+                              }
+                        )
+                      );
+                      startTransition(async () => {
+                        const res = await togglePostLike(id);
+                        if (!res.ok) {
+                          setPosts(prev);
+                        }
+                        setLikesPendingIds((curr) => {
+                          const next = { ...curr };
+                          delete next[id];
+                          return next;
+                        });
+                      });
+                    }}
                     onDelete={(id) =>
                       startTransition(async () => {
                         await deleteGlobalPost(id);
@@ -445,7 +499,7 @@ export function SocialFeed() {
         {/* ────────────── RIGHT: Suggested connections ────────────── */}
         <aside className="space-y-3">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111]">
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-neutral-400">
+            <h2 className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400">
               <Users size={13} />
               Suggested Connections
             </h2>
@@ -460,7 +514,7 @@ export function SocialFeed() {
                 <p className="mt-1 text-[11px] text-amber-100/80">{suggestionsError}</p>
               </div>
             ) : visibleSuggestions.length === 0 ? (
-              <p className="py-4 text-center text-xs text-neutral-400">No suggestions found right now.</p>
+              <p className="py-4 text-center text-xs text-gray-500 dark:text-neutral-400">No suggestions found right now.</p>
             ) : (
               <div className="space-y-1">
                 {visibleSuggestions.map((u) => (
@@ -480,20 +534,20 @@ export function SocialFeed() {
 
           {/* Quick links */}
           <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111]">
-            <h2 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-neutral-400">Quick Links</h2>
+            <h2 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400">Quick Links</h2>
             <ul className="space-y-1">
               <li>
-                <Link href="/profile/edit" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5">
+                <Link href="/settings/profile" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-white/5">
                   Your Profile
                 </Link>
               </li>
               <li>
-                <Link href="/profile/edit" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5">
+                <Link href="/settings/profile" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-white/5">
                   Settings
                 </Link>
               </li>
               <li>
-                <Link href="/" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-neutral-300 transition hover:bg-white/5">
+                <Link href="/" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-white/5">
                   View Public Site
                 </Link>
               </li>
