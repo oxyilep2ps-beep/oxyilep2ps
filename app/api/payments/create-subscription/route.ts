@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     const sub = await createMonthlyEmiSubscription({
       mandateId,
       amountGbp: emi,
-      name: `Oxyile EMI — ${body.handshakeId.slice(0, 8)}`,
+      name: `Oxyile Repayment — ${body.handshakeId.slice(0, 8)}`,
       handshakeId: body.handshakeId,
       totalPayments: duration,
     });

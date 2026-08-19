@@ -26,7 +26,7 @@ export default async function InvestorDashboardPage() {
             {profile?.full_legal_name ?? 'Investor'} dashboard
           </h1>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            Funded loans and EMI collection status.
+            Funded loans and monthly repayment collection status.
           </p>
         </div>
         <Link
@@ -52,7 +52,7 @@ export default async function InvestorDashboardPage() {
                   <th className="px-5 py-3 font-bold">Borrower Name</th>
                   <th className="px-5 py-3 font-bold">Amount Invested</th>
                   <th className="px-5 py-3 font-bold">Date</th>
-                  <th className="px-5 py-3 font-bold">EMI Status</th>
+                  <th className="px-5 py-3 font-bold">Repayment Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/40 dark:divide-white/10">

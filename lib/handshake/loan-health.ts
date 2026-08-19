@@ -16,7 +16,7 @@ export function getLoanHealthStatus(row: AdminHandshakeRow): LoanHealthStatus {
 
 export const LOAN_HEALTH_LABELS: Record<LoanHealthStatus, string> = {
   good: 'Active / Good',
-  missed: '1 Missed EMI',
+  missed: '1 Missed Repayment',
   defaulted: 'Defaulted',
   pending: 'Pending',
 };

@@ -78,7 +78,7 @@ export async function sendGuarantorInvite({
 
   const resend = new Resend(apiKey);
   const amountText = typeof amount === 'number' ? `£${amount.toLocaleString('en-GB')}` : 'your loan';
-  const emiText = typeof emiAmount === 'number' ? `£${emiAmount.toLocaleString('en-GB')}` : 'a fixed EMI';
+  const repaymentText = typeof emiAmount === 'number' ? `£${emiAmount.toLocaleString('en-GB')}` : 'a scheduled monthly repayment';
 
   await resend.emails.send({
     from: 'Oxyile <guarantor@oxyile.com>',
@@ -89,7 +89,7 @@ export async function sendGuarantorInvite({
       <div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#111827">
         <h1 style="margin:0 0 12px;font-size:24px">You have been invited as a guarantor</h1>
         <p>${borrowerName ? `${borrowerName} ` : 'A borrower '}has added you as a guarantor for ${amountText}.</p>
-        <p>Estimated EMI: <strong>${emiText}</strong></p>
+        <p>Estimated monthly repayment: <strong>${repaymentText}</strong></p>
         <p>Please review the loan terms and secure your backup Direct Debit mandate using the link below.</p>
         <p><a href="${inviteUrl}" style="display:inline-block;background:#0f62fe;color:#fff;padding:12px 18px;border-radius:999px;text-decoration:none;font-weight:700">Review guarantor invitation</a></p>
         <p style="font-size:12px;color:#6b7280">If the button does not work, copy and paste this link: ${inviteUrl}</p>

@@ -18,10 +18,10 @@ export const BLOG_POSTS: BlogPost[] = [
     excerpt:
       'Peer-to-peer lending connects verified investors with creditworthy borrowers — often with clearer terms than legacy channels.',
     body: [
-      'The UK P2P market has matured into a regulated alternative to traditional bank loans for many households and small businesses. Platforms like Oxyile focus on transparency: every handshake shows loan amount, rate, duration, EMI, and total return before either party approves.',
+      'The UK P2P market has matured into a regulated alternative to traditional bank loans for many households and small businesses. Platforms like Oxyile focus on transparency: every handshake shows loan amount, rate, duration, monthly repayments, and total return before either party approves.',
       'Borrowers benefit from competitive pricing when their profile demonstrates stable income and responsible credit behaviour. Investors gain access to diversified exposure with contract records anchored on-chain for auditability.',
       'Before you apply, gather proof of identity, address history, and (for borrowers) income verification. Our compliance team reviews each profile manually — quality over speed.',
-      'When both parties approve a handshake in chat, the contract moves to “Contract Approved — Money Pending” until fiat settlement clears. EMI schedules then follow the agreed monthly figure.',
+      'When both parties approve a handshake in chat, the contract moves to “Contract Approved — Money Pending” until fiat settlement clears. Repayment schedules then follow the agreed monthly figure.',
     ],
   },
   {
@@ -60,20 +60,20 @@ export const BLOG_POSTS: BlogPost[] = [
     excerpt: 'On-chain handshake records complement fiat rails — they do not replace KYC or GoCardless collections.',
     body: [
       'Oxyile mints handshake metadata on Polygon Amoy after both parties approve and the borrower links a UK bank mandate. The hash becomes a tamper-evident reference for admins and counterparties.',
-      'Web3 here is an audit layer, not a replacement for regulated fiat movement. EMIs still flow through GoCardless Direct Debit.',
+      'Web3 here is an audit layer, not a replacement for regulated fiat movement. Monthly repayments still flow through GoCardless Direct Debit.',
       'Investors should still perform diligence in chat before approving terms shown on the handshake card.',
     ],
   },
   {
     slug: 'gocardless-emi-automation',
-    title: 'GoCardless and automated EMI collections explained',
+    title: 'GoCardless and automated repayment collections explained',
     tag: 'Payments',
     readTime: '5 min read',
     publishedAt: '25 Apr 2026',
     excerpt: 'How borrowers authorise mandates and how Oxyile schedules monthly subscriptions after contract activation.',
     body: [
       'After dual approval, borrowers complete a hosted GoCardless Billing Request Flow to authorise BACS Direct Debit.',
-      'When the mandate is active, Oxyile creates a subscription matching the EMI amount and loan duration shown on the handshake card.',
+      'When the mandate is active, Oxyile creates a subscription matching the monthly repayment amount and loan duration shown on the handshake card.',
       'Failed collections follow GoCardless retry rules; borrowers should keep sufficient funds and update bank details if needed.',
     ],
   },
@@ -83,11 +83,11 @@ export const BLOG_POSTS: BlogPost[] = [
     tag: 'Product',
     readTime: '6 min read',
     publishedAt: '22 Apr 2026',
-    excerpt: 'From in-chat proposal to “Bank Linked, Contract Minted, Auto-EMI Active” in one guided journey.',
+    excerpt: 'From in-chat proposal to “Bank Linked, Contract Minted, Auto-Repayment Active” in one guided journey.',
     body: [
-      'Lenders and borrowers negotiate in real-time chat, then send a handshake card with amount, rate, duration, EMI, and total return.',
-      'Dual approval triggers borrower bank linking, Polygon mint via executeHandshake, and subscription creation for recurring EMIs.',
-      'The card surfaces live status: Bank Linked, Smart Contract Minted, and Auto-EMI Active when all rails are green.',
+      'Lenders and borrowers negotiate in real-time chat, then send a handshake card with amount, rate, duration, monthly repayments, and total return.',
+      'Dual approval triggers borrower bank linking, Polygon mint via executeHandshake, and subscription creation for recurring repayments.',
+      'The card surfaces live status: Bank Linked, Smart Contract Minted, and Auto-Repayment Active when all rails are green.',
     ],
   },
   {
@@ -122,11 +122,11 @@ export const BLOG_POSTS: BlogPost[] = [
     tag: 'Borrowing',
     readTime: '6 min read',
     publishedAt: '10 Apr 2026',
-    excerpt: 'Stress-test EMI against rent, bills, and emergencies before tapping Approve on a handshake.',
+    excerpt: 'Stress-test monthly repayments against rent, bills, and emergencies before tapping Approve on a handshake.',
     body: [
-      'Use the EMI and total return on the card as your baseline — then add headroom for rate changes and life events.',
+      'Use the monthly repayment and total return on the card as your baseline — then add headroom for rate changes and life events.',
       'Disclose income and expenses honestly during KYC; investors price risk with the data you provide.',
-      'If EMIs strain your budget, negotiate a longer duration or smaller amount in chat before approving.',
+      'If repayments strain your budget, negotiate a longer duration or smaller amount in chat before approving.',
     ],
   },
   {

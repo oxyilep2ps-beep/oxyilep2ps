@@ -131,7 +131,7 @@ export default function WaitlistPage() {
           <p className="text-sm uppercase tracking-[0.3em] text-brand-500">Early access</p>
           <h1 className="text-4xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">Join the Waitlist</h1>
           <p className="max-w-xl text-base leading-7 text-slate-600 dark:text-slate-300">
-            Be first in line when Oxyile opens for verified borrowers and investors across the UK. Platform interest rate is fixed at 10%.
+            Be first in line when Oxyile opens for verified borrowers and investors across the UK. FCA authorisation application in progress — join for early access updates.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             {[

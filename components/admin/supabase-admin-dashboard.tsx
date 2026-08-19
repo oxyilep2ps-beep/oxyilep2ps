@@ -428,7 +428,7 @@ function buildQuestionnaireRows(kyc: NormalizedKyc, profile: Profile): Questionn
       { question: 'Income verification uploaded?', answer: kyc.borrower.hasIncomeVerification ? 'Yes' : 'Not provided' },
       { question: 'Open Banking income verification consent?', answer: formatBoolean(kyc.borrower.openBankingConsent) },
       { question: 'Credit check consent via Experian/Equifax?', answer: formatBoolean(kyc.borrower.creditCheckConsent) },
-      { question: 'Monthly rent or EMI', answer: formatCurrency(kyc.borrower.monthlyRentOrEmi) },
+      { question: 'Monthly rent or housing payment', answer: formatCurrency(kyc.borrower.monthlyRentOrEmi) },
       { question: 'Other monthly expenses', answer: formatCurrency(kyc.borrower.otherMonthlyExpenses) }
     );
   }
@@ -1078,7 +1078,7 @@ function ProfileCard({
                       .join(' · ') || '—'
                   }
                 />
-                <Row label="Rent/EMI" value={formatCurrency(dossier.borrower.monthlyRentOrEmi)} />
+                <Row label="Rent/Housing" value={formatCurrency(dossier.borrower.monthlyRentOrEmi)} />
                 <Row label="Other expenses" value={formatCurrency(dossier.borrower.otherMonthlyExpenses)} />
               </DetailSection>
             )}
@@ -1217,7 +1217,7 @@ function ProfileCard({
                   <p><span className="font-semibold">Annual income:</span> {formatCurrency(dossier.borrower.annualIncome)}</p>
                   <p><span className="font-semibold">Open banking:</span> {formatBoolean(dossier.borrower.openBankingConsent)}</p>
                   <p><span className="font-semibold">Credit check:</span> {formatBoolean(dossier.borrower.creditCheckConsent)}</p>
-                  <p><span className="font-semibold">Rent/EMI:</span> {formatCurrency(dossier.borrower.monthlyRentOrEmi)}</p>
+                  <p><span className="font-semibold">Rent/Housing:</span> {formatCurrency(dossier.borrower.monthlyRentOrEmi)}</p>
                   <p><span className="font-semibold">Other expenses:</span> {formatCurrency(dossier.borrower.otherMonthlyExpenses)}</p>
                   <p><span className="font-semibold">Income verification:</span> {dossier.borrower.hasIncomeVerification ? 'Uploaded' : 'Missing'}</p>
                 </div>

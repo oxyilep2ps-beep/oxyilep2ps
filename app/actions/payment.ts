@@ -325,7 +325,7 @@ export async function completeBorrowerBankLink(
     const sub = await createMonthlyEmiSubscription({
       mandateId: borrowerMandateId,
       amountGbp: figures.emi_amount,
-      name: `Oxyile EMI — ${id.slice(0, 8)}`,
+      name: `Oxyile Repayment — ${id.slice(0, 8)}`,
       handshakeId: id,
       totalPayments: Math.max(1, Math.round(Number(handshake.duration ?? 12))),
     });

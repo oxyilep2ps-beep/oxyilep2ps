@@ -158,7 +158,7 @@ export function AdminHandshakesTab() {
                         £{row.amount.toLocaleString('en-GB')} · {row.rate}% · {row.duration} mo
                       </p>
                       <p className="text-xs text-neutral-500">
-                        EMI £{emi.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Total £
+                        Repayment £{emi.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · Total £
                         {total.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </td>
@@ -200,7 +200,7 @@ export function AdminHandshakesTab() {
                         {row.contract_label}
                       </span>
                       <p className="mt-2 text-xs text-neutral-500">
-                        Auto-EMI: {row.auto_emi_active ? 'Active' : 'Pending'}
+                        Auto-Repayments: {row.auto_emi_active ? 'Active' : 'Pending'}
                       </p>
                     </td>
                     <td className="px-4 py-4">

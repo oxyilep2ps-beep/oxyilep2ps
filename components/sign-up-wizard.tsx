@@ -259,7 +259,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
           errs.push('Provide income verification upload or Open Banking consent.');
         }
         if (!borrower.creditCheckConsent) errs.push('Credit check consent is required (Experian/Equifax).');
-        if (!borrower.monthlyRentOrEmi.trim()) errs.push('Monthly rent/EMI is required for affordability.');
+        if (!borrower.monthlyRentOrEmi.trim()) errs.push('Monthly rent or housing payment is required for affordability.');
       }
     }
     return errs;
@@ -550,7 +550,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
         </div>
 
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Platform interest rate is fixed at 10% for all borrowers and investors.
+          Rates shown are illustrative for modelling only. Targeted variable returns — not guaranteed. FCA authorisation application in progress.
         </p>
 
         {role === 'lender' ? (
@@ -689,7 +689,7 @@ export function SignUpWizard({ onComplete }: SignUpWizardProps) {
             <p className="text-sm font-semibold text-neutral-950 dark:text-white">Affordability Assessment</p>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <FieldLabel required>Monthly Rent / EMI (£)</FieldLabel>
+                <FieldLabel required>Monthly Rent / Housing Payment (£)</FieldLabel>
                 <TextInput
                   value={borrower.monthlyRentOrEmi}
                   onChange={(e) => setBorrower({ ...borrower, monthlyRentOrEmi: e.target.value })}

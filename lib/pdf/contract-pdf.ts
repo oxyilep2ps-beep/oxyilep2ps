@@ -302,8 +302,8 @@ export function generateContractPDF({ contract, perspective, mode = 'user' }: Ge
       ['Loan Amount', money(contract.amount)],
       ['Interest Rate', `${contract.rate}% p.a.`],
       ['Duration', `${contract.duration} months`],
-      ['Monthly EMI', money(emi)],
-      ['Total EMI / Return', money(totalReturn)],
+      ['Monthly Repayment', money(emi)],
+      ['Total Repayment / Return', money(totalReturn)],
       ['Contract Status', contract.status ?? 'ACTIVE'],
       ['Payment Status', contract.payment_status ?? 'PENDING'],
     ],
@@ -347,10 +347,10 @@ export function generateContractPDF({ contract, perspective, mode = 'user' }: Ge
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     setText(doc);
-    doc.text('EMI Breakdown', PAGE.margin, y);
+    doc.text('Repayment Schedule', PAGE.margin, y);
     autoTable(doc, {
       startY: y + 5,
-      head: [['Installment', 'EMI', 'Collection Method']],
+      head: [['Installment', 'Monthly Repayment', 'Collection Method']],
       body: scheduleRows(emi, contract.duration),
       margin: { left: PAGE.margin, right: PAGE.margin },
       tableWidth: CONTENT_WIDTH,

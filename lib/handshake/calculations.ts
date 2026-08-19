@@ -37,8 +37,8 @@ export function formatContractLabel(
   if (status === 'PENDING') return 'Awaiting investor escrow funding';
   if (status === 'FUNDED') return 'Escrow funded — awaiting borrower bank link';
   if (status === 'MATCHED') return 'Investor matched — activation pending';
-  if (status === 'ACTIVE' && paymentStatus === 'PAID') return 'Paid — EMI schedule active';
-  if (status === 'ACTIVE' && paymentStatus === 'ACTIVE') return 'Bank linked — EMI subscription active';
+  if (status === 'ACTIVE' && paymentStatus === 'PAID') return 'Paid — repayment schedule active';
+  if (status === 'ACTIVE' && paymentStatus === 'ACTIVE') return 'Bank linked — monthly repayment subscription active';
   if (status === 'ACTIVE') return 'Contract Approved — Money Pending';
   return status;
 }

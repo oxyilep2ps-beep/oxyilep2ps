@@ -46,7 +46,7 @@ function OpportunityCard({
           <p className="mt-1 text-2xl font-black text-neutral-950 dark:text-white">
             £{row.loan_amount.toLocaleString('en-GB')}
           </p>
-          <p className="text-sm text-neutral-500">{row.tenure_months} months · EMI £{row.emi_amount.toLocaleString('en-GB')}/mo</p>
+          <p className="text-sm text-neutral-500">{row.tenure_months} months · £{row.emi_amount.toLocaleString('en-GB')}/mo repayment</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           {row.guarantor_status === 'accepted' ? (

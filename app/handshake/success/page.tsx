@@ -105,7 +105,7 @@ function InvestorFundSuccessInner() {
           </h1>
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
             Fiat payment secured via GoCardless. The borrower can now link their bank to receive
-            funds and start EMI repayments.
+            funds and start monthly repayments.
           </p>
         </div>
 

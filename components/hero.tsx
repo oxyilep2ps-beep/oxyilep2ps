@@ -59,7 +59,7 @@ export function Hero() {
             </span>
 
             <p className="section-subtitle mt-6 max-w-xl">
-              A digital smart-contract platform connecting verified investors and borrowers directly — typical returns 10% for investors while borrowers access fair, fast funding without bank middlemen.
+              A digital smart-contract platform connecting verified investors and borrowers directly — explore potential lending opportunities with transparent terms and no bank middlemen. FCA authorisation application in progress.
             </p>
 
             <div className="mt-8 flex gap-4">
@@ -87,7 +87,7 @@ export function Hero() {
                   <h3 className="mt-2 text-xl font-semibold text-slate-950 dark:text-white sm:text-2xl">Direct capital, direct repayments, zero middleman drag</h3>
                 </div>
                 <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-700 shadow-sm dark:border-zinc-800 dark:bg-black dark:text-white/75">
-                  Live network
+                  Pre-launch preview
                 </div>
               </div>
 
@@ -376,7 +376,7 @@ export function Hero() {
                     animate={{ opacity: [0.75, 1, 0.75] }}
                     transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay: 0.15 }}
                   >
-                    £ flows verified in real time
+                    Repayment schedules tracked transparently
                   </motion.text>
                   </svg>
 
@@ -508,7 +508,7 @@ export function Hero() {
                           animate={{ opacity: [0.75, 1, 0.75] }}
                           transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay: 0.15 }}
                         >
-                          £ flows verified
+                          Repayments tracked
                         </motion.text>
                       </svg>
                   </div>
@@ -519,14 +519,14 @@ export function Hero() {
                   animate={{ y: [0, -8, 0], x: [0, 4, 0] }}
                   transition={{ duration: 5.4, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                    <p className="whitespace-normal break-words text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/45 md:text-[0.65rem] md:tracking-[0.25em]">Verified Investors</p>
+                    <p className="whitespace-normal break-words text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/45 md:text-[0.65rem] md:tracking-[0.25em]">Investor Layer</p>
                     <div className="mt-3 flex items-end justify-between gap-3">
                     <div>
-                        <p className="whitespace-normal break-words text-base font-semibold text-slate-950 dark:text-white md:text-sm">£248k</p>
-                        <p className="whitespace-normal break-words text-sm text-slate-500 dark:text-white/65 md:text-xs">Incoming capital</p>
+                        <p className="whitespace-normal break-words text-base font-semibold text-slate-950 dark:text-white md:text-sm">Coming soon</p>
+                        <p className="whitespace-normal break-words text-sm text-slate-500 dark:text-white/65 md:text-xs">Building P2P liquidity</p>
                     </div>
                     <motion.div className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-2 py-1 text-[10px] font-semibold text-white" animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}>
-                      +12.4%
+                      Waitlist
                     </motion.div>
                   </div>
                 </motion.div>
@@ -538,7 +538,7 @@ export function Hero() {
                 >
                   <p className="whitespace-normal break-words text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/45 md:text-[0.65rem] md:tracking-[0.28em]">Middle Hub</p>
                   <div className="mt-4 rounded-full border border-brand-200 bg-brand-500/10 px-4 py-3 text-base font-semibold text-brand-600 dark:border-zinc-800 dark:bg-black/70 dark:text-white md:mt-3 md:px-3 md:py-2 md:text-sm">
-                    Direct Yield: 9.2% p.a.
+                    Targeted variable returns
                   </div>
                   <div className="mt-3 rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-4 py-3 text-sm font-semibold text-white shadow-glow md:px-3 md:py-2 md:text-xs">
                     0% Bank Spread Bypassed
@@ -550,14 +550,14 @@ export function Hero() {
                   animate={{ y: [0, 8, 0], x: [0, -4, 0] }}
                   transition={{ duration: 5.8, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
                 >
-                  <p className="whitespace-normal break-words text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/45 md:text-[0.65rem] md:tracking-[0.25em]">Prime Borrowers</p>
+                  <p className="whitespace-normal break-words text-sm font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/45 md:text-[0.65rem] md:tracking-[0.25em]">Borrower Layer</p>
                   <div className="mt-3 flex items-end justify-between gap-3">
                     <div>
-                      <p className="whitespace-normal break-words text-base font-semibold text-slate-950 dark:text-white md:text-sm">£96k</p>
-                      <p className="whitespace-normal break-words text-sm text-slate-500 dark:text-white/65 md:text-xs">Funding allocated</p>
+                      <p className="whitespace-normal break-words text-base font-semibold text-slate-950 dark:text-white md:text-sm">Coming soon</p>
+                      <p className="whitespace-normal break-words text-sm text-slate-500 dark:text-white/65 md:text-xs">Collateral-backed loans</p>
                     </div>
                     <motion.div className="rounded-full bg-black px-2 py-1 text-[10px] font-semibold text-white dark:bg-white dark:text-black" animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}>
-                      Live
+                      Preview
                     </motion.div>
                   </div>
                 </motion.div>
@@ -574,7 +574,7 @@ export function Hero() {
                   animate={{ opacity: [0.9, 1, 0.9] }}
                   transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
                 >
-                  Contract matched in 24h
+                  Smart contract matching
                 </motion.div>
 
                 <motion.div

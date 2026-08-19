@@ -29,7 +29,7 @@ export function HomepageWeb3SecuritySection() {
   struct LoanAgreement {
     bytes32 deedHash;
     uint256 principal;
-    uint8   emiStatus;
+    uint8   repaymentStatus;
     address collateralRef;
   }
 
@@ -43,7 +43,7 @@ export function HomepageWeb3SecuritySection() {
     ledger[handshakeId] = LoanAgreement({
       deedHash: deedOfCharge,
       principal: amount,
-      emiStatus: 1,
+      repaymentStatus: 1,
       collateralRef: msg.sender
     });
     emit AgreementSecured(handshakeId);
@@ -83,7 +83,7 @@ export function HomepageWeb3SecuritySection() {
             Secured by Polygon Layer-2
           </h2>
           <p className="mt-5 break-words text-sm leading-8 text-neutral-300">
-            Every loan agreement, EMI status update, and Deed of Charge is hashed and stored immutably on the
+            Every loan agreement, repayment status update, and Deed of Charge is hashed and stored immutably on the
             blockchain — verifiable on a public explorer, yet fully abstracted behind a frictionless Web2 experience
             for borrowers and investors.
           </p>

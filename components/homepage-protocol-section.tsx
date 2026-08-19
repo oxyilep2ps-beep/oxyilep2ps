@@ -11,13 +11,13 @@ const STEPS = [
   },
   {
     icon: ShieldCheck,
-    title: 'FCA-Compliant Escrow',
-    text: 'Funds are securely routed through regulated Client Money accounts, ensuring zero peer-to-peer friction.',
+    title: 'Client Money Safeguarding',
+    text: 'Funds are designed to route through safeguarded client money accounts — subject to FCA authorisation and final operational setup.',
   },
   {
     icon: TrendingUp,
-    title: 'Fixed 10% APY',
-    text: 'Investors enjoy predictable, collateral-backed returns while borrowers get fair, transparent liquidity.',
+    title: 'Targeted Variable Returns',
+    text: 'Investors may explore potential lending opportunities with transparent, collateral-backed terms — returns are not guaranteed.',
   },
 ] as const;
 
@@ -38,7 +38,7 @@ export function HomepageProtocolSection() {
             How The Oxyile Protocol Works
           </h2>
           <p className="mt-4 text-sm leading-7 text-neutral-600 dark:text-neutral-300">
-            A regulated, asset-backed lending loop designed for trust, speed, and predictable outcomes.
+            An asset-backed lending workflow designed for trust and transparency — FCA authorisation application in progress.
           </p>
         </motion.div>
 

@@ -106,7 +106,7 @@ export function GoCardlessSandboxForm({
 
       <p className="flex items-start gap-2 text-[11px] leading-relaxed text-neutral-500">
         <Lock size={14} className="mt-0.5 shrink-0" />
-        By authorising, you agree to a Direct Debit mandate for EMI collections. Funds for this handshake are
+        By authorising, you agree to a Direct Debit mandate for monthly repayments. Funds for this handshake are
         held in Oxyile&apos;s segregated client money account (sandbox simulation).
       </p>
 

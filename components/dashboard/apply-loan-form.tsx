@@ -132,10 +132,10 @@ export function ApplyLoanForm() {
             animate={{ opacity: 1, height: 'auto' }}
             className="mt-6 rounded-2xl border border-brand-200/60 bg-brand-500/5 p-5 dark:border-brand-500/20"
           >
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-600">EMI calculator</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Repayment calculator</p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-sm text-neutral-500">Monthly EMI</p>
+                <p className="text-sm text-neutral-500">Monthly Repayment</p>
                 <p className="text-2xl font-black text-brand-600">
                   £{emiPreview.emi_amount.toLocaleString('en-GB')}
                 </p>

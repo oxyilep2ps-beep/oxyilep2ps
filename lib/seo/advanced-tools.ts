@@ -123,7 +123,7 @@ export function generateMetaVariants(title: string, focusKeyword: string, plain:
     ],
     descriptions: [
       `${hook}`.slice(0, 155),
-      `Discover ${kw} with clear EMI, risk, and compliance context for the UK market.`.slice(0, 155),
+      `Discover ${kw} with clear repayment schedules, risk, and compliance context for the UK market.`.slice(0, 155),
       `Oxyile explains ${kw} — safeguarding, Direct Debit, and what retail lenders should watch.`.slice(0, 155),
     ],
   };

@@ -76,7 +76,7 @@ function MandateCompleteInner() {
         <>
           <Loader2 className="animate-spin text-brand-500" size={40} />
           <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-300">
-            Linking your bank, locking the smart contract on Polygon, and activating EMI…
+            Linking your bank, locking the smart contract on Polygon, and activating monthly repayments…
           </p>
         </>
       )}

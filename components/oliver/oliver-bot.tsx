@@ -42,7 +42,7 @@ export function OliverBot() {
     {
       id: 'welcome',
       role: 'bot',
-      text: "Hi! I'm Oliver — your Oxyile assistant. Ask about KYC, handshakes, EMI, or platform rules.",
+      text: "Hi! I'm Oliver — your Oxyile assistant. Ask about KYC, handshakes, repayment schedules, or platform rules.",
     },
   ]);
   const endRef = useRef<HTMLDivElement>(null);

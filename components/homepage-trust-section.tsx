@@ -22,7 +22,7 @@ export function HomepageTrustSection() {
           </h2>
           <p className="mt-4 text-sm leading-7 text-neutral-600 dark:text-neutral-300">
             Oxyile pairs verified UK borrowers and investors with bank-grade security, audited smart contracts on
-            Polygon, and fixed 10% platform returns — so every handshake is transparent, traceable, and fair.
+            Polygon, and targeted variable returns — capital is at risk and returns are not guaranteed.
           </p>
           <ul className="mt-6 space-y-3 text-sm text-neutral-700 dark:text-neutral-300">
             <li className="flex gap-2">
@@ -31,7 +31,7 @@ export function HomepageTrustSection() {
             </li>
             <li className="flex gap-2">
               <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />
-              FCA-aligned onboarding and risk disclosures
+              FCA authorisation application in progress — pre-launch disclosures only
             </li>
             <li className="flex gap-2">
               <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />

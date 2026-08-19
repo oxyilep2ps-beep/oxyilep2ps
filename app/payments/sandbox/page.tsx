@@ -266,7 +266,7 @@ function PaymentSandboxInner() {
               <p className="mt-1 text-sm font-bold">{preview.rate}% p.a.</p>
             </div>
             <div className="rounded-xl border border-neutral-200/60 p-3 text-center dark:border-white/10">
-              <p className="text-[10px] font-bold uppercase text-neutral-500">EMI (est.)</p>
+              <p className="text-[10px] font-bold uppercase text-neutral-500">Monthly repayment (est.)</p>
               <p className="mt-1 text-sm font-bold">
                 £{preview.emi_amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}
               </p>

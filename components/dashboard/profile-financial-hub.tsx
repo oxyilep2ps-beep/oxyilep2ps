@@ -92,7 +92,7 @@ function BorrowerCards({ rows }: { rows: ProfileFinancialRelationship[] }) {
             </div>
             <dl className="mt-4 grid grid-cols-3 gap-2 text-xs">
               <div>
-                <dt className="text-neutral-500">Monthly EMI</dt>
+                <dt className="text-neutral-500">Monthly Repayment</dt>
                 <dd className="mt-0.5 font-bold text-neutral-100">{formatGbp(row.emiAmountGbp)}</dd>
               </div>
               <div>
@@ -148,7 +148,7 @@ function GuarantorCards({ rows }: { rows: ProfileFinancialRelationship[] }) {
             </p>
             <p className="mt-1 text-2xl font-black text-[#F97316]">{formatGbp(row.loanAmountGbp)}</p>
             <p className="mt-1 text-xs text-neutral-400">
-              EMI exposure {formatGbp(row.emiAmountGbp)} / mo · {formatPct(row.interestRatePct)} ·{' '}
+              Repayment exposure {formatGbp(row.emiAmountGbp)} / mo · {formatPct(row.interestRatePct)} ·{' '}
               {row.tenureMonths} months
             </p>
             <div className="mt-4">
@@ -226,7 +226,7 @@ function InvestorCards({
               </div>
             </dl>
             <p className="mt-3 text-xs text-neutral-400">
-              Yield {formatPct(row.interestRatePct)} · Tenure {row.tenureMonths} months · EMI{' '}
+              Yield {formatPct(row.interestRatePct)} · Tenure {row.tenureMonths} months · Repayment{' '}
               {formatGbp(row.emiAmountGbp)}
             </p>
           </article>

@@ -12,7 +12,7 @@ export function Footer() {
           <div>
             <Logo size="lg" />
             <p className="mt-4 max-w-xl text-sm leading-7 text-neutral-600 dark:text-neutral-300">
-              Oxyile connects verified borrowers and investors through a transparent, flexible, and fair peer-to-peer lending experience across the UK.
+              Oxyile is building a transparent UK peer-to-peer lending experience. FCA authorisation application in progress.
               <br />
               112, Dogfield Street, Cardiff CF24 4QN
             </p>

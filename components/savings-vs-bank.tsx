@@ -23,7 +23,7 @@ export function SavingsVsBank() {
       <div className="mx-auto max-w-7xl px-4">
         <div className="text-center">
           <h2 className="section-heading">Savings vs Bank Comparator</h2>
-          <p className="section-subtitle mx-auto mt-4">See the direct route vs the traditional path — gamified meters show the real difference.</p>
+          <p className="section-subtitle mx-auto mt-4">See the direct route vs the traditional path — figures shown are illustrative examples only, not promises of performance.</p>
         </div>
 
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
@@ -73,14 +73,14 @@ export function SavingsVsBank() {
 
           <div className="rounded-2xl border border-white/10 bg-white p-6 dark:bg-black dark:border-white/6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">The Oxyile Direct Path</h3>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">The Oxyile Direct Path (Illustrative)</h3>
               <span className="text-sm font-medium text-amber-500">Fast · Transparent</span>
             </div>
 
             <div className="mt-6 space-y-4">
               <div>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200">Investor Yield</p>
+                  <p className="text-sm font-medium text-neutral-700 dark:text-neutral-200">Illustrative Investor Yield</p>
                   <p className="text-sm font-bold text-neutral-900 dark:text-white">{oxyile.investorYield}%</p>
                 </div>
                 <div className="mt-2 h-3 w-full rounded-full bg-white/60 dark:bg-transparent">
@@ -117,7 +117,9 @@ export function SavingsVsBank() {
         </div>
 
         <div className="mt-8 flex items-center justify-center">
-          <div className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-4 py-2 text-white shadow-glow">Investors typically earn 10% on Oxyile</div>
+          <div className="rounded-full bg-gradient-to-r from-[#FF5A1F] to-[#FF814A] px-4 py-2 text-white shadow-glow">
+            Illustrative comparison only — not a guarantee of returns
+          </div>
         </div>
       </div>
     </section>

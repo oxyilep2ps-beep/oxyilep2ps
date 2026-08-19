@@ -18,7 +18,7 @@ export default async function MarketplacePage() {
           Available Opportunities
         </h1>
         <p className="mt-2 text-sm leading-7 text-neutral-600 dark:text-neutral-300">
-          Browse collateral-backed borrower applications. {FIXED_INTEREST_RATE_LABEL} on all marketplace loans.
+          Browse collateral-backed borrower applications. {FIXED_INTEREST_RATE_LABEL}.
         </p>
       </div>
       <MarketplaceGrid />

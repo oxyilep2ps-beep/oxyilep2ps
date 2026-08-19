@@ -419,7 +419,7 @@ export function BloggerSeoStudio({ initialPost }: Props) {
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               className="w-full rounded-xl border border-neutral-800 bg-neutral-900/70 px-3 py-2.5 text-sm text-white outline-none focus:border-[#F97316]/50"
-              placeholder="P2P, EMI, FCA"
+              placeholder="P2P, repayments, FCA"
             />
           </label>
         </div>

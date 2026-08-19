@@ -141,7 +141,7 @@ export function WaitlistModal() {
         <p className="mt-4 text-xs font-bold uppercase tracking-[0.28em] text-brand-500">Early Access</p>
         <h2 className="mt-2 text-2xl font-black text-neutral-950 dark:text-white">Join the Waitlist</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Secure your queue position before public launch. Platform interest rate is fixed at 10%.
+          Secure your queue position before public launch. FCA authorisation application in progress — join the waitlist for early access updates.
         </p>
 
         {done ? (

@@ -168,7 +168,7 @@ export async function finalizeEscrowOnChain(
     const sub = await createMonthlyEmiSubscription({
       mandateId,
       amountGbp: figures.emi_amount,
-      name: `Oxyile EMI — ${id.slice(0, 8)}`,
+      name: `Oxyile Repayment — ${id.slice(0, 8)}`,
       handshakeId: id,
       totalPayments: Math.max(1, Math.round(Number(handshake.duration ?? 12))),
     });

@@ -250,7 +250,7 @@ export function HandshakePanel({
             className="rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
           />
         </div>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Fixed interest rate: 10%</p>
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Illustrative rate for calculator modelling — not a guaranteed return.</p>
 
         <input
           required

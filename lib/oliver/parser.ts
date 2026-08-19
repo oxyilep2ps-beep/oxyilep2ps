@@ -15,7 +15,7 @@ const GREETING_PATTERNS: { pattern: RegExp; replies: string[] }[] = [
     replies: [
       "I'm doing well, thank you — busy helping borrowers and investors! How's your day going?",
       'All systems green on my side! What would you like to know about Oxyile?',
-      'Running smoothly — like a good EMI schedule. What can I help with?',
+      'Running smoothly — like a good repayment schedule. What can I help with?',
     ],
   },
   {

@@ -74,7 +74,7 @@ export function MainHub() {
           </span>
           <div>
             <p className="font-bold text-neutral-950 dark:text-white">Available Opportunities</p>
-            <p className="text-sm text-neutral-500">Fund collateral-backed loans at a fixed 10% return.</p>
+            <p className="text-sm text-neutral-500">Explore potential lending opportunities with transparent, collateral-backed terms. Capital at risk — returns are not guaranteed.</p>
           </div>
           <TrendingUp className="ml-auto text-brand-500" size={20} />
         </Link>

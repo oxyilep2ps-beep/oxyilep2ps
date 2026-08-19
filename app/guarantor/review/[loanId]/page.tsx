@@ -64,7 +64,7 @@ export default async function GuarantorReviewPage({ params, searchParams }: Guar
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
             If you accept, GoCardless will collect a backup Direct Debit mandate. It is only used if the borrower
-            misses an EMI.
+            misses a scheduled repayment.
           </p>
         </div>
 
@@ -100,7 +100,7 @@ export default async function GuarantorReviewPage({ params, searchParams }: Guar
                   <p className="mt-1 text-sm font-semibold">{Number(handshake.duration ?? 0)} months</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Estimated EMI</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Estimated Monthly Repayment</p>
                   <p className="mt-1 text-sm font-semibold">
                     £{Number(handshake.emi_amount ?? 0).toLocaleString('en-GB')}
                   </p>
@@ -124,7 +124,7 @@ export default async function GuarantorReviewPage({ params, searchParams }: Guar
                 Your liability
               </p>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
-                Your mandate is a backup rail. Oxyile may charge it only after a borrower EMI payment fails.
+                Your mandate is a backup rail. Oxyile may charge it only after a borrower repayment fails.
               </p>
             </div>
             <div>

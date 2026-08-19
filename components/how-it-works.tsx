@@ -35,7 +35,7 @@ export function HowItWorks() {
       <div className="mx-auto max-w-7xl px-4">
         <div className="text-center">
           <h2 className="section-heading">How Oxyile Works</h2>
-          <p className="section-subtitle mx-auto mt-4">A gamified 6-step flow connecting verified investors and borrowers through smart contracts and instant matching.</p>
+          <p className="section-subtitle mx-auto mt-4">A six-step preview of how Oxyile will connect investors and borrowers once authorised — features subject to final regulatory approval.</p>
         </div>
 
         <div className="mt-12 overflow-x-auto">

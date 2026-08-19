@@ -145,7 +145,7 @@ export function PortfolioContent() {
                       £{Number(loan.amount).toLocaleString('en-GB')} · {loan.duration}mo
                     </p>
                     <p className="text-xs text-neutral-500">
-                      {role} · {loan.status} · EMI £{Number(loan.emi_amount ?? 0).toLocaleString('en-GB')}/mo
+                      {role} · {loan.status} · £{Number(loan.emi_amount ?? 0).toLocaleString('en-GB')}/mo repayment
                     </p>
                   </div>
                   {txHash ? (

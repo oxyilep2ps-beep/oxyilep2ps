@@ -48,7 +48,7 @@ const JARGON = [
 ];
 
 const FINTECH_TRENDING = [
-  'Open banking vs Direct Debit for EMI collections',
+  'Open banking vs Direct Debit for repayment collections',
   'How UK P2P platforms safeguard client money',
   'FCA-aligned KYC checklist for digital lenders',
   'Fixed-rate lending: pricing risk for retail investors',
@@ -386,7 +386,7 @@ export function mockCompetitorGaps(keyword: string): {
       },
     ],
     content_gaps: [
-      `UK-specific EMI / Direct Debit operational walkthrough for “${k}”`,
+      `UK-specific repayment / Direct Debit operational walkthrough for “${k}”`,
       'Side-by-side risk table for retail investors vs institutional lenders',
       'Original calculator or worked example with GBP figures',
       'Guarantor / co-applicant coverage (rarely addressed)',
@@ -423,7 +423,7 @@ export function mockLongTailAndLsi(keyword: string): {
 export function mockAutocomplete(prefix: string, focusKeyword: string): string {
   const seed = prefix.trim().slice(-80);
   const kw = focusKeyword || 'peer-to-peer lending';
-  return `${seed} In the UK ${kw} market, transparent underwriting, safeguarded client money, and predictable EMI collections via Direct Debit remain the pillars of investor trust.`.trim();
+  return `${seed} In the UK ${kw} market, transparent underwriting, safeguarded client money, and predictable monthly repayments via Direct Debit remain the pillars of investor trust.`.trim();
 }
 
 export function generateSocialRepurpose(title: string, plain: string): {

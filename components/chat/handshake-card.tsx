@@ -262,7 +262,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
         return (
           <p className="inline-flex items-center justify-center gap-1.5">
             <Landmark size={14} className="shrink-0" />
-            Escrow funded · Link your bank to receive &amp; start EMI
+            Escrow funded · Link your bank to receive &amp; start monthly repayments
           </p>
         );
       }
@@ -325,7 +325,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
               ) : (
                 <>
                   <Landmark size={16} className="transition group-hover:scale-110" />
-                  Link Bank &amp; Start EMI
+                  Link Bank &amp; Start Repayments
                 </>
               )}
             </button>
@@ -427,7 +427,7 @@ export function HandshakeCard({ handshake, myId, myRole, peer, onUpdated }: Hand
           <span className="font-semibold">{local.duration} months</span>
         </div>
         <div className="flex justify-between gap-2 border-t border-brand-200/50 pt-2 dark:border-white/10">
-          <span className="text-neutral-500">EMI (est.)</span>
+          <span className="text-neutral-500">Monthly repayment (est.)</span>
           <span className="font-bold text-brand-600 dark:text-brand-300">
             £{Number(local.emi_amount ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2 })}
           </span>

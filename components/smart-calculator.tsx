@@ -37,7 +37,7 @@ export function SmartCalculator() {
       <div className="mx-auto max-w-4xl px-4">
         <div className="text-center">
           <h2 className="section-heading">Dynamic Smart Calculator</h2>
-          <p className="section-subtitle mx-auto mt-4">Adjust sliders to preview monthly payments, total repayment and estimated investor ROI (all values shown in £).</p>
+          <p className="section-subtitle mx-auto mt-4">Adjust sliders to preview monthly repayments, total repayment and estimated investor ROI. All figures are illustrative only — not offers or guarantees.</p>
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -66,7 +66,7 @@ export function SmartCalculator() {
           <div className="rounded-2xl border border-white/10 bg-white p-6 dark:bg-black dark:border-white/6">
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-neutral-500 dark:text-neutral-300">Monthly EMI</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-300">Monthly Repayment</p>
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-1 text-3xl font-extrabold text-neutral-900 dark:text-white">
                   {formatGBP(Math.max(0, emi))}
                 </motion.p>

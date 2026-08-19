@@ -116,7 +116,7 @@ export function AdminLiveHandshakesTab() {
                 <th className="px-4 py-3 font-bold">Borrower</th>
                 <th className="px-4 py-3 font-bold">Investor</th>
                 <th className="px-4 py-3 font-bold">Amount</th>
-                <th className="px-4 py-3 font-bold">EMI</th>
+                <th className="px-4 py-3 font-bold">Monthly Repayment</th>
                 <th className="px-4 py-3 font-bold">Collateral</th>
                 <th className="px-4 py-3 font-bold">Status</th>
                 <th className="px-4 py-3 font-bold">Actions</th>
