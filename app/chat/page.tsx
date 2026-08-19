@@ -6,7 +6,7 @@ import { PremiumChatShell } from '@/components/chat/premium-chat-shell';
 export const metadata = { title: 'Chat Inbox | Oxyile' };
 
 function getPortalHref(role: string): string {
-  if (role === 'ADMIN') return '/admin';
+  if (role === 'ADMIN') return '/admin-dashboard/command';
   if (role === 'HR') return '/hr';
   if (role === 'BLOGGER') return '/blogger';
   if (role === 'SOCIAL_MANAGER') return '/social';

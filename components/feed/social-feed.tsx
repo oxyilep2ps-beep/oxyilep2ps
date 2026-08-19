@@ -42,7 +42,7 @@ type PortalConfig = {
 
 const PORTAL_MAP: Record<string, PortalConfig> = {
   ADMIN: {
-    href: '/admin',
+    href: '/admin-dashboard/command',
     label: 'Admin Portal',
     icon: Sparkles,
     description: 'Manage users, posts, analytics & more.',

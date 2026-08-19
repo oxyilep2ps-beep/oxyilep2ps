@@ -4,7 +4,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
-import { getAuthRedirectPath } from '@/lib/auth/routing';
+
+function getPortalDashboardHref(role?: string | null): string {
+  if (role === 'ADMIN') return '/admin-dashboard/command';
+  if (role === 'HR') return '/hr';
+  if (role === 'BLOGGER') return '/blogger';
+  if (role === 'SOCIAL_MANAGER') return '/social';
+  if (role === 'EMPLOYEE') return '/employee/dashboard';
+  return '/feed';
+}
 
 export function useNavbarAuth() {
   const router = useRouter();
@@ -32,7 +40,7 @@ export function useNavbarAuth() {
       .eq('id', currentUser.id)
       .maybeSingle();
 
-    setDashboardHref(getAuthRedirectPath(profile, currentUser.email ?? ''));
+    setDashboardHref(getPortalDashboardHref(profile?.role as string | null));
     setLoading(false);
   }, []);
 
