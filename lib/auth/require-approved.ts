@@ -2,9 +2,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
-import { isAdminEmail } from '@/lib/auth/routing';
 
-/** Redirects non-approved investors/borrowers away from gated features (chat, handshakes). */
+/** Redirects non-approved users away from authenticated social surfaces. */
 export async function requireApprovedUser() {
   const supabase = await createClient();
   const {
@@ -18,11 +17,6 @@ export async function requireApprovedUser() {
   const profile = await getServerProfile(supabase, user.id);
   if (!profile) {
     redirect('/pending-verification?confirmed=1');
-  }
-
-  const email = user.email ?? profile.email ?? '';
-  if (isAdminEmail(email) || profile.role === 'ADMIN') {
-    redirect('/admin-dashboard');
   }
 
   if (!isApprovedStatus(profile.status)) {

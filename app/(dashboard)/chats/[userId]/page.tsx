@@ -1,4 +1,4 @@
-import { ChatRoom } from '@/components/chat/chat-room';
+import { PremiumChatShell } from '@/components/chat/premium-chat-shell';
 import { requireApprovedUser } from '@/lib/auth/require-approved';
 
 type ChatRoomPageProps = {
@@ -12,7 +12,7 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
     if (!userId?.trim()) {
       throw new Error('Missing chat user id.');
     }
-    return <ChatRoom peerUserId={userId} />;
+    return <PremiumChatShell initialPeerId={userId} />;
   } catch (error) {
     // Next.js redirect()/notFound() must propagate.
     if (

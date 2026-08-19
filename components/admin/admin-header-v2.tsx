@@ -41,6 +41,8 @@ export function AdminHeaderV2({
     email: string;
     avatarUrl: string | null;
   }>({ name: 'Admin', email: '', avatarUrl: null });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void getAdminProfile().then((row) => {
@@ -51,6 +53,17 @@ export function AdminHeaderV2({
         avatarUrl: row.avatar_url,
       });
     });
+  }, []);
+
+  useEffect(() => {
+    const onClickAway = (event: MouseEvent) => {
+      if (!profileMenuRef.current) return;
+      if (!profileMenuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onClickAway);
+    return () => window.removeEventListener('mousedown', onClickAway);
   }, []);
 
   useEffect(() => {
@@ -234,31 +247,53 @@ export function AdminHeaderV2({
           <ThemeToggle className="h-9 w-9" />
 
           {/* Profile — avatar always, name+email only on sm+ */}
-          <Link
-            href="/admin-dashboard/profile"
-            className="flex min-w-0 items-center gap-2 rounded-xl py-1 pl-0.5 pr-1 transition hover:bg-gray-100 dark:hover:bg-white/5"
-          >
-            {profile.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.avatarUrl}
-                alt={profile.name}
-                className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-800"
-              />
-            ) : (
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#F97316]/20 text-[11px] font-black text-[#F97316] ring-2 ring-gray-200 dark:ring-gray-800">
-                {initials(profile.name)}
+          <div ref={profileMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex min-w-0 items-center gap-2 rounded-xl py-1 pl-0.5 pr-1 transition hover:bg-gray-100 dark:hover:bg-white/5"
+            >
+              {profile.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile.name}
+                  className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-800"
+                />
+              ) : (
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#F97316]/20 text-[11px] font-black text-[#F97316] ring-2 ring-gray-200 dark:ring-gray-800">
+                  {initials(profile.name)}
+                </span>
+              )}
+              <span className="hidden min-w-0 sm:block">
+                <span className="block max-w-[100px] truncate text-xs font-bold leading-tight text-gray-900 dark:text-white">
+                  {profile.name}
+                </span>
+                <span className="block max-w-[100px] truncate text-[10px] leading-tight text-gray-500 dark:text-gray-400">
+                  {profile.email || 'admin@oxyile.com'}
+                </span>
               </span>
+            </button>
+
+            {menuOpen && (
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-44 rounded-xl border border-gray-200 bg-white p-1 shadow-2xl dark:border-gray-800 dark:bg-[#111]">
+                <Link
+                  href={pathname.startsWith('/hr') ? '/hr/profile/edit' : pathname.startsWith('/blogger') ? '/blogger/profile/edit' : pathname.startsWith('/social') ? '/social/profile/edit' : '/admin-dashboard/profile/edit'}
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F97316]/10 hover:text-[#F97316] dark:text-gray-200"
+                >
+                  Edit Profile
+                </Link>
+                <Link
+                  href={pathname.startsWith('/hr') ? '/hr/profile/edit' : pathname.startsWith('/blogger') ? '/blogger/profile/edit' : pathname.startsWith('/social') ? '/social/profile/edit' : '/admin-dashboard/profile/edit'}
+                  onClick={() => setMenuOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F97316]/10 hover:text-[#F97316] dark:text-gray-200"
+                >
+                  Settings
+                </Link>
+              </div>
             )}
-            <span className="hidden min-w-0 sm:block">
-              <span className="block max-w-[100px] truncate text-xs font-bold leading-tight text-gray-900 dark:text-white">
-                {profile.name}
-              </span>
-              <span className="block max-w-[100px] truncate text-[10px] leading-tight text-gray-500 dark:text-gray-400">
-                {profile.email || 'admin@oxyile.com'}
-              </span>
-            </span>
-          </Link>
+          </div>
         </div>
       )}
     </header>

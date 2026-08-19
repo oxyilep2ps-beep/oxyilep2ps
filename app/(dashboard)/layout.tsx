@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
-import { getAuthRedirectPath, isAdminEmail } from '@/lib/auth/routing';
+import { getAuthRedirectPath } from '@/lib/auth/routing';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
 
 export default async function DashboardGroupLayout({ children }: { children: React.ReactNode }) {
@@ -36,22 +36,14 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
 
   const email = user.email ?? profile.email ?? '';
 
-  if (isAdminEmail(email) || profile.role === 'ADMIN') {
-    if (!pathname.startsWith('/admin-dashboard')) {
-      redirect('/admin-dashboard');
-    }
-    return <>{children}</>;
-  }
-
   if (isApprovedStatus(profile.status)) {
     if (isPendingRoute) {
       redirect(getAuthRedirectPath(profile, email));
     }
 
-    // Redirect INVESTOR/BORROWER from /dashboard root to /feed (social-first UX)
+    // Redirect generic dashboard root to /feed for every approved role.
     const isRootDashboard = pathname === '/dashboard';
-    const isInvestorOrBorrower = profile.role === 'INVESTOR' || profile.role === 'BORROWER';
-    if (isRootDashboard && isInvestorOrBorrower) {
+    if (isRootDashboard) {
       redirect('/feed');
     }
 

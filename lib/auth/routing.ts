@@ -28,26 +28,7 @@ export function getAuthRedirectPath(
   profile: Pick<Profile, 'role' | 'status'> | null,
   email: string
 ): string {
-  if (isAdminEmail(email) || profile?.role === 'ADMIN') {
-    return '/admin-dashboard';
-  }
-
-  if (isHrStaffEmail(email) || profile?.role === 'HR') {
-    return '/hr';
-  }
-
-  if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') {
-    return '/blogger';
-  }
-
-  if (profile?.role === 'SOCIAL_MANAGER') {
-    return '/social';
-  }
-
-  if (profile?.role === 'EMPLOYEE') {
-    return '/employee/dashboard';
-  }
-
+  void email;
   const status = normalizeProfileStatus(profile?.status as string | undefined);
 
   if (!profile || isPendingStatus(status)) {
@@ -55,13 +36,7 @@ export function getAuthRedirectPath(
   }
 
   if (isApprovedStatus(status)) {
-    // INVESTOR and BORROWER land on the global social feed
-    if (profile.role === 'INVESTOR' || profile.role === 'BORROWER') return '/feed';
-    if (profile.role === 'ADMIN') return '/admin-dashboard';
-    if (profile.role === 'HR') return '/hr';
-    if (profile.role === 'BLOGGER') return '/blogger';
-    if (profile.role === 'SOCIAL_MANAGER') return '/social';
-    if (profile.role === 'EMPLOYEE') return '/employee/dashboard';
+    return '/feed';
   }
 
   return '/pending-verification';
@@ -102,6 +77,9 @@ export function canAccessPath(
   // Admins can access the full staff surface (admin + HR + blogger + social + employee portals).
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return (
+      pathname.startsWith('/feed') ||
+      pathname.startsWith('/chats') ||
+      pathname.startsWith('/chat') ||
       pathname.startsWith('/admin-dashboard') ||
       pathname.startsWith('/admin') ||
       pathname.startsWith('/hr') ||
@@ -116,22 +94,28 @@ export function canAccessPath(
 
   // HR is scoped to the HR portal only.
   if (isHrStaffEmail(email) || profile?.role === 'HR') {
-    return pathname.startsWith('/hr') || pathname.startsWith('/portal');
+    return (
+      pathname.startsWith('/feed') ||
+      pathname.startsWith('/chats') ||
+      pathname.startsWith('/chat') ||
+      pathname.startsWith('/hr') ||
+      pathname.startsWith('/portal')
+    );
   }
 
   // Bloggers are scoped to the blogger CMS only (/blogger — existing route).
   if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') {
-    return pathname.startsWith('/blogger');
+    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/blogger');
   }
 
   // Social Media Managers are scoped to the Social Manager Portal.
   if (profile?.role === 'SOCIAL_MANAGER') {
-    return pathname.startsWith('/social');
+    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/social');
   }
 
   // Standard employees are scoped to the Employee Portal.
   if (profile?.role === 'EMPLOYEE') {
-    return pathname.startsWith('/employee/dashboard');
+    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/employee/dashboard');
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);

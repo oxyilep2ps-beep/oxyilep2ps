@@ -3,13 +3,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export type ConnectionStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'blocked';
+export type ConnectionStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted';
 
 export type ConnectionRow = {
   id: string;
   requester_id: string;
   receiver_id: string;
-  status: 'pending' | 'accepted' | 'blocked';
+  status: 'pending' | 'accepted';
   created_at: string;
   updated_at: string;
 };
@@ -57,7 +57,6 @@ export async function sendConnectionRequest(
     if (existing) {
       if (existing.status === 'accepted') return { ok: false, error: 'Already connected.' };
       if (existing.status === 'pending') return { ok: false, error: 'Connection request already sent.' };
-      if (existing.status === 'blocked') return { ok: false, error: 'Connection not available.' };
     }
 
     const { data, error } = await admin
@@ -202,7 +201,6 @@ export async function listDiscoverUsers(limit = 40): Promise<DiscoverUser[]> {
     if (conn) {
       connection_id = conn.id;
       if (conn.status === 'accepted') connection_status = 'accepted';
-      else if (conn.status === 'blocked') connection_status = 'blocked';
       else if (conn.status === 'pending') {
         connection_status = conn.iRequested ? 'pending_sent' : 'pending_received';
       }
@@ -244,7 +242,6 @@ export async function getConnectionStatus(peerId: string): Promise<{
 
   let status: ConnectionStatus = 'none';
   if (rawStatus === 'accepted') status = 'accepted';
-  else if (rawStatus === 'blocked') status = 'blocked';
   else if (rawStatus === 'pending') status = iRequested ? 'pending_sent' : 'pending_received';
 
   return { status, connectionId: String(data.id) };
