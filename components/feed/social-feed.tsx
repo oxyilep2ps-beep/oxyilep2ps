@@ -213,6 +213,8 @@ function SuggestedUserRow({ user }: { user: DiscoverUser }) {
 
   const displayName = user.full_legal_name ?? user.username ?? '?';
   const initials = displayName.slice(0, 2).toUpperCase();
+  const cleanBio = (user.bio ?? '').trim();
+  const subtitle = `${user.username ? `@${user.username}` : '@oxyile'} • ${cleanBio || 'Oxyile User'}`;
 
   return (
     <div className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-neutral-100 dark:hover:bg-white/5">
@@ -229,9 +231,7 @@ function SuggestedUserRow({ user }: { user: DiscoverUser }) {
         <p className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
           {displayName}
         </p>
-        <p className="text-[11px] text-gray-500 dark:text-neutral-400">
-          {user.username ? `@${user.username}` : (user.bio ?? 'Connect to start chatting').slice(0, 42)}
-        </p>
+        <p className="truncate text-xs text-gray-500 dark:text-neutral-400">{subtitle}</p>
       </div>
 
       <button

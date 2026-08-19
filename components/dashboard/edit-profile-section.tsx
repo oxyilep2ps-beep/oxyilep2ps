@@ -12,17 +12,12 @@ type CropTarget = 'avatar' | 'cover' | null;
 
 type EditableProfile = PublicProfileCard & {
   postal_code?: string | null;
-  borrower_sort_code?: string | null;
-  borrower_account_number?: string | null;
 };
 
 export function EditProfileSection() {
   const [profile, setProfile] = useState<EditableProfile | null>(null);
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [borrowerSortCode, setBorrowerSortCode] = useState('');
-  const [borrowerAccountNumber, setBorrowerAccountNumber] = useState('');
   const [usernameStatus, setUsernameStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -38,9 +33,7 @@ export function EditProfileSection() {
 
     const { data } = await supabase
       .from('profiles')
-      .select(
-        'id, role, full_legal_name, username, bio, avatar_url, cover_url, postal_code, borrower_sort_code, borrower_account_number'
-      )
+      .select('id, role, full_legal_name, username, bio, avatar_url, cover_url')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -49,9 +42,6 @@ export function EditProfileSection() {
       setProfile(p);
       setUsername(p.username ?? '');
       setBio(p.bio ?? '');
-      setPostalCode(p.postal_code ?? '');
-      setBorrowerSortCode(p.borrower_sort_code ?? '');
-      setBorrowerAccountNumber(p.borrower_account_number ?? '');
     }
   }, []);
 
@@ -116,13 +106,6 @@ export function EditProfileSection() {
     const result = await updateProfileFields({
       username,
       bio,
-      postal_code: postalCode,
-      ...(profile?.role === 'BORROWER'
-        ? {
-            borrower_sort_code: borrowerSortCode,
-            borrower_account_number: borrowerAccountNumber,
-          }
-        : {}),
     });
     setSaving(false);
     if (!result.success) {
@@ -146,7 +129,7 @@ export function EditProfileSection() {
       <div>
         <h2 className="text-lg font-black text-neutral-950 dark:text-white">Edit Profile</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Crop your avatar and cover, set a unique @username, compliance fields, and your bio.
+          Crop your avatar and cover, set a unique @username, and update your bio.
         </p>
       </div>
 
@@ -168,44 +151,6 @@ export function EditProfileSection() {
       </div>
 
       <div className="glass-card space-y-4 rounded-2xl p-5">
-        <label className="block text-sm">
-          <span className="mb-2 block font-semibold text-neutral-700 dark:text-neutral-300">Postal Code</span>
-          <input
-            value={postalCode}
-            onChange={(e) => setPostalCode(e.target.value.toUpperCase())}
-            className="w-full rounded-xl border border-white/40 bg-white/70 px-4 py-3 outline-none dark:border-white/10 dark:bg-black/40"
-            placeholder="SW1A 1AA"
-            autoComplete="postal-code"
-          />
-        </label>
-
-        {profile.role === 'BORROWER' && (
-          <div className="space-y-4 rounded-xl border border-brand-200/50 bg-brand-500/5 p-4 dark:border-brand-500/20">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-300">
-              Borrower bank details
-            </p>
-            <label className="block text-sm">
-              <span className="mb-2 block font-semibold text-neutral-700 dark:text-neutral-300">Bank Sort Code</span>
-              <input
-                value={borrowerSortCode}
-                onChange={(e) => setBorrowerSortCode(e.target.value)}
-                className="w-full rounded-xl border border-white/40 bg-white/70 px-4 py-3 outline-none dark:border-white/10 dark:bg-black/40"
-                placeholder="00-00-00"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-2 block font-semibold text-neutral-700 dark:text-neutral-300">Account Number</span>
-              <input
-                value={borrowerAccountNumber}
-                onChange={(e) => setBorrowerAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                className="w-full rounded-xl border border-white/40 bg-white/70 px-4 py-3 outline-none dark:border-white/10 dark:bg-black/40"
-                placeholder="12345678"
-                inputMode="numeric"
-              />
-            </label>
-          </div>
-        )}
-
         <label className="block text-sm">
           <span className="mb-2 block font-semibold text-neutral-700 dark:text-neutral-300">Username</span>
           <div className="flex items-center gap-2 rounded-xl border border-white/40 bg-white/70 px-4 py-3 dark:border-white/10 dark:bg-black/40">
