@@ -16,7 +16,6 @@ import {
   LogOut,
   Megaphone,
   Newspaper,
-  Palette,
   PenSquare,
   Search,
   Settings,
@@ -326,8 +325,7 @@ export function UniversalSidebar({
 
         {/* Footer — compact, fixed height */}
         <div className="space-y-2 border-t border-gray-200 p-3 dark:border-gray-800">
-          {/* removed PortalSwitcher from here — now lives in scrollable nav above */}
-          <span />}
+          {/* PortalSwitcher moved into scrollable nav above */}
 
           {/* Install app card */}
           <div className="rounded-2xl border border-gray-200 bg-gray-50/90 p-3 dark:border-gray-800 dark:bg-[#111]/90">

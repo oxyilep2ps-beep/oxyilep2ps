@@ -235,7 +235,7 @@ export function SocialFeed() {
             Hey{displayName ? `, ${displayName}` : ''} 👋
           </h1>
           <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
-            Here's what's happening on the platform today.
+            Here&apos;s what&apos;s happening on the platform today.
           </p>
         </div>
 
@@ -310,7 +310,7 @@ export function SocialFeed() {
                 <Loader2 size={18} className="animate-spin text-[#F97316]" />
               </div>
             ) : suggestions.length === 0 ? (
-              <p className="py-4 text-center text-xs text-neutral-400">You're all caught up!</p>
+              <p className="py-4 text-center text-xs text-neutral-400">You&apos;re all caught up!</p>
             ) : (
               <div className="space-y-1">
                 {suggestions.map((u) => (
