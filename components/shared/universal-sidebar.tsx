@@ -15,9 +15,11 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  MessageCircle,
   Newspaper,
   PenSquare,
   Search,
+  Rss,
   Settings,
   Share2,
   SquareArrowOutUpRight,
@@ -47,6 +49,13 @@ type NavGroup = {
 };
 
 const HR_NAV: NavGroup[] = [
+  {
+    heading: 'Social Layer',
+    items: [
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+    ],
+  },
   {
     heading: 'HR Suite',
     items: [

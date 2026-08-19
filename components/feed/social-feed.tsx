@@ -42,7 +42,7 @@ type PortalConfig = {
 
 const PORTAL_MAP: Record<string, PortalConfig> = {
   ADMIN: {
-    href: '/admin-dashboard',
+    href: '/admin',
     label: 'Admin Portal',
     icon: Sparkles,
     description: 'Manage users, posts, analytics & more.',
@@ -313,7 +313,7 @@ export function SocialFeed() {
 
         {/* FAB — Chat Inbox */}
         <Link
-          href="/chats"
+          href="/chat"
           className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F97316] text-white shadow-lg transition hover:bg-[#F97316]/90 active:scale-95"
           aria-label="Open chat inbox"
         >
@@ -437,7 +437,7 @@ export function SocialFeed() {
             )}
 
             <Link
-              href="/chats"
+              href="/chat"
               className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#F97316]/30 py-2.5 text-xs font-semibold text-[#F97316] transition hover:bg-[#F97316]/5"
             >
               <MessageCircle size={13} />

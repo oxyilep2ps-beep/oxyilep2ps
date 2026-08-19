@@ -22,6 +22,7 @@ import {
   User,
   Users,
   Building2,
+  Rss,
 } from 'lucide-react';
 
 export type AdminNavBadgeKey = 'blogs' | 'social' | 'resumes';
@@ -40,6 +41,13 @@ export type AdminNavGroup = {
 };
 
 export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
+  {
+    heading: 'Social Layer',
+    items: [
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+    ],
+  },
   {
     heading: 'Menu',
     items: [
