@@ -28,7 +28,11 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
   const pathname = headerStore.get('x-pathname') ?? '';
   const isPendingRoute = pathname === '/pending-verification' || pathname.startsWith('/pending-verification/');
   const isDashboardRoute =
-    pathname.startsWith('/dashboard') || pathname.startsWith('/chats') || pathname.startsWith('/user/');
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/chats') ||
+    pathname.startsWith('/chat') ||
+    pathname.startsWith('/feed') ||
+    pathname.startsWith('/user/');
 
   const email = user.email ?? profile.email ?? '';
 
@@ -44,11 +48,11 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
       redirect(getAuthRedirectPath(profile, email));
     }
 
-    // Redirect INVESTOR/BORROWER from /dashboard root to /chats (chat-first UX)
+    // Redirect INVESTOR/BORROWER from /dashboard root to /feed (social-first UX)
     const isRootDashboard = pathname === '/dashboard';
     const isInvestorOrBorrower = profile.role === 'INVESTOR' || profile.role === 'BORROWER';
     if (isRootDashboard && isInvestorOrBorrower) {
-      redirect('/chats');
+      redirect('/feed');
     }
 
     return <DashboardShell>{children}</DashboardShell>;

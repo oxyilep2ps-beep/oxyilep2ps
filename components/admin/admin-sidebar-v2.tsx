@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ArrowLeftRight, Building2, Download, ExternalLink, LogOut, Newspaper, Share2, SquareArrowOutUpRight, X } from 'lucide-react';
 import { Logo } from '@/components/logo';
@@ -22,6 +23,7 @@ const VIEW_AS_PORTALS = [
 
 function ViewAsMenu({ onClose }: { onClose: () => void }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
   const current =
     pathname.startsWith('/hr') ? 'hr'
     : pathname.startsWith('/blogger') ? 'blogger'
@@ -29,35 +31,51 @@ function ViewAsMenu({ onClose }: { onClose: () => void }) {
     : 'admin';
 
   return (
-    <div className="rounded-2xl border border-[#F97316]/30 bg-[#F97316]/5 p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#F97316]">
-        <ArrowLeftRight size={11} />
-        View As
-      </p>
-      <ul className="space-y-0.5">
-        {VIEW_AS_PORTALS.map((item) => (
-          <li key={item.tag}>
-            <Link
-              href={item.href}
-              onClick={onClose}
-              className={cn(
-                'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition',
-                item.tag === current
-                  ? 'bg-[#F97316]/20 text-[#F97316]'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
-              )}
-            >
-              <item.icon size={13} />
-              {item.label}
-              {item.tag === current && (
-                <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-[#F97316]/70">
-                  Active
-                </span>
-              )}
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <div className="overflow-hidden rounded-xl border border-[#F97316]/20">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-[#F97316]/5"
+      >
+        <ArrowLeftRight size={13} className="shrink-0 text-[#F97316]" />
+        <span className="flex-1 text-xs font-bold text-[#F97316]">View As</span>
+        <svg
+          className={cn('h-3.5 w-3.5 shrink-0 text-[#F97316] transition-transform', open && 'rotate-180')}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.5}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <ul className="border-t border-[#F97316]/10 px-1 py-1">
+          {VIEW_AS_PORTALS.map((item) => (
+            <li key={item.tag}>
+              <Link
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition',
+                  item.tag === current
+                    ? 'bg-[#F97316]/15 text-[#F97316]'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
+                )}
+              >
+                <item.icon size={13} />
+                {item.label}
+                {item.tag === current && (
+                  <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-[#F97316]/60">
+                    Active
+                  </span>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -155,10 +173,14 @@ export function AdminSidebarV2({
               </ul>
             </div>
           ))}
+
+          {/* View As — inside scrollable area so it never clips the footer */}
+          <ViewAsMenu onClose={onClose} />
         </nav>
 
         <div className="space-y-3 border-t border-gray-200 p-3 dark:border-gray-800">
-          <ViewAsMenu onClose={onClose} />
+          {/* ViewAsMenu moved into scrollable nav above */}
+          <span />
 
           <div className="rounded-2xl border border-gray-200 bg-gray-50/90 p-3 dark:border-gray-800 dark:bg-[#111]/90">
             <div className="mb-2 flex items-center gap-2 text-xs font-bold text-gray-900 dark:text-white">

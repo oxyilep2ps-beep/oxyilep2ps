@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LayoutGrid, MessageCircle, PieChart, Settings, User } from 'lucide-react';
+import { Home, MessageCircle, PieChart, Settings, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getUnreadMessageCount } from '@/app/actions/chat';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
 import { cn } from '@/lib/utils';
 
 const ALL_ITEMS = [
-  { href: '/dashboard', label: 'Main Hub', icon: LayoutGrid, match: 'hub' as const },
+  { href: '/feed', label: 'Feed', icon: Home, match: 'feed' as const },
   { href: '/dashboard/profile', label: 'Profile', icon: User, match: 'profile' as const },
   { href: '/dashboard/portfolio', label: 'Graph', icon: PieChart, match: 'portfolio' as const },
   { href: '/chats', label: 'Chats', icon: MessageCircle, match: 'chats' as const, badge: true, approvedOnly: true },
@@ -19,8 +19,8 @@ const ALL_ITEMS = [
 
 function isNavActive(pathname: string, match: (typeof ALL_ITEMS)[number]['match']): boolean {
   switch (match) {
-    case 'hub':
-      return pathname === '/dashboard' || pathname === '/dashboard/';
+    case 'feed':
+      return pathname === '/feed' || pathname.startsWith('/feed/') || pathname === '/dashboard';
     case 'profile':
       return pathname.startsWith('/dashboard/profile');
     case 'portfolio':

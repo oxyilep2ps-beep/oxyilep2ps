@@ -55,7 +55,8 @@ export function getAuthRedirectPath(
   }
 
   if (isApprovedStatus(status)) {
-    if (profile.role === 'INVESTOR' || profile.role === 'BORROWER') return '/chats';
+    // INVESTOR and BORROWER land on the global social feed
+    if (profile.role === 'INVESTOR' || profile.role === 'BORROWER') return '/feed';
     if (profile.role === 'ADMIN') return '/admin-dashboard';
     if (profile.role === 'HR') return '/hr';
     if (profile.role === 'BLOGGER') return '/blogger';
@@ -77,6 +78,8 @@ export const PROTECTED_PREFIXES = [
   '/pending-verification',
   '/dashboard',
   '/chats',
+  '/chat',
+  '/feed',
   '/user',
   '/payments',
 ] as const;
@@ -142,6 +145,8 @@ export function canAccessPath(
       return (
         pathname.startsWith('/dashboard') ||
         pathname.startsWith('/chats') ||
+        pathname.startsWith('/chat') ||
+        pathname.startsWith('/feed') ||
         pathname.startsWith('/user/') ||
         pathname.startsWith('/payments/mandate-complete') ||
         pathname.startsWith('/payments/sandbox')
