@@ -1,5 +1,5 @@
-import { BloggerCmsDashboard } from '@/components/blogger/blogger-cms-dashboard';
+import { BloggerPageContent } from '@/components/blogger/blogger-page-content';
 
 export default function BloggerHomePage() {
-  return <BloggerCmsDashboard />;
+  return <BloggerPageContent />;
 }

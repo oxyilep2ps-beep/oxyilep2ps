@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Handshake, Loader2, Send, X } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { ArrowLeft, Handshake, Loader2, Lock, Send, UserPlus, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { inviteGuarantor } from '@/app/actions/marketplace';
 import { markConversationRead } from '@/app/actions/chat';
 import { notifyChatMessagePush } from '@/app/actions/sendPushNotification';
+import { getConnectionStatus, sendConnectionRequest } from '@/app/actions/connections';
+import type { ConnectionStatus } from '@/app/actions/connections';
 import type { ChatMessage, ChatPeer, HandshakeRow, MemberRole, UserPresence } from '@/lib/chat/types';
 import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
 import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
@@ -60,6 +62,9 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
   const [showPropose, setShowPropose] = useState(false);
   const [proposal, setProposal] = useState({ amount: '', rate: '', duration: '', guarantorEmail: '' });
   const { paused: emergencyPause } = useEmergencyPause();
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('none');
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [connectPending, startConnectTransition] = useTransition();
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
@@ -186,6 +191,13 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         setMyId(uid);
         setMyRole(role);
         setPeer(peerProfile as ChatPeer);
+
+        // Connection gate — fetch once on load
+        const { status: connStatus, connectionId: connId } = await getConnectionStatus(peerUserId);
+        if (!cancelled) {
+          setConnectionStatus(connStatus);
+          setConnectionId(connId);
+        }
 
         const { data: presence } = await supabase
           .from('user_presence')
@@ -559,14 +571,71 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         </form>
       )}
 
+      {/* ── Connection Barrier ── */}
+      {connectionStatus !== 'accepted' && (
+        <div className="mx-4 mb-2 overflow-hidden rounded-2xl border border-[#F97316]/30 bg-[#F97316]/5 p-4 text-center">
+          <Lock size={20} className="mx-auto mb-2 text-[#F97316]" />
+          <p className="text-sm font-bold text-gray-900 dark:text-white">
+            {connectionStatus === 'pending_sent'
+              ? 'Connection request sent'
+              : connectionStatus === 'pending_received'
+                ? 'This person wants to connect with you'
+                : 'Connect to send a message'}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            {connectionStatus === 'pending_sent'
+              ? 'Waiting for them to accept. You can message once connected.'
+              : connectionStatus === 'pending_received'
+                ? 'Accept their request to start chatting.'
+                : 'Send a connection request to unlock messaging.'}
+          </p>
+          <div className="mt-3 flex justify-center gap-2">
+            {connectionStatus === 'none' && (
+              <button
+                type="button"
+                disabled={connectPending}
+                onClick={() =>
+                  startConnectTransition(async () => {
+                    const res = await sendConnectionRequest(peerUserId);
+                    if (res.ok) {
+                      setConnectionStatus('pending_sent');
+                      setConnectionId(res.id);
+                    }
+                  })
+                }
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#F97316] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {connectPending ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+                Connect
+              </button>
+            )}
+            {connectionStatus === 'pending_received' && connectionId && (
+              <button
+                type="button"
+                disabled={connectPending}
+                onClick={() =>
+                  startConnectTransition(async () => {
+                    const res = await (await import('@/app/actions/connections')).acceptConnectionRequest(connectionId);
+                    if (res.ok) setConnectionStatus('accepted');
+                  })
+                }
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {connectPending ? <Loader2 size={14} className="animate-spin" /> : 'Accept & Chat'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <form onSubmit={sendMessage} className="glass-card shrink-0 border-x-0 border-b-0 px-3 py-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => !emergencyPause && setShowPropose((v) => !v)}
-            disabled={emergencyPause}
+            disabled={emergencyPause || connectionStatus !== 'accepted'}
             aria-label="Initiate handshake"
-            title={emergencyPause ? 'Platform paused by admin' : 'Initiate handshake'}
+            title={emergencyPause ? 'Platform paused by admin' : connectionStatus !== 'accepted' ? 'Connect first to initiate a handshake' : 'Initiate handshake'}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500/15 text-brand-600 disabled:opacity-40"
           >
             <Handshake size={18} />
@@ -574,15 +643,17 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
           <input
             value={text}
             onChange={(e) => {
+              if (connectionStatus !== 'accepted') return;
               setText(e.target.value);
               broadcastTyping(true);
               if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
               typingTimeoutRef.current = setTimeout(() => broadcastTyping(false), 1200);
             }}
-            placeholder="Type a message…"
-            className="min-w-0 flex-1 rounded-full border border-white/50 bg-white/80 px-4 py-2.5 text-sm outline-none dark:bg-black/40"
+            disabled={connectionStatus !== 'accepted'}
+            placeholder={connectionStatus !== 'accepted' ? 'Connect first to send messages…' : 'Type a message…'}
+            className="min-w-0 flex-1 rounded-full border border-white/50 bg-white/80 px-4 py-2.5 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-black/40"
           />
-          <button type="submit" disabled={!text.trim() || sending} className="grid h-10 w-10 place-items-center rounded-full bg-brand-500 text-white">
+          <button type="submit" disabled={!text.trim() || sending || connectionStatus !== 'accepted'} className="grid h-10 w-10 place-items-center rounded-full bg-brand-500 text-white disabled:opacity-40">
             {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
         </div>

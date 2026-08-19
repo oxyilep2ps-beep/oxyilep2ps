@@ -22,10 +22,13 @@ function initials(name: string) {
 export function AdminHeaderV2({
   onOpenSidebar,
   portalLabel,
+  viewingAs,
 }: {
   onOpenSidebar: () => void;
   /** Optional label shown beside the logo on non-admin portals */
   portalLabel?: string;
+  /** When truthy, shows a "Viewing as X" badge — for admin View As mode */
+  viewingAs?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -94,12 +97,12 @@ export function AdminHeaderV2({
         </button>
       )}
 
-      {/* Portal label — desktop only, non-admin portals */}
-      {portalLabel && !searchExpanded && (
-        <span className="hidden shrink-0 text-[11px] font-bold uppercase tracking-widest text-[#F97316] lg:inline">
-          {portalLabel}
+      {/* Portal label / View As badge — desktop only */}
+      {!searchExpanded && (viewingAs ?? portalLabel) ? (
+        <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-[#F97316] lg:inline-flex">
+          {viewingAs ? `👁 Viewing as ${viewingAs}` : portalLabel}
         </span>
-      )}
+      ) : null}
 
       {/* Search — collapsed icon on mobile, full bar on sm+ */}
       {searchExpanded ? (

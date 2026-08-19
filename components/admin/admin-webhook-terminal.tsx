@@ -84,7 +84,7 @@ export function AdminWebhookTerminal() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 left-4 z-40 inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-black px-3 py-2.5 text-xs font-semibold text-emerald-300 shadow-2xl transition hover:border-[#F97316]/50 hover:text-[#F97316]"
+        className="fixed bottom-6 left-4 z-[9999] inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-black px-3 py-2.5 text-xs font-semibold text-emerald-300 shadow-2xl transition hover:border-[#F97316]/50 hover:text-[#F97316] lg:left-[17rem]"
         aria-label="Open admin terminal"
       >
         <Terminal size={15} className="shrink-0 text-emerald-400" />

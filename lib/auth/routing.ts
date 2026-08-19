@@ -55,7 +55,7 @@ export function getAuthRedirectPath(
   }
 
   if (isApprovedStatus(status)) {
-    if (profile.role === 'INVESTOR' || profile.role === 'BORROWER') return '/dashboard';
+    if (profile.role === 'INVESTOR' || profile.role === 'BORROWER') return '/chats';
     if (profile.role === 'ADMIN') return '/admin-dashboard';
     if (profile.role === 'HR') return '/hr';
     if (profile.role === 'BLOGGER') return '/blogger';

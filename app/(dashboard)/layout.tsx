@@ -44,6 +44,13 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
       redirect(getAuthRedirectPath(profile, email));
     }
 
+    // Redirect INVESTOR/BORROWER from /dashboard root to /chats (chat-first UX)
+    const isRootDashboard = pathname === '/dashboard';
+    const isInvestorOrBorrower = profile.role === 'INVESTOR' || profile.role === 'BORROWER';
+    if (isRootDashboard && isInvestorOrBorrower) {
+      redirect('/chats');
+    }
+
     return <DashboardShell>{children}</DashboardShell>;
   }
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { AdminHeaderV2 } from '@/components/admin/admin-header-v2';
 import { UniversalSidebar } from '@/components/shared/universal-sidebar';
+import { PortalContextProvider } from '@/components/shared/portal-context';
 import { useNavbarAuth } from '@/lib/hooks/use-navbar-auth';
 
 export type PortalId = 'admin' | 'hr' | 'blogger' | 'social';
@@ -40,9 +41,12 @@ export function UniversalDashboardLayout({
         <AdminHeaderV2
           onOpenSidebar={() => setSidebarOpen(true)}
           portalLabel={portal !== 'admin' ? PORTAL_LABELS[portal] : undefined}
+          viewingAs={isAdmin && portal !== 'admin' ? PORTAL_LABELS[portal] : undefined}
         />
         <div className="min-h-[calc(100dvh-3.5rem)] bg-transparent px-4 py-6 sm:px-6 lg:px-8">
-          {children}
+          <PortalContextProvider portal={portal} isAdmin={isAdmin}>
+            {children}
+          </PortalContextProvider>
         </div>
       </div>
     </div>

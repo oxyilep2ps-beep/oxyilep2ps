@@ -85,7 +85,7 @@ function buildCampaignWritePayload(
     scheduledFor?: string | null;
   },
   userId: string,
-  status: 'draft' | 'pending_approval'
+  status: 'draft' | 'pending_approval' | 'published'
 ) {
   const mediaType = normalizeSocialMediaType(input.mediaType ?? 'post');
   const isStory = mediaType === 'story';
@@ -364,6 +364,14 @@ export async function saveSocialCampaignDraft(input: {
   }
 }
 
+async function isCampaignAdminUser(userId: string, email: string | undefined): Promise<boolean> {
+  const { isAdminEmail } = await import('@/lib/auth/routing');
+  if (isAdminEmail(email)) return true;
+  const adminClient = createAdminClient();
+  const { data } = await adminClient.from('profiles').select('role').eq('id', userId).maybeSingle();
+  return data?.role === 'ADMIN';
+}
+
 export async function submitSocialCampaignForApproval(input: {
   id?: string;
   campaignName: string;
@@ -379,8 +387,12 @@ export async function submitSocialCampaignForApproval(input: {
     const validationError = validateCampaignInput(input);
     if (validationError) return { ok: false, error: validationError };
 
+    // Admins bypass the approval queue — campaigns go straight to published.
+    const adminOverride = await isCampaignAdminUser(user.id, user.email ?? undefined);
+    const submitStatus = adminOverride ? ('published' as const) : ('pending_approval' as const);
+
     const admin = createAdminClient();
-    const payload = buildCampaignWritePayload(input, user.id, 'pending_approval');
+    const payload = buildCampaignWritePayload(input, user.id, submitStatus);
 
     let data;
     if (input.id) {

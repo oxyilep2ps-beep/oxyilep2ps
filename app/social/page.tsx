@@ -1,5 +1,5 @@
-import { SocialOverviewClient } from '@/components/social/social-overview-client';
+import { SocialPageContent } from '@/components/social/social-page-content';
 
 export default function SocialHomePage() {
-  return <SocialOverviewClient />;
+  return <SocialPageContent />;
 }

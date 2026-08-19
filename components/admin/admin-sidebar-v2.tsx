@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Download, ExternalLink, LogOut, X } from 'lucide-react';
+import { ArrowLeftRight, Building2, Download, ExternalLink, LogOut, Newspaper, Share2, SquareArrowOutUpRight, X } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { InstallAppButton } from '@/components/pwa/InstallAppButton';
 import { useAdminNotificationContext } from '@/components/admin/admin-notification-provider';
@@ -12,6 +12,55 @@ import {
   isAdminNavActive,
 } from '@/lib/admin/nav-config';
 import { cn } from '@/lib/utils';
+
+const VIEW_AS_PORTALS = [
+  { label: 'Admin Core', href: '/admin-dashboard', icon: SquareArrowOutUpRight, tag: 'admin' },
+  { label: 'HR Portal', href: '/hr', icon: Building2, tag: 'hr' },
+  { label: 'Blogger Portal', href: '/blogger', icon: Newspaper, tag: 'blogger' },
+  { label: 'Social Manager', href: '/social', icon: Share2, tag: 'social' },
+] as const;
+
+function ViewAsMenu({ onClose }: { onClose: () => void }) {
+  const pathname = usePathname();
+  const current =
+    pathname.startsWith('/hr') ? 'hr'
+    : pathname.startsWith('/blogger') ? 'blogger'
+    : pathname.startsWith('/social') ? 'social'
+    : 'admin';
+
+  return (
+    <div className="rounded-2xl border border-[#F97316]/30 bg-[#F97316]/5 p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#F97316]">
+        <ArrowLeftRight size={11} />
+        View As
+      </p>
+      <ul className="space-y-0.5">
+        {VIEW_AS_PORTALS.map((item) => (
+          <li key={item.tag}>
+            <Link
+              href={item.href}
+              onClick={onClose}
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition',
+                item.tag === current
+                  ? 'bg-[#F97316]/20 text-[#F97316]'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
+              )}
+            >
+              <item.icon size={13} />
+              {item.label}
+              {item.tag === current && (
+                <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-[#F97316]/70">
+                  Active
+                </span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -109,6 +158,8 @@ export function AdminSidebarV2({
         </nav>
 
         <div className="space-y-3 border-t border-gray-200 p-3 dark:border-gray-800">
+          <ViewAsMenu onClose={onClose} />
+
           <div className="rounded-2xl border border-gray-200 bg-gray-50/90 p-3 dark:border-gray-800 dark:bg-[#111]/90">
             <div className="mb-2 flex items-center gap-2 text-xs font-bold text-gray-900 dark:text-white">
               <Download size={14} className="text-[#F97316]" />
