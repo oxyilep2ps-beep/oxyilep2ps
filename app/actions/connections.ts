@@ -165,16 +165,29 @@ export async function listDiscoverUsers(limit = 40): Promise<DiscoverUser[]> {
   const user = await getAuthUser();
   const admin = createAdminClient();
 
-  // Fetch all users except self
-  const { data: profiles, error: profilesError } = await admin
+  // Prefer approved/active members first.
+  const { data: approvedProfiles, error: approvedProfilesError } = await admin
     .from('profiles')
     .select('id, full_legal_name, username, avatar_url, role')
     .neq('id', user.id)
-    .in('status', ['APPROVED', 'approved'])
+    .in('status', ['APPROVED', 'approved', 'VERIFIED', 'verified', 'ACTIVE', 'active'])
     .order('full_legal_name', { ascending: true })
     .limit(limit);
 
-  if (profilesError) throw new Error(profilesError.message);
+  if (approvedProfilesError) throw new Error(approvedProfilesError.message);
+
+  let profiles = approvedProfiles;
+  // Fallback: if status data is sparse/inconsistent, still show real users.
+  if (!profiles || profiles.length === 0) {
+    const { data: fallbackProfiles, error: fallbackProfilesError } = await admin
+      .from('profiles')
+      .select('id, full_legal_name, username, avatar_url, role')
+      .neq('id', user.id)
+      .order('full_legal_name', { ascending: true })
+      .limit(limit);
+    if (fallbackProfilesError) throw new Error(fallbackProfilesError.message);
+    profiles = fallbackProfiles;
+  }
 
   // Fetch all connection rows involving this user
   const { data: connections } = await admin

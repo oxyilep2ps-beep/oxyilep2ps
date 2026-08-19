@@ -240,9 +240,12 @@ function SuggestedUserRow({ user }: { user: DiscoverUser }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function SocialFeed() {
-  const [loading, setLoading] = useState(true);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [suggestions, setSuggestions] = useState<DiscoverUser[]>([]);
+  const [postsError, setPostsError] = useState<string | null>(null);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [myId, setMyId] = useState<string>('');
   const [displayName, setDisplayName] = useState('');
@@ -253,35 +256,55 @@ export function SocialFeed() {
     let mounted = true;
 
     async function load() {
-      const [postRes, suggestRes] = await Promise.all([
-        listGlobalPosts(40),
-        listDiscoverUsers(8),
-      ]);
+      setPostsLoading(true);
+      setSuggestionsLoading(true);
+      setPostsError(null);
+      setSuggestionsError(null);
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        if (user && mounted) {
+          setMyId(user.id);
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role, full_legal_name')
+            .eq('id', user.id)
+            .maybeSingle();
+          setRole(profile?.role ?? null);
+          setDisplayName(
+            (profile as { full_legal_name?: string } | null)?.full_legal_name ??
+              user.email?.split('@')[0] ??
+              'there'
+          );
+        }
 
-      if (user && mounted) {
-        setMyId(user.id);
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, full_legal_name')
-          .eq('id', user.id)
-          .maybeSingle();
-        setRole(profile?.role ?? null);
-        setDisplayName(
-          (profile as { full_legal_name?: string } | null)?.full_legal_name ??
-          user.email?.split('@')[0] ??
-          'there'
-        );
-      }
+        try {
+          const postRes = await listGlobalPosts(40);
+          if (mounted) setPosts(postRes);
+        } catch (err) {
+          if (mounted) setPostsError(err instanceof Error ? err.message : 'Failed to load posts.');
+        } finally {
+          if (mounted) setPostsLoading(false);
+        }
 
-      if (mounted) {
-        setPosts(postRes);
-        setSuggestions(suggestRes);
-        setLoading(false);
+        try {
+          const suggestRes = await listDiscoverUsers(12);
+          if (mounted) setSuggestions(suggestRes);
+        } catch (err) {
+          if (mounted) setSuggestionsError(err instanceof Error ? err.message : 'Failed to load suggestions.');
+        } finally {
+          if (mounted) setSuggestionsLoading(false);
+        }
+      } catch {
+        if (mounted) {
+          setPostsLoading(false);
+          setSuggestionsLoading(false);
+          setPostsError('Failed to initialize feed session.');
+          setSuggestionsError('Failed to initialize suggestions.');
+        }
       }
     }
 
@@ -379,9 +402,14 @@ export function SocialFeed() {
               Global Feed
             </h2>
 
-            {loading ? (
+            {postsLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 size={22} className="animate-spin text-[#F97316]" />
+              </div>
+            ) : postsError ? (
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+                <p className="text-sm font-semibold text-red-300">Could not load posts</p>
+                <p className="mt-1 text-xs text-red-200/80">{postsError}</p>
               </div>
             ) : posts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-neutral-800 py-12 text-center">
@@ -394,7 +422,7 @@ export function SocialFeed() {
                   <FeedPostCard
                     key={item.id}
                     item={item}
-                    canManage={canManageAnyPost || item.author_id === myId}
+                    canManage={!item.id.startsWith('legacy-') && (canManageAnyPost || item.author_id === myId)}
                     onDelete={(id) =>
                       startTransition(async () => {
                         await deleteGlobalPost(id);
@@ -422,12 +450,17 @@ export function SocialFeed() {
               Suggested Connections
             </h2>
 
-            {loading ? (
+            {suggestionsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 size={18} className="animate-spin text-[#F97316]" />
               </div>
+            ) : suggestionsError ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                <p className="text-xs font-semibold text-amber-200">Could not load suggestions</p>
+                <p className="mt-1 text-[11px] text-amber-100/80">{suggestionsError}</p>
+              </div>
             ) : visibleSuggestions.length === 0 ? (
-              <p className="py-4 text-center text-xs text-neutral-400">You&apos;re all caught up!</p>
+              <p className="py-4 text-center text-xs text-neutral-400">No suggestions found right now.</p>
             ) : (
               <div className="space-y-1">
                 {visibleSuggestions.map((u) => (

@@ -63,7 +63,29 @@ export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
     .limit(limit);
 
   if (error) throw new Error(error.message);
-  if (!posts || posts.length === 0) return [];
+  if (!posts || posts.length === 0) {
+    // Backward compatibility: reuse existing legacy announcements so feed is never empty
+    // when teams already posted content before `global_posts` existed.
+    const { data: legacyAnnouncements, error: legacyError } = await admin
+      .from('announcements')
+      .select('id, title, content, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (legacyError) throw new Error(legacyError.message);
+    if (!legacyAnnouncements || legacyAnnouncements.length === 0) return [];
+
+    return legacyAnnouncements.map((a) => ({
+      id: `legacy-${String(a.id)}`,
+      content: [a.title, a.content].filter(Boolean).join('\n\n'),
+      media_url: null,
+      created_at: String(a.created_at),
+      author_id: 'legacy-announcement',
+      author_name: 'Platform Announcements',
+      author_role: 'System',
+      author_avatar: null,
+    }));
+  }
 
   const authorIds = [...new Set(posts.map((p) => String(p.author_id)))];
   const { data: authors } = await admin
