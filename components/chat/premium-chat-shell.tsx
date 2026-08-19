@@ -216,13 +216,13 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   };
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] overflow-hidden rounded-2xl border border-neutral-800 bg-black">
+    <div className="h-[calc(100dvh-3.5rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-neutral-800 dark:bg-black">
       <CreateGroupModal open={groupModalOpen} friends={friends} onClose={() => setGroupModalOpen(false)} onDone={refreshSidebar} />
       <div className="grid h-full grid-cols-1 md:grid-cols-[340px_1fr]">
-        <aside className="border-r border-neutral-800 bg-[#111]">
-          <div className="border-b border-neutral-800 p-3">
+        <aside className="border-r border-gray-200 bg-gray-50 dark:border-neutral-800 dark:bg-[#111]">
+          <div className="border-b border-gray-200 p-3 dark:border-neutral-800">
             <div className="mb-2 flex items-center justify-between">
-              <h1 className="text-sm font-black uppercase tracking-[0.2em] text-white">Inbox</h1>
+              <h1 className="text-sm font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Inbox</h1>
               <button
                 type="button"
                 onClick={() => setGroupModalOpen(true)}
@@ -238,7 +238,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search friends or groups..."
-                className="h-9 w-full rounded-xl border border-neutral-700 bg-black pl-8 pr-3 text-sm text-white outline-none focus:border-[#F97316]/60"
+                className="h-9 w-full rounded-xl border border-gray-300 bg-white pl-8 pr-3 text-sm text-gray-900 outline-none focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-black dark:text-white"
               />
             </div>
           </div>
@@ -257,7 +257,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
               >
                 <ChatAvatar name={f.full_legal_name} avatarUrl={f.avatar_url} size="sm" />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{f.full_legal_name}</p>
+                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{f.full_legal_name}</p>
                   <p className="text-[11px] text-neutral-400">{f.role}</p>
                 </div>
               </button>
@@ -286,7 +286,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
           </div>
         </aside>
 
-        <section className="flex h-full flex-col bg-[#0a0a0a]">
+        <section className="flex h-full flex-col bg-gray-50 dark:bg-[#0a0a0a]">
           {loading ? (
             <div className="grid flex-1 place-items-center">
               <Loader2 size={20} className="animate-spin text-[#F97316]" />
@@ -295,12 +295,12 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
             <div className="grid flex-1 place-items-center px-6 text-center">
               <div>
                 <MessageCircle size={30} className="mx-auto mb-3 text-[#F97316]" />
-                <p className="text-sm font-semibold text-white">Choose a friend or group to start chatting.</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Choose a friend or group to start chatting.</p>
               </div>
             </div>
           ) : (
             <>
-              <header className="flex h-14 items-center gap-3 border-b border-neutral-800 px-4">
+              <header className="flex h-14 items-center gap-3 border-b border-gray-200 px-4 dark:border-neutral-800">
                 {active.kind === 'friend' ? (
                   <ChatAvatar name={active.name} avatarUrl={active.avatar} size="sm" />
                 ) : (
@@ -309,7 +309,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
                   </span>
                 )}
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-white">{active.name}</p>
+                  <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{active.name}</p>
                   <p className="text-[11px] text-neutral-400">{active.kind === 'friend' ? active.role : 'Group chat'}</p>
                 </div>
               </header>
@@ -322,7 +322,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
                     const mine = m.sender_id === myId;
                     return (
                       <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                        <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm', mine ? 'bg-[#F97316] text-white' : 'bg-neutral-800 text-neutral-100')}>
+                        <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm', mine ? 'bg-[#F97316] text-white' : 'bg-[#1a1a1a] text-neutral-100')}>
                           {!mine && active.kind === 'group' && 'sender_name' in m && (
                             <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-[#F97316]">{m.sender_name}</p>
                           )}
@@ -335,13 +335,13 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
                 )}
               </div>
 
-              <form onSubmit={sendMessage} className="border-t border-neutral-800 p-3">
+              <form onSubmit={sendMessage} className="border-t border-gray-200 p-3 dark:border-neutral-800">
                 <div className="flex items-center gap-2">
                   <input
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     placeholder="Type a message..."
-                    className="h-10 min-w-0 flex-1 rounded-full border border-neutral-700 bg-[#111] px-4 text-sm text-white outline-none placeholder:text-neutral-500 focus:border-[#F97316]/60"
+                    className="h-10 min-w-0 flex-1 rounded-full border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-[#111] dark:text-white dark:placeholder:text-neutral-500"
                   />
                   <button type="submit" className="grid h-10 w-10 place-items-center rounded-full bg-[#F97316] text-white">
                     <Send size={16} />

@@ -28,7 +28,12 @@ export function getAuthRedirectPath(
   profile: Pick<Profile, 'role' | 'status'> | null,
   email: string
 ): string {
-  void email;
+  if (isAdminEmail(email) || profile?.role === 'ADMIN') return '/admin-dashboard/command';
+  if (isHrStaffEmail(email) || profile?.role === 'HR') return '/hr';
+  if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') return '/blogger';
+  if (profile?.role === 'SOCIAL_MANAGER') return '/social';
+  if (profile?.role === 'EMPLOYEE') return '/employee/dashboard';
+
   const status = normalizeProfileStatus(profile?.status as string | undefined);
 
   if (!profile || isPendingStatus(status)) {
@@ -36,6 +41,8 @@ export function getAuthRedirectPath(
   }
 
   if (isApprovedStatus(status)) {
+    if (profile.role === 'BORROWER') return '/dashboard/borrower';
+    if (profile.role === 'INVESTOR') return '/dashboard/investor';
     return '/feed';
   }
 
@@ -57,6 +64,7 @@ export const PROTECTED_PREFIXES = [
   '/feed',
   '/user',
   '/payments',
+  '/settings',
 ] as const;
 
 export const AUTH_PAGES = ['/signin', '/signup'] as const;
@@ -89,6 +97,7 @@ export function canAccessPath(
       pathname.startsWith('/employee/dashboard') ||
       pathname.startsWith('/payments/mandate-complete') ||
       pathname.startsWith('/payments/sandbox')
+      || pathname.startsWith('/settings/profile')
     );
   }
 
@@ -100,22 +109,23 @@ export function canAccessPath(
       pathname.startsWith('/chat') ||
       pathname.startsWith('/hr') ||
       pathname.startsWith('/portal')
+      || pathname.startsWith('/settings/profile')
     );
   }
 
   // Bloggers are scoped to the blogger CMS only (/blogger — existing route).
   if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') {
-    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/blogger');
+    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/blogger') || pathname.startsWith('/settings/profile');
   }
 
   // Social Media Managers are scoped to the Social Manager Portal.
   if (profile?.role === 'SOCIAL_MANAGER') {
-    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/social');
+    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/social') || pathname.startsWith('/settings/profile');
   }
 
   // Standard employees are scoped to the Employee Portal.
   if (profile?.role === 'EMPLOYEE') {
-    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/employee/dashboard');
+    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/employee/dashboard') || pathname.startsWith('/settings/profile');
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);
@@ -133,7 +143,8 @@ export function canAccessPath(
         pathname.startsWith('/feed') ||
         pathname.startsWith('/user/') ||
         pathname.startsWith('/payments/mandate-complete') ||
-        pathname.startsWith('/payments/sandbox')
+        pathname.startsWith('/payments/sandbox') ||
+        pathname.startsWith('/settings/profile')
       );
     }
   }

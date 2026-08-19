@@ -5,6 +5,7 @@ import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
 import { getAuthRedirectPath } from '@/lib/auth/routing';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
+import { UniversalDashboardLayout } from '@/components/shared/universal-dashboard-layout';
 
 export default async function DashboardGroupLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -41,10 +42,19 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
       redirect(getAuthRedirectPath(profile, email));
     }
 
-    // Redirect generic dashboard root to /feed for every approved role.
+    // Preserve role-specific dashboards for core platform roles.
     const isRootDashboard = pathname === '/dashboard';
     if (isRootDashboard) {
+      if (profile.role === 'BORROWER') redirect('/dashboard/borrower');
+      if (profile.role === 'INVESTOR') redirect('/dashboard/investor');
       redirect('/feed');
+    }
+
+    if (profile.role === 'BORROWER') {
+      return <UniversalDashboardLayout portal="borrower">{children}</UniversalDashboardLayout>;
+    }
+    if (profile.role === 'INVESTOR') {
+      return <UniversalDashboardLayout portal="investor">{children}</UniversalDashboardLayout>;
     }
 
     return <DashboardShell>{children}</DashboardShell>;

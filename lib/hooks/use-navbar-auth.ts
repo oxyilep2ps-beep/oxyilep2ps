@@ -11,6 +11,8 @@ function getPortalDashboardHref(role?: string | null): string {
   if (role === 'BLOGGER') return '/blogger';
   if (role === 'SOCIAL_MANAGER') return '/social';
   if (role === 'EMPLOYEE') return '/employee/dashboard';
+  if (role === 'BORROWER') return '/dashboard/borrower';
+  if (role === 'INVESTOR') return '/dashboard/investor';
   return '/feed';
 }
 

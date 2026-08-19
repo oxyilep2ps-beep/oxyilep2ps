@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation';
-import { Logo } from '@/components/logo';
-import { EmployeeBottomNav } from '@/components/employee/employee-bottom-nav';
 import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/auth/routing';
+import { UniversalDashboardLayout } from '@/components/shared/universal-dashboard-layout';
 
 export default async function EmployeeDashboardLayout({
   children,
@@ -32,22 +31,5 @@ export default async function EmployeeDashboardLayout({
     if (!dir) redirect('/employee/login?revoked=1');
   }
 
-  return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-7xl px-4 pb-28 pt-6 sm:px-6">
-        <header className="mb-6 rounded-2xl border border-neutral-800 bg-neutral-900/70 p-5 shadow-2xl shadow-black/40 backdrop-blur-md">
-          <Logo size="sm" />
-          <p className="mt-3 text-xs font-bold uppercase tracking-[0.28em] text-orange-500">
-            Employee Portal
-          </p>
-          <h1 className="mt-2 text-2xl font-black text-white">Your Oxyile Hub</h1>
-          <p className="mt-1 max-w-2xl text-sm text-neutral-400">
-            Tasks, standups, HR, assets, and culture — all in one sleek workspace.
-          </p>
-        </header>
-        {children}
-      </div>
-      <EmployeeBottomNav />
-    </div>
-  );
+  return <UniversalDashboardLayout portal="employee" isAdmin={profile?.role === 'ADMIN'}>{children}</UniversalDashboardLayout>;
 }

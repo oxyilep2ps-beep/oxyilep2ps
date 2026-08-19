@@ -6,13 +6,16 @@ import { UniversalSidebar } from '@/components/shared/universal-sidebar';
 import { PortalContextProvider } from '@/components/shared/portal-context';
 import { useNavbarAuth } from '@/lib/hooks/use-navbar-auth';
 
-export type PortalId = 'admin' | 'hr' | 'blogger' | 'social';
+export type PortalId = 'admin' | 'hr' | 'blogger' | 'social' | 'borrower' | 'investor' | 'employee';
 
 const PORTAL_LABELS: Record<PortalId, string> = {
   admin: 'Admin Portal',
   hr: 'HR Portal',
   blogger: 'Blogger Portal',
   social: 'Social Manager Portal',
+  borrower: 'Borrower Portal',
+  investor: 'Investor Portal',
+  employee: 'Employee Portal',
 };
 
 export function UniversalDashboardLayout({

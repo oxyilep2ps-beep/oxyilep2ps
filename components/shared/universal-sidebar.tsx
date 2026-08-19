@@ -116,6 +116,64 @@ const SOCIAL_NAV: NavGroup[] = [
   },
 ];
 
+const BORROWER_NAV: NavGroup[] = [
+  {
+    heading: 'Social Layer',
+    items: [
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+    ],
+  },
+  {
+    heading: 'Borrower',
+    items: [
+      { href: '/dashboard/borrower', label: 'Overview', icon: LayoutDashboard, exact: true },
+      { href: '/dashboard/apply', label: 'Apply Loan', icon: PenSquare },
+      { href: '/dashboard/profile', label: 'Profile', icon: User },
+      { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+];
+
+const INVESTOR_NAV: NavGroup[] = [
+  {
+    heading: 'Social Layer',
+    items: [
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+    ],
+  },
+  {
+    heading: 'Investor',
+    items: [
+      { href: '/dashboard/investor', label: 'Overview', icon: LayoutDashboard, exact: true },
+      { href: '/dashboard/marketplace', label: 'Marketplace', icon: Briefcase },
+      { href: '/dashboard/portfolio', label: 'Portfolio', icon: Star },
+      { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+];
+
+const EMPLOYEE_NAV: NavGroup[] = [
+  {
+    heading: 'Social Layer',
+    items: [
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+    ],
+  },
+  {
+    heading: 'Employee',
+    items: [
+      { href: '/employee/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
+      { href: '/employee/dashboard/tasks', label: 'Tasks', icon: ClipboardList },
+      { href: '/employee/dashboard/hr', label: 'HR', icon: Building2 },
+      { href: '/employee/dashboard/reports', label: 'Reports', icon: BookOpen },
+      { href: '/employee/dashboard/rewards', label: 'Rewards', icon: Star },
+    ],
+  },
+];
+
 // Admin portal nav re-exported from nav-config as inline to keep this file self-contained
 const ADMIN_NAV: NavGroup[] = [
   {
@@ -143,13 +201,19 @@ const PORTAL_NAV: Record<PortalId, NavGroup[]> = {
   hr: HR_NAV,
   blogger: BLOGGER_NAV,
   social: SOCIAL_NAV,
+  borrower: BORROWER_NAV,
+  investor: INVESTOR_NAV,
+  employee: EMPLOYEE_NAV,
 };
 
 const PORTAL_FOOTER_LINKS: Record<PortalId, { href: string; label: string }> = {
-  admin: { href: '/admin-dashboard/profile', label: 'Profile' },
-  hr: { href: '/hr/guide', label: 'HR Guide' },
-  blogger: { href: '/blogger/settings', label: 'Blogger Settings' },
-  social: { href: '/social/settings', label: 'Social Settings' },
+  admin: { href: '/settings/profile', label: 'Profile & Bio' },
+  hr: { href: '/settings/profile', label: 'Profile & Bio' },
+  blogger: { href: '/settings/profile', label: 'Profile & Bio' },
+  social: { href: '/settings/profile', label: 'Profile & Bio' },
+  borrower: { href: '/settings/profile', label: 'Profile & Bio' },
+  investor: { href: '/settings/profile', label: 'Profile & Bio' },
+  employee: { href: '/settings/profile', label: 'Profile & Bio' },
 };
 
 const PORTAL_TITLES: Record<PortalId, { title: string; tag: string }> = {
@@ -157,6 +221,9 @@ const PORTAL_TITLES: Record<PortalId, { title: string; tag: string }> = {
   hr: { title: 'Oxyile', tag: 'HR Portal' },
   blogger: { title: 'Oxyile', tag: 'Editorial' },
   social: { title: 'Oxyile', tag: 'Social' },
+  borrower: { title: 'Oxyile', tag: 'Borrower' },
+  investor: { title: 'Oxyile', tag: 'Investor' },
+  employee: { title: 'Oxyile', tag: 'Employee' },
 };
 
 // ─── Portal Switcher (collapsible accordion — lives inside scrollable nav) ───
@@ -166,6 +233,9 @@ const SWITCHER_ITEMS: { id: PortalId; label: string; href: string; icon: React.E
   { id: 'hr', label: 'HR Portal', href: '/hr', icon: Building2 },
   { id: 'blogger', label: 'Blogger Portal', href: '/blogger', icon: Newspaper },
   { id: 'social', label: 'Social Manager', href: '/social', icon: Share2 },
+  { id: 'borrower', label: 'Borrower Portal', href: '/dashboard/borrower', icon: User },
+  { id: 'investor', label: 'Investor Portal', href: '/dashboard/investor', icon: Star },
+  { id: 'employee', label: 'Employee Portal', href: '/employee/dashboard', icon: Building2 },
 ];
 
 function PortalSwitcher({ current, onClose }: { current: PortalId; onClose: () => void }) {
@@ -250,7 +320,16 @@ export function UniversalSidebar({
   const groups = PORTAL_NAV[portal];
   const { title, tag } = PORTAL_TITLES[portal];
   const footerLink = PORTAL_FOOTER_LINKS[portal];
-  const dashboardHref = portal === 'admin' ? '/admin-dashboard' : `/${portal}`;
+  const dashboardHref =
+    portal === 'admin'
+      ? '/admin-dashboard'
+      : portal === 'borrower'
+        ? '/dashboard/borrower'
+        : portal === 'investor'
+          ? '/dashboard/investor'
+          : portal === 'employee'
+            ? '/employee/dashboard'
+            : `/${portal}`;
 
   return (
     <>

@@ -162,73 +162,76 @@ export async function listMyConnections(): Promise<
 
 /** List users to discover + their connection status relative to the current user. */
 export async function listDiscoverUsers(limit = 40): Promise<DiscoverUser[]> {
-  const user = await getAuthUser();
-  const admin = createAdminClient();
+  try {
+    const user = await getAuthUser();
+    const admin = createAdminClient();
 
-  // Prefer approved/active members first.
-  const { data: approvedProfiles, error: approvedProfilesError } = await admin
-    .from('profiles')
-    .select('id, full_legal_name, username, avatar_url, role')
-    .neq('id', user.id)
-    .in('status', ['APPROVED', 'approved', 'VERIFIED', 'verified', 'ACTIVE', 'active'])
-    .order('full_legal_name', { ascending: true })
-    .limit(limit);
-
-  if (approvedProfilesError) throw new Error(approvedProfilesError.message);
-
-  let profiles = approvedProfiles;
-  // Fallback: if status data is sparse/inconsistent, still show real users.
-  if (!profiles || profiles.length === 0) {
-    const { data: fallbackProfiles, error: fallbackProfilesError } = await admin
+    // Prefer approved/active members first.
+    const { data: approvedProfiles, error: approvedProfilesError } = await admin
       .from('profiles')
       .select('id, full_legal_name, username, avatar_url, role')
       .neq('id', user.id)
+      .in('status', ['APPROVED', 'approved', 'VERIFIED', 'verified', 'ACTIVE', 'active'])
       .order('full_legal_name', { ascending: true })
       .limit(limit);
-    if (fallbackProfilesError) throw new Error(fallbackProfilesError.message);
-    profiles = fallbackProfiles;
-  }
 
-  // Fetch all connection rows involving this user
-  const { data: connections } = await admin
-    .from('user_connections')
-    .select('id, requester_id, receiver_id, status')
-    .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
-
-  // Build a map: peerId → { connectionId, status }
-  const connMap: Record<string, { id: string; status: string; iRequested: boolean }> = {};
-  for (const c of connections ?? []) {
-    const peerId = c.requester_id === user.id ? c.receiver_id : c.requester_id;
-    connMap[peerId] = {
-      id: String(c.id),
-      status: String(c.status),
-      iRequested: c.requester_id === user.id,
-    };
-  }
-
-  return (profiles ?? []).map((p) => {
-    const conn = connMap[String(p.id)];
-    let connection_status: ConnectionStatus = 'none';
-    let connection_id: string | null = null;
-
-    if (conn) {
-      connection_id = conn.id;
-      if (conn.status === 'accepted') connection_status = 'accepted';
-      else if (conn.status === 'pending') {
-        connection_status = conn.iRequested ? 'pending_sent' : 'pending_received';
-      }
+    let profiles = approvedProfiles;
+    // Fallback: if status column values are sparse/inconsistent (or query fails), still show real users.
+    if (approvedProfilesError || !profiles || profiles.length === 0) {
+      const { data: fallbackProfiles, error: fallbackProfilesError } = await admin
+        .from('profiles')
+        .select('id, full_legal_name, username, avatar_url, role')
+        .neq('id', user.id)
+        .order('full_legal_name', { ascending: true })
+        .limit(limit);
+      if (fallbackProfilesError) throw new Error(fallbackProfilesError.message);
+      profiles = fallbackProfiles;
     }
 
-    return {
-      id: String(p.id),
-      full_legal_name: String(p.full_legal_name ?? ''),
-      username: (p.username as string | null) ?? null,
-      avatar_url: (p.avatar_url as string | null) ?? null,
-      role: String(p.role ?? ''),
-      connection_status,
-      connection_id,
-    };
-  });
+    // Fetch all connection rows involving this user
+    const { data: connections } = await admin
+      .from('user_connections')
+      .select('id, requester_id, receiver_id, status')
+      .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
+
+    // Build a map: peerId → { connectionId, status }
+    const connMap: Record<string, { id: string; status: string; iRequested: boolean }> = {};
+    for (const c of connections ?? []) {
+      const peerId = c.requester_id === user.id ? c.receiver_id : c.requester_id;
+      connMap[peerId] = {
+        id: String(c.id),
+        status: String(c.status),
+        iRequested: c.requester_id === user.id,
+      };
+    }
+
+    return (profiles ?? []).map((p) => {
+      const conn = connMap[String(p.id)];
+      let connection_status: ConnectionStatus = 'none';
+      let connection_id: string | null = null;
+
+      if (conn) {
+        connection_id = conn.id;
+        if (conn.status === 'accepted') connection_status = 'accepted';
+        else if (conn.status === 'pending') {
+          connection_status = conn.iRequested ? 'pending_sent' : 'pending_received';
+        }
+      }
+
+      return {
+        id: String(p.id),
+        full_legal_name: String(p.full_legal_name ?? ''),
+        username: (p.username as string | null) ?? null,
+        avatar_url: (p.avatar_url as string | null) ?? null,
+        role: String(p.role ?? ''),
+        connection_status,
+        connection_id,
+      };
+    });
+  } catch (error) {
+    console.error('[listDiscoverUsers] failed', error);
+    return [];
+  }
 }
 
 /** Get the connection status between the current user and a specific peer. */

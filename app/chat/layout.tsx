@@ -25,6 +25,9 @@ export default async function ChatLayout({ children }: { children: React.ReactNo
   if (role === 'HR') return <UniversalDashboardLayout portal="hr">{children}</UniversalDashboardLayout>;
   if (role === 'BLOGGER') return <UniversalDashboardLayout portal="blogger">{children}</UniversalDashboardLayout>;
   if (role === 'SOCIAL_MANAGER') return <UniversalDashboardLayout portal="social">{children}</UniversalDashboardLayout>;
+  if (role === 'BORROWER') return <UniversalDashboardLayout portal="borrower">{children}</UniversalDashboardLayout>;
+  if (role === 'INVESTOR') return <UniversalDashboardLayout portal="investor">{children}</UniversalDashboardLayout>;
+  if (role === 'EMPLOYEE') return <UniversalDashboardLayout portal="employee">{children}</UniversalDashboardLayout>;
 
-  return <div className="min-h-screen bg-[#0a0a0a] text-white">{children}</div>;
+  return <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-[#0a0a0a] dark:text-white">{children}</div>;
 }

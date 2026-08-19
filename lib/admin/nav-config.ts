@@ -87,7 +87,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 
 export const ADMIN_NAV_FOOTER: AdminNavItem[] = [
   { href: '/admin-dashboard/theme', label: 'Theme', icon: Palette },
-  { href: '/admin-dashboard/profile', label: 'Profile', icon: User, exact: true },
+  { href: '/settings/profile', label: 'Profile', icon: User, exact: true },
   { href: '/admin-dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

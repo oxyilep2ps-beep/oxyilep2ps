@@ -11,6 +11,8 @@ function getPortalHref(role: string): string {
   if (role === 'BLOGGER') return '/blogger';
   if (role === 'SOCIAL_MANAGER') return '/social';
   if (role === 'EMPLOYEE') return '/employee/dashboard';
+  if (role === 'BORROWER') return '/dashboard/borrower';
+  if (role === 'INVESTOR') return '/dashboard/investor';
   return '/dashboard';
 }
 
