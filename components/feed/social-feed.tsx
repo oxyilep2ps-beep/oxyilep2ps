@@ -179,23 +179,34 @@ function FeedPostCard({
         <p className="text-[10px] text-gray-500 dark:text-neutral-500">
           {new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
         </p>
-        {!item.id.startsWith('legacy-') && (
+      </div>
+
+      {!item.id.startsWith('legacy-') && (
+        <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
           <button
             type="button"
             onClick={() => onToggleLike(item.id)}
             disabled={likesBusy}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition',
+              'inline-flex items-center gap-2 rounded-full px-2 py-1.5 text-sm font-semibold transition-transform active:scale-95',
               item.liked_by_me
-                ? 'border-[#F97316]/40 bg-[#F97316]/10 text-[#F97316]'
-                : 'border-gray-300 text-gray-600 hover:border-[#F97316]/40 hover:text-[#F97316] dark:border-gray-700 dark:text-gray-300'
+                ? 'text-orange-500'
+                : 'text-gray-500 hover:text-orange-500 dark:text-gray-400 dark:hover:text-orange-500'
             )}
           >
-            <Heart size={13} className={cn(item.liked_by_me && 'fill-current')} />
-            {item.likes_count}
+            <Heart
+              size={18}
+              className={cn(
+                'transition-colors',
+                item.liked_by_me ? 'fill-orange-500 text-orange-500' : 'fill-transparent'
+              )}
+            />
+            <span>
+              {item.likes_count} {item.likes_count === 1 ? 'Like' : 'Likes'}
+            </span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </motion.article>
   );
 }

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { notifyPostLikePush } from '@/app/actions/sendPushNotification';
 
 type Role = 'ADMIN' | 'HR' | 'BLOGGER' | 'SOCIAL_MANAGER' | string;
 
@@ -136,8 +137,10 @@ export async function togglePostLike(postId: string) {
     return { ok: false as const, error: 'Invalid post for likes.' };
   }
 
-  const { data: post } = await admin.from('global_posts').select('id').eq('id', postId).maybeSingle();
+  const { data: post } = await admin.from('global_posts').select('id, author_id').eq('id', postId).maybeSingle();
   if (!post) return { ok: false as const, error: 'Post not found.' };
+
+  const authorId = String(post.author_id);
 
   const { data: existing } = await admin
     .from('post_likes')
@@ -154,6 +157,25 @@ export async function togglePostLike(postId: string) {
 
   const { error } = await admin.from('post_likes').insert({ post_id: postId, user_id: user.id });
   if (error) return { ok: false as const, error: error.message };
+
+  if (authorId !== user.id) {
+    try {
+      const { data: likerProfile } = await admin
+        .from('profiles')
+        .select('full_legal_name, username')
+        .eq('id', user.id)
+        .maybeSingle();
+      const likerName =
+        String(likerProfile?.full_legal_name ?? '').trim() ||
+        String(likerProfile?.username ?? '').trim() ||
+        user.email?.split('@')[0] ||
+        '';
+      await notifyPostLikePush({ authorId, likerName });
+    } catch (pushError) {
+      console.error('[togglePostLike] push notification failed', pushError);
+    }
+  }
+
   return { ok: true as const, liked: true };
 }
 

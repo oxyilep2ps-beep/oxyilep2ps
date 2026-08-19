@@ -54,6 +54,29 @@ export async function notifyAdminsPush(payload: PushPayload): Promise<void> {
   }
 }
 
+export async function notifyPostLikePush(input: {
+  authorId: string;
+  likerName: string;
+}): Promise<void> {
+  try {
+    const body =
+      input.likerName.trim().length > 0
+        ? `${input.likerName.trim()} liked your post`
+        : 'Someone liked your recent post.';
+    await dispatchPushNotification(
+      {
+        title: 'New Like!',
+        body,
+        url: '/feed',
+        tag: 'post-like',
+      },
+      { userIds: [input.authorId] }
+    );
+  } catch (error) {
+    console.error('[notifyPostLikePush]', error);
+  }
+}
+
 export async function notifyChatMessagePush(input: {
   receiverId: string;
   preview: string;
