@@ -147,6 +147,18 @@ export async function saveSocialPostDraft(input: {
   }
 }
 
+async function isSocialAdminUser(userId: string, email: string | undefined): Promise<boolean> {
+  const { isAdminEmail } = await import('@/lib/auth/routing');
+  if (isAdminEmail(email)) return true;
+  const adminClient = createAdminClient();
+  const { data } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.role === 'ADMIN';
+}
+
 export async function submitSocialPostForApproval(input: {
   id?: string;
   title: string;
@@ -161,13 +173,16 @@ export async function submitSocialPostForApproval(input: {
       return { ok: false, error: 'Select LinkedIn, Instagram, or both.' };
     }
 
+    // Admins bypass the approval queue — their posts go straight to published.
+    const adminOverride = await isSocialAdminUser(user.id, user.email ?? undefined);
+
     const admin = createAdminClient();
     const payload = {
       title: input.title.trim() || 'Untitled social campaign',
       caption: input.caption.trim(),
       image_url: input.imageUrl?.trim() || '',
       channels: input.channels,
-      status: 'pending_approval' as const,
+      status: (adminOverride ? 'published' : 'pending_approval') as SocialPostStatus,
       rejection_reason: null,
       submitted_by: user.id,
       updated_at: new Date().toISOString(),

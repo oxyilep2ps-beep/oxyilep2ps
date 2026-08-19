@@ -1,4 +1,5 @@
-import { HrStudioShell } from '@/components/hr/hr-studio-shell';
+import { UniversalDashboardLayout } from '@/components/shared/universal-dashboard-layout';
+import { HrJobEditorProvider } from '@/components/hr/hr-job-editor-provider';
 import { createClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/auth/routing';
 import { isHrStaffEmail } from '@/lib/auth/role-emails';
@@ -12,11 +13,26 @@ export default async function HrLayout({ children }: { children: React.ReactNode
 
   if (!user) redirect('/signin?redirect=/hr');
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
 
-  if (!isAdminEmail(user.email) && !isHrStaffEmail(user.email) && profile?.role !== 'HR' && profile?.role !== 'ADMIN') {
+  const isAdmin =
+    isAdminEmail(user.email) || profile?.role === 'ADMIN';
+
+  if (
+    !isAdmin &&
+    !isHrStaffEmail(user.email) &&
+    profile?.role !== 'HR'
+  ) {
     redirect('/dashboard');
   }
 
-  return <HrStudioShell>{children}</HrStudioShell>;
+  return (
+    <UniversalDashboardLayout portal="hr" isAdmin={isAdmin}>
+      <HrJobEditorProvider>{children}</HrJobEditorProvider>
+    </UniversalDashboardLayout>
+  );
 }

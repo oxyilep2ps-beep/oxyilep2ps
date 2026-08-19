@@ -1,21 +1,10 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Terminal, X } from 'lucide-react';
 import { runTerminalCommand } from '@/app/actions/admin-terminal';
 import { formatTerminalHelp } from '@/lib/admin/terminal-commands';
-
-const MOCK_EVENTS = [
-  '[GoCardless] Mandate MD001 activated — borrower 8f2a…',
-  '[Polygon Amoy] TX 0x9c4e… confirmed — handshake mint',
-  '[GoCardless] Subscription SUB-442 payment settled',
-  '[Polygon Amoy] Gas spike detected — 42 gwei',
-  '[Webhook] payment.confirmed — handshake #TXN-0192',
-  '[GoCardless] Mandate MD008 pending authorisation',
-  '[Polygon Amoy] TX 0x1ab3… submitted — contract seal',
-  '[Webhook] mandate.cancelled — user review required',
-];
 
 function stamp() {
   return new Date().toLocaleTimeString('en-GB', { hour12: false });
@@ -25,25 +14,17 @@ function prefixed(text: string) {
   return `[${stamp()}] ${text}`;
 }
 
+const WELCOME = [
+  prefixed('Admin terminal ready. Type /help and press Enter.'),
+];
+
 export function AdminWebhookTerminal() {
   const [open, setOpen] = useState(false);
-  const [lines, setLines] = useState<string[]>(() =>
-    MOCK_EVENTS.slice(0, 4).map((event) => prefixed(event))
-  );
+  const [lines, setLines] = useState<string[]>(WELCOME);
   const [command, setCommand] = useState('');
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const pushLine = useCallback(() => {
-    const next = MOCK_EVENTS[Math.floor(Math.random() * MOCK_EVENTS.length)];
-    setLines((prev) => [...prev.slice(-80), prefixed(next)]);
-  }, []);
-
-  useEffect(() => {
-    const interval = window.setInterval(pushLine, 4200);
-    return () => window.clearInterval(interval);
-  }, [pushLine]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,11 +34,9 @@ export function AdminWebhookTerminal() {
   useEffect(() => {
     if (!open) return;
     inputRef.current?.focus();
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
     };
-
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
@@ -71,18 +50,24 @@ export function AdminWebhookTerminal() {
     setLines((prev) => [...prev, `$ ${raw}`]);
 
     const cmd = raw.split(/\s+/)[0]?.toLowerCase();
+
     if (cmd === '/clear') {
       setLines([prefixed('Terminal history cleared.')]);
       return;
     }
 
+    if (cmd === '/help') {
+      setLines((prev) => [...prev, ...formatTerminalHelp().map((l) => prefixed(l))]);
+      return;
+    }
+
     setBusy(true);
     try {
-      const result =
-        cmd === '/help'
-          ? { lines: formatTerminalHelp() }
-          : await runTerminalCommand(raw);
-      setLines((prev) => [...prev.slice(-80), ...result.lines.map((line) => prefixed(line))]);
+      const result = await runTerminalCommand(raw);
+      setLines((prev) => [
+        ...prev.slice(-200),
+        ...result.lines.map((line) => prefixed(line)),
+      ]);
     } catch (error) {
       setLines((prev) => [
         ...prev,
@@ -95,26 +80,27 @@ export function AdminWebhookTerminal() {
 
   return (
     <>
+      {/* FAB — always visible bottom-left on all screen sizes */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-4 z-40 inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-black px-4 py-3 text-xs font-semibold text-emerald-300 shadow-2xl transition hover:border-[#F97316]/50 hover:text-[#F97316] md:bottom-[calc(1.25rem+env(safe-area-inset-bottom))]"
-        aria-label="View live webhook terminal"
+        className="fixed bottom-4 left-4 z-40 inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-black px-3 py-2.5 text-xs font-semibold text-emerald-300 shadow-2xl transition hover:border-[#F97316]/50 hover:text-[#F97316]"
+        aria-label="Open admin terminal"
       >
-        <Terminal size={16} className="text-emerald-400" />
-        <span className="hidden sm:inline">View Terminal</span>
+        <Terminal size={15} className="shrink-0 text-emerald-400" />
+        <span className="hidden sm:inline">Terminal</span>
         <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
       </button>
 
       <AnimatePresence>
-        {open ? (
+        {open && (
           <>
             <motion.button
               type="button"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15 }}
               onClick={() => setOpen(false)}
               aria-label="Close terminal overlay"
               className="fixed inset-0 z-[55] bg-black/55 backdrop-blur-[2px]"
@@ -124,56 +110,64 @@ export function AdminWebhookTerminal() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-              className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-lg flex-col border-l border-emerald-500/25 bg-black shadow-2xl"
+              className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-lg flex-col border-l border-emerald-500/20 bg-[#0a0a0a] shadow-2xl"
               role="dialog"
               aria-modal="true"
-              aria-label="Live webhook terminal"
+              aria-label="Admin terminal"
             >
-              <div className="flex items-center gap-2 border-b border-emerald-500/20 px-4 py-3">
-                <Terminal size={16} className="text-emerald-400" />
+              {/* Header */}
+              <div className="flex shrink-0 items-center gap-2 border-b border-emerald-500/20 px-4 py-3">
+                <Terminal size={15} className="text-emerald-400" />
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                  Live Webhook Terminal
+                  Admin Terminal
                 </span>
-                <span className="ml-2 h-2 w-2 animate-pulse rounded-full bg-[#F97316]" />
+                <span className="ml-1 h-2 w-2 animate-pulse rounded-full bg-[#F97316]" />
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="ml-auto grid h-9 w-9 place-items-center rounded-full border border-emerald-500/30 text-emerald-300 transition hover:bg-emerald-500/10"
+                  className="ml-auto grid h-8 w-8 place-items-center rounded-full border border-emerald-500/30 text-emerald-300 transition hover:bg-emerald-500/10"
                   aria-label="Close terminal"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
+
+              {/* Output */}
               <div
                 ref={scrollRef}
-                className="min-h-0 flex-1 overflow-y-auto px-4 py-3 font-mono text-xs leading-6 text-emerald-300/90"
+                className="min-h-0 flex-1 overflow-y-auto px-4 py-3 font-mono text-[11px] leading-5 text-emerald-300/90"
               >
                 {lines.map((line, i) => (
-                  <p key={`${line}-${i}`} className="break-all">
-                    <span className="text-emerald-500/70">&gt;</span> {line}
+                  <p key={i} className="break-all whitespace-pre-wrap">
+                    <span className="text-emerald-600">&gt;</span> {line}
                   </p>
                 ))}
+                {busy && (
+                  <p className="text-emerald-600 animate-pulse">Running…</p>
+                )}
               </div>
+
+              {/* Input */}
               <form
-                onSubmit={(event) => void onSubmit(event)}
-                className="flex items-center gap-2 border-t border-emerald-500/20 px-4 py-3"
+                onSubmit={(e) => void onSubmit(e)}
+                className="flex shrink-0 items-center gap-2 border-t border-emerald-500/20 bg-black/40 px-4 py-3"
               >
-                <span className="text-green-500">$</span>
+                <span className="shrink-0 font-mono text-sm text-[#F97316]">$</span>
                 <input
                   ref={inputRef}
                   value={command}
-                  onChange={(event) => setCommand(event.target.value)}
+                  onChange={(e) => setCommand(e.target.value)}
                   disabled={busy}
-                  placeholder="Type /help and press Enter"
-                  className="min-w-0 flex-1 bg-transparent font-mono text-sm text-emerald-200 outline-none placeholder:text-emerald-700"
+                  placeholder="Type /help and press Enter…"
+                  className="min-w-0 flex-1 bg-transparent font-mono text-sm text-emerald-200 outline-none placeholder:text-emerald-800 disabled:opacity-50"
                   autoComplete="off"
                   spellCheck={false}
-                  aria-label="Terminal command"
+                  aria-label="Terminal command input"
                 />
               </form>
             </motion.aside>
           </>
-        ) : null}
+        )}
       </AnimatePresence>
     </>
   );

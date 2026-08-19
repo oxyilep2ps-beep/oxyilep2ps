@@ -222,6 +222,18 @@ export async function saveBloggerDraft(payload: {
   return mapRow(data as Record<string, unknown>);
 }
 
+async function isAdminUser(userId: string, email: string | undefined): Promise<boolean> {
+  const { isAdminEmail } = await import('@/lib/auth/routing');
+  if (isAdminEmail(email)) return true;
+  const adminClient = createAdminClient();
+  const { data } = await adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.role === 'ADMIN';
+}
+
 export async function submitBloggerBlog(payload: {
   id?: string;
   title: string;
@@ -244,17 +256,22 @@ export async function submitBloggerBlog(payload: {
   const admin = createAdminClient();
   const meta = publishingFields({ ...payload, forPublish: true });
 
+  // Admins bypass the approval queue — their posts go straight to PUBLISHED.
+  const adminOverride = await isAdminUser(user.id, user.email ?? undefined);
+  const submitStatus = adminOverride ? ('PUBLISHED' as const) : ('PENDING_APPROVAL' as const);
+
   const upsertPayload = {
     title: payload.title.trim(),
     content: payload.content.trim(),
     cover_image_url: payload.cover_image_url ?? null,
     inline_images: payload.inline_images ?? [],
     author_id: user.id,
-    status: 'PENDING_APPROVAL' as const,
+    status: submitStatus,
     // Clear prior rejection notes on resubmit
     admin_feedback: null,
     rejection_reason: null,
     updated_at: new Date().toISOString(),
+    ...(adminOverride ? { approved_at: new Date().toISOString(), approved_by: user.id } : {}),
     ...meta,
   };
 
@@ -262,12 +279,9 @@ export async function submitBloggerBlog(payload: {
     const existing = await getBloggerBlog(payload.id);
     if (!existing) throw new Error('Blog not found');
 
-    const nextStatus =
-      existing.status === 'PUBLISHED' ? 'PENDING_APPROVAL' : 'PENDING_APPROVAL';
-
     const { data, error } = await admin
       .from('blogs')
-      .update({ ...upsertPayload, status: nextStatus })
+      .update(upsertPayload)
       .eq('id', payload.id)
       .select('*')
       .single();
