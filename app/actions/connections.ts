@@ -67,6 +67,32 @@ export async function sendConnectionRequest(
       .single();
 
     if (error) return { ok: false, error: error.message };
+
+    try {
+      const { data: actorProfile } = await admin
+        .from('profiles')
+        .select('full_legal_name, username')
+        .eq('id', user.id)
+        .maybeSingle();
+      const actorName =
+        String(actorProfile?.full_legal_name ?? '').trim() ||
+        String(actorProfile?.username ?? '').trim() ||
+        user.email?.split('@')[0] ||
+        'Someone';
+
+      await admin.from('notifications').insert({
+        user_id: receiverId,
+        actor_id: user.id,
+        type: 'friend_request',
+        title: 'New Friend Request',
+        message: `${actorName} sent you a friend request.`,
+        is_read: false,
+        link_id: data.id,
+      });
+    } catch (notifyError) {
+      console.error('[sendConnectionRequest] notification insert failed', notifyError);
+    }
+
     return { ok: true, id: String(data.id) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Request failed' };

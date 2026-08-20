@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Mail, Menu, Search, X } from 'lucide-react';
-import { AdminNotificationBell } from '@/components/admin/admin-notification-provider';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { getHeaderProfile } from '@/app/actions/header-profile';
 import { ADMIN_NAV_FLAT } from '@/lib/admin/nav-config';
@@ -243,7 +243,7 @@ export function AdminHeaderV2({
           >
             <Mail size={15} />
           </Link>
-          <AdminNotificationBell />
+          <NotificationBell />
           <ThemeToggle className="h-9 w-9" />
 
           {/* Profile — avatar always, name+email only on sm+ */}
