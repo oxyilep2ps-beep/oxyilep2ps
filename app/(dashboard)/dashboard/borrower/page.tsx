@@ -27,20 +27,12 @@ export default async function BorrowerDashboardPage() {
           </h1>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">Loan history and guarantor attachment.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/chats"
-            className="rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-5 py-2.5 text-sm font-bold text-[#F97316] hover:bg-[#F97316]/20"
-          >
-            Handshake chat
-          </Link>
-          <Link
-            href="/dashboard/apply"
-            className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-500"
-          >
-            Apply for a loan
-          </Link>
-        </div>
+        <Link
+          href="/dashboard/apply"
+          className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-500"
+        >
+          Apply for a loan
+        </Link>
       </div>
 
       <div className="glass-card overflow-hidden rounded-2xl">

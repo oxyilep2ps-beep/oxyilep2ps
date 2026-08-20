@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { COLLATERAL_TYPES } from '@/lib/collateral/constants';
 import { uploadCollateralProof } from '@/lib/collateral/upload';
 import { sendGuarantorInvite } from '@/lib/guarantor/invite';
+import { buildHandshakeMessagePayload } from '@/lib/messages/handshake-payload';
+import { notifyChatMessagePush } from '@/app/actions/sendPushNotification';
 
 function toFile(value: FormDataEntryValue | null): File | null {
   return value instanceof File && value.size > 0 ? value : null;
@@ -119,7 +121,11 @@ export async function POST(request: Request) {
       await supabase.from('messages').insert({
         sender_id: user.id,
         receiver_id: peerId,
-        content: `🤝 Handshake proposed: £${amount} at ${rate}% for ${duration} months (collateral secured · guarantor invited).`,
+        content: buildHandshakeMessagePayload(handshake.id as string),
+      });
+      void notifyChatMessagePush({
+        receiverId: peerId,
+        preview: 'New handshake proposal',
       });
     }
 

@@ -46,19 +46,6 @@ type Tab = 'messages' | 'discover';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function roleLabel(role: string) {
-  const map: Record<string, string> = {
-    INVESTOR: 'Investor',
-    BORROWER: 'Borrower',
-    ADMIN: 'Admin',
-    HR: 'HR',
-    BLOGGER: 'Blogger',
-    SOCIAL_MANAGER: 'Social Manager',
-    EMPLOYEE: 'Employee',
-  };
-  return map[role] ?? role;
-}
-
 function formatTs(iso: string) {
   const d = new Date(iso);
   const now = new Date();
@@ -199,7 +186,7 @@ function PendingRequestsBanner({
               <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
                 {req.requester.full_legal_name}
               </p>
-              <p className="text-[10px] text-gray-500">{roleLabel(req.requester.role)}</p>
+              <p className="text-[10px] text-gray-500">Wants to connect</p>
             </div>
             <div className="flex shrink-0 gap-1.5">
               <button
@@ -610,7 +597,7 @@ export function ChatInbox() {
                                 ) : lastSeen ? (
                                   `Last seen ${formatTs(lastSeen)}`
                                 ) : (
-                                  roleLabel(peer.role)
+                                  'Tap to open chat'
                                 )}
                               </p>
                               {(peer.unread ?? 0) > 0 && (
@@ -683,8 +670,8 @@ export function ChatInbox() {
                           <p className="truncate text-sm font-bold text-gray-900 dark:text-white">
                             {user.full_legal_name}
                           </p>
-                          <p className="mt-0.5 text-[11px] text-[#F97316]">
-                            {roleLabel(user.role)}
+                          <p className="mt-0.5 truncate text-[11px] text-[#F97316]">
+                            @{user.username || 'oxyile'}
                           </p>
                           {user.connection_status === 'accepted' && (
                             <p className="mt-0.5 flex items-center gap-1 text-[10px] text-emerald-500">

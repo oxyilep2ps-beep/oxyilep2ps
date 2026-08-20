@@ -80,11 +80,7 @@ export function UserProfile({ profile }: { profile: PublicProfileCard }) {
             )}
           </div>
           <span className="inline-flex w-fit rounded-full bg-brand-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-300">
-            {profile.role === 'INVESTOR'
-              ? 'Verified Investor'
-              : profile.role === 'BORROWER'
-                ? 'Verified Borrower'
-                : `Verified ${String(profile.role)}`}
+            Verified Member
           </span>
         </div>
 

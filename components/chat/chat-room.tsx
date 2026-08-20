@@ -457,16 +457,25 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
             const handshake = handshakeId ? handshakeMap[handshakeId] : null;
             const mine = message.sender_id === myId;
 
-            if (handshake) {
+            if (handshakeId) {
+              if (handshake) {
+                return (
+                  <div key={message.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+                    <HandshakeCard
+                      handshake={handshake}
+                      myId={myId}
+                      myRole={myRole}
+                      peer={peer}
+                      onUpdated={() => loadHandshakes(myId, peer.id)}
+                    />
+                  </div>
+                );
+              }
               return (
                 <div key={message.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                  <HandshakeCard
-                    handshake={handshake}
-                    myId={myId}
-                    myRole={myRole}
-                    peer={peer}
-                    onUpdated={() => loadHandshakes(myId, peer.id)}
-                  />
+                  <div className="max-w-[85%] rounded-2xl border border-[#F97316]/30 bg-[#F97316]/10 px-4 py-3 text-sm text-[#F97316]">
+                    Loading handshake proposal…
+                  </div>
                 </div>
               );
             }

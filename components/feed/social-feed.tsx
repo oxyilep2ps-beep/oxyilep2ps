@@ -68,13 +68,13 @@ const PORTAL_MAP: Record<string, PortalConfig> = {
   },
   INVESTOR: {
     href: '/dashboard/marketplace',
-    label: 'Investor Hub',
+    label: 'Marketplace',
     icon: Rss,
     description: 'Browse and fund collateral-backed loans.',
   },
   BORROWER: {
     href: '/dashboard/apply',
-    label: 'Borrower Hub',
+    label: 'Loan Applications',
     icon: PenSquare,
     description: 'Submit and track your loan applications.',
   },

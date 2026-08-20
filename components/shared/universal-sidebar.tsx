@@ -12,7 +12,6 @@ import {
   ClipboardList,
   Download,
   ExternalLink,
-  Handshake,
   LayoutDashboard,
   LogOut,
   MessageCircle,
@@ -124,7 +123,6 @@ const BORROWER_NAV: NavGroup[] = [
     heading: 'Social Layer',
     items: [
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
-      { href: '/chats', label: 'Handshake Chat', icon: Handshake },
       { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/search', label: 'Search Friends', icon: Search },
       { href: '/profile', label: 'Profile', icon: User },
@@ -132,7 +130,7 @@ const BORROWER_NAV: NavGroup[] = [
     ],
   },
   {
-    heading: 'Borrower',
+    heading: 'Lending',
     items: [
       { href: '/dashboard/borrower', label: 'Overview', icon: LayoutDashboard, exact: true },
       { href: '/dashboard/apply', label: 'Apply Loan', icon: PenSquare },
@@ -145,7 +143,6 @@ const INVESTOR_NAV: NavGroup[] = [
     heading: 'Social Layer',
     items: [
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
-      { href: '/chats', label: 'Handshake Chat', icon: Handshake },
       { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/search', label: 'Search Friends', icon: Search },
       { href: '/profile', label: 'Profile', icon: User },
@@ -153,7 +150,7 @@ const INVESTOR_NAV: NavGroup[] = [
     ],
   },
   {
-    heading: 'Investor',
+    heading: 'Capital',
     items: [
       { href: '/dashboard/investor', label: 'Overview', icon: LayoutDashboard, exact: true },
       { href: '/dashboard/marketplace', label: 'Marketplace', icon: Briefcase },
@@ -210,8 +207,8 @@ const PORTAL_TITLES: Record<PortalId, { title: string; tag: string }> = {
   hr: { title: 'Oxyile', tag: 'HR Portal' },
   blogger: { title: 'Oxyile', tag: 'Editorial' },
   social: { title: 'Oxyile', tag: 'Social' },
-  borrower: { title: 'Oxyile', tag: 'Borrower' },
-  investor: { title: 'Oxyile', tag: 'Investor' },
+  borrower: { title: 'Oxyile', tag: 'Member' },
+  investor: { title: 'Oxyile', tag: 'Member' },
   employee: { title: 'Oxyile', tag: 'Employee' },
 };
 

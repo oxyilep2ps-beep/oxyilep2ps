@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState, useTransition } from 'react';
-import { ArrowLeft, Handshake, Loader2, MessageCircle, Plus, Search, Send, Users, X } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageCircle, Plus, Search, Send, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { markConversationRead } from '@/app/actions/chat';
 import { listMyConnections } from '@/app/actions/connections';
@@ -375,15 +375,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
             <ChatAvatar name={f.full_legal_name} avatarUrl={f.avatar_url} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{f.full_legal_name}</p>
-              <p className="flex items-center gap-1 text-[11px] text-neutral-400">
-                @{f.username || 'oxyile'}
-                {myRole && isP2PLendingPair(myRole, f.role) ? (
-                  <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F97316]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#F97316]">
-                    <Handshake size={9} />
-                    P2P
-                  </span>
-                ) : null}
-              </p>
+              <p className="truncate text-[11px] text-neutral-400">@{f.username || 'oxyile'}</p>
             </div>
           </button>
         ))}
@@ -431,7 +423,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
           <div>
             <MessageCircle size={30} className="mx-auto mb-3 text-[#F97316]" />
             <p className="text-sm font-semibold text-gray-900 dark:text-white">Choose a friend or group to start chatting.</p>
-            <p className="mt-2 text-xs text-neutral-500">Borrower ↔ Investor chats open the full Handshake &amp; GoCardless room.</p>
+            <p className="mt-2 text-xs text-neutral-500">Connected members can propose a handshake from inside the DM.</p>
           </div>
         </div>
       ) : useHandshakeRoom && active.kind === 'friend' ? (
@@ -458,7 +450,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
             )}
             <div className="min-w-0">
               <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{active.name}</p>
-              <p className="text-[11px] text-neutral-400">{active.kind === 'friend' ? active.role : 'Group chat'}</p>
+              <p className="text-[11px] text-neutral-400">{active.kind === 'friend' ? 'Direct message' : 'Group chat'}</p>
             </div>
           </header>
 

@@ -7,8 +7,8 @@ import { notifyChatMessagePush } from '@/app/actions/sendPushNotification';
 import { CollateralFormSection } from '@/components/collateral-form-section';
 import type { HandshakeRow } from '@/lib/chat/types';
 import { FIXED_INTEREST_RATE } from '@/lib/platform/constants';
+import { buildHandshakeMessagePayload } from '@/lib/messages/handshake-payload';
 import { createClient } from '@/lib/supabase/client';
-import { stashPendingHandshakeId } from '@/lib/payments/pending-handshake';
 import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
 
 type HandshakePanelProps = {
@@ -17,6 +17,7 @@ type HandshakePanelProps = {
   myId: string;
   myRole: 'INVESTOR' | 'BORROWER';
   peerId: string;
+  /** Kept for callers; status cards render in the chat stream via HandshakeCard. */
   handshakes: HandshakeRow[];
   onRefresh: () => void;
 };
@@ -27,7 +28,6 @@ export function HandshakePanel({
   myId,
   myRole,
   peerId,
-  handshakes,
   onRefresh,
 }: HandshakePanelProps) {
   const [amount, setAmount] = useState('');
@@ -104,6 +104,7 @@ export function HandshakePanel({
           setCollateralValue('');
           setCollateralDescription('');
           setCollateralProof(null);
+          onClose();
           onRefresh();
         }
       } else {
@@ -130,7 +131,7 @@ export function HandshakePanel({
           await supabase.from('messages').insert({
             sender_id: myId,
             receiver_id: peerId,
-            content: `🤝 Handshake proposed: £${amt} at ${FIXED_INTEREST_RATE}% for ${dur} months.`,
+            content: buildHandshakeMessagePayload(created.id as string),
           });
           void notifyChatMessagePush({
             receiverId: peerId,
@@ -139,6 +140,7 @@ export function HandshakePanel({
           setAmount('');
           setDuration('');
           setGuarantorEmail('');
+          onClose();
           onRefresh();
         }
       }
@@ -149,90 +151,17 @@ export function HandshakePanel({
     setBusy(false);
   };
 
-  const approve = async (handshake: HandshakeRow) => {
-    setBusy(true);
-    setMessage(null);
-    const supabase = createClient();
-    const patch: Record<string, string> = {};
-    const now = new Date().toISOString();
-
-    if (myId === handshake.lender_id && !handshake.lender_approved_at) patch.lender_approved_at = now;
-    if (myId === handshake.borrower_id && !handshake.borrower_approved_at) patch.borrower_approved_at = now;
-
-    const { error } = await supabase.from('handshakes').update(patch).eq('id', handshake.id);
-    if (error) {
-      setMessage(error.message);
-      setBusy(false);
-      return;
-    }
-
-    const lenderOk = Boolean(patch.lender_approved_at || handshake.lender_approved_at);
-    const borrowerOk = Boolean(patch.borrower_approved_at || handshake.borrower_approved_at);
-
-    if (lenderOk && borrowerOk) {
-      const res = await fetch(`/api/handshakes/${handshake.id}/execute`, { method: 'POST' });
-      const body = (await res.json()) as { ok?: boolean; error?: string; polygonTxHash?: string; sandbox?: boolean };
-      if (!res.ok || !body.ok) {
-        setMessage(body.error ?? 'On-chain execution failed');
-      } else {
-        setMessage(
-          body.sandbox
-            ? `Sandbox handshake recorded. Tx: ${body.polygonTxHash}`
-            : `Active on Polygon Amoy. Tx: ${body.polygonTxHash}`
-        );
-      }
-    }
-
-    onRefresh();
-    setBusy(false);
-  };
-
-  const setupGoCardlessMandate = async (handshake: HandshakeRow) => {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const res = await fetch('/api/payments/setup-mandate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          borrowerId,
-          lenderId,
-          handshakeId: handshake.id,
-        }),
-      });
-      const body = (await res.json()) as {
-        ok?: boolean;
-        authorisation_url?: string;
-        error?: string;
-        stub?: boolean;
-      };
-      if (!res.ok || !body.authorisation_url) {
-        setMessage(body.error ?? 'Could not start payment checkout');
-        setBusy(false);
-        return;
-      }
-      if (body.stub) {
-        setMessage('Sandbox: redirecting to test payment…');
-      }
-      stashPendingHandshakeId(handshake.id);
-      window.location.href = body.authorisation_url;
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Payment setup failed');
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="glass-card mx-4 mb-2 rounded-2xl border border-brand-200/60 p-4 dark:border-brand-500/20">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-bold text-brand-600 dark:text-brand-300">Handshake</p>
+        <p className="text-sm font-bold text-brand-600 dark:text-brand-300">New Handshake</p>
         <button type="button" onClick={onClose} aria-label="Close handshake panel">
           <X size={18} />
         </button>
       </div>
 
       <form onSubmit={propose} className="mt-3 space-y-3">
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-3">
           <input
             required
             type="number"
@@ -240,6 +169,14 @@ export function HandshakePanel({
             onChange={(e) => setAmount(e.target.value)}
             placeholder="Amount (£)"
             className="rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
+          />
+          <input
+            readOnly
+            type="number"
+            value={FIXED_INTEREST_RATE}
+            aria-label="Interest rate percent per annum"
+            className="rounded-xl border border-white/40 bg-white/60 px-3 py-2 text-sm text-neutral-600 dark:border-white/10 dark:bg-black/30 dark:text-neutral-300"
+            title="Platform illustrative rate (% p.a.)"
           />
           <input
             required
@@ -250,7 +187,9 @@ export function HandshakePanel({
             className="rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
           />
         </div>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Illustrative rate for calculator modelling — not a guaranteed return.</p>
+        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+          Rate {FIXED_INTEREST_RATE}% p.a. (illustrative modelling — not a guaranteed return).
+        </p>
 
         <input
           required
@@ -292,42 +231,6 @@ export function HandshakePanel({
           </p>
         )}
       </form>
-
-      <ul className="mt-3 space-y-2">
-        {handshakes.map((h) => {
-          const approvedByMe =
-            (myId === h.lender_id && Boolean(h.lender_approved_at)) ||
-            (myId === h.borrower_id && Boolean(h.borrower_approved_at));
-          return (
-            <li key={h.id} className="rounded-xl bg-brand-500/5 p-3 text-xs">
-              <p className="font-semibold">
-                £{h.amount} · {h.rate}% · {h.duration}mo — {h.status}
-              </p>
-              {h.polygon_tx_hash ? <p className="mt-1 break-all text-neutral-500">Tx: {h.polygon_tx_hash}</p> : null}
-              {h.status === 'PENDING' && (
-                <button
-                  type="button"
-                  disabled={busy || approvedByMe}
-                  onClick={() => approve(h)}
-                  className="mt-2 rounded-full bg-neutral-900 px-3 py-1 text-[10px] font-bold text-white disabled:opacity-50 dark:bg-white dark:text-black"
-                >
-                  {approvedByMe ? 'Approved' : 'Approve'}
-                </button>
-              )}
-              {h.status === 'ACTIVE' && myRole === 'BORROWER' && myId === borrowerId && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setupGoCardlessMandate(h)}
-                  className="mt-2 rounded-full bg-brand-500 px-3 py-1 text-[10px] font-bold text-white"
-                >
-                  Proceed to payment
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
 
       {message && <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">{message}</p>}
       {busy && <Loader2 size={16} className="mt-2 animate-spin text-brand-500" />}
