@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
 import { getAuthRedirectPath } from '@/lib/auth/routing';
+import { resolveViewAsPortal } from '@/lib/admin/view-as-portals';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
 import { UniversalDashboardLayout, type PortalId } from '@/components/shared/universal-dashboard-layout';
 
@@ -59,7 +60,14 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
       INVESTOR: 'investor',
       EMPLOYEE: 'employee',
     };
-    const portal = portalByRole[String(profile.role)] ?? null;
+    let portal = portalByRole[String(profile.role)] ?? null;
+    // Admin "View As": render borrower/investor chrome when visiting those dashboards.
+    if (String(profile.role) === 'ADMIN') {
+      const viewed = resolveViewAsPortal(pathname);
+      if (viewed === 'borrower' || viewed === 'investor') {
+        portal = viewed;
+      }
+    }
     if (portal) {
       return <UniversalDashboardLayout portal={portal} isAdmin={String(profile.role) === 'ADMIN'}>{children}</UniversalDashboardLayout>;
     }

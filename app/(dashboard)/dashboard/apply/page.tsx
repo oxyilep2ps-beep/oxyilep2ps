@@ -5,7 +5,7 @@ import { requireApprovedUser } from '@/lib/auth/require-approved';
 export default async function ApplyForLoanPage() {
   const { profile } = await requireApprovedUser();
 
-  if (profile.role !== 'BORROWER') {
+  if (profile.role !== 'BORROWER' && profile.role !== 'ADMIN') {
     redirect('/dashboard/marketplace');
   }
 

@@ -82,7 +82,7 @@ export function canAccessPath(
   profile: Pick<Profile, 'role' | 'status'> | null,
   email: string
 ): boolean {
-  // Admins can access the full staff surface (admin + HR + blogger + social + employee portals).
+  // Admins can access the full staff surface + View As into borrower/investor dashboards.
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return (
       pathname.startsWith('/feed') ||
@@ -95,9 +95,11 @@ export function canAccessPath(
       pathname.startsWith('/blogger') ||
       pathname.startsWith('/social') ||
       pathname.startsWith('/employee/dashboard') ||
+      pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/user/') ||
       pathname.startsWith('/payments/mandate-complete') ||
-      pathname.startsWith('/payments/sandbox')
-      || pathname.startsWith('/settings/profile')
+      pathname.startsWith('/payments/sandbox') ||
+      pathname.startsWith('/settings/profile')
     );
   }
 

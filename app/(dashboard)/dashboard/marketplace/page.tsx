@@ -6,7 +6,7 @@ import { FIXED_INTEREST_RATE_LABEL } from '@/lib/platform/constants';
 export default async function MarketplacePage() {
   const { profile } = await requireApprovedUser();
 
-  if (profile.role !== 'INVESTOR') {
+  if (profile.role !== 'INVESTOR' && profile.role !== 'ADMIN') {
     redirect('/dashboard/apply');
   }
 
