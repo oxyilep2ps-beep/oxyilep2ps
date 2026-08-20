@@ -360,7 +360,7 @@ export function SocialFeed() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl text-gray-900 dark:text-white">
+    <div className="mx-auto w-full max-w-6xl pb-4 text-gray-900 dark:text-white">
       {/* ── Page header ── */}
       <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6 sm:items-center sm:gap-4">
         <div className="min-w-0 flex-1">
