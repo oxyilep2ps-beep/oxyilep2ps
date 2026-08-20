@@ -62,7 +62,7 @@ export async function listGlobalPosts(
 ): Promise<FeedPost[]> {
   const user = await requireUser();
   const admin = createAdminClient();
-  const pageSize = Math.max(1, Math.min(limit, 40));
+  const pageSize = Math.max(1, Math.min(limit, FEED_PAGE_SIZE));
   const from = Math.max(0, offset);
   const to = from + pageSize - 1;
 

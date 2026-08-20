@@ -340,7 +340,8 @@ export async function listDiscoverUsers(limit = 40): Promise<DiscoverUser[]> {
     const user = await getAuthUser();
     const admin = createAdminClient();
     const normalizedLimit = Math.max(1, Math.min(limit, 20));
-    const poolSize = Math.max(normalizedLimit * 4, 24);
+    // Bound the profile scan: feed suggestions use 5; inbox discover still gets a small pool.
+    const poolSize = Math.min(30, Math.max(normalizedLimit * 3, normalizedLimit));
 
     // Prefer approved/active members first.
     const { data: approvedProfiles, error: approvedProfilesError } = await admin

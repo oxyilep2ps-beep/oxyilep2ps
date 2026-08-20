@@ -31,7 +31,7 @@ import {
 } from '@/app/actions/social-network';
 import { listDiscoverUsers, sendConnectionRequest, type DiscoverUser } from '@/app/actions/connections';
 import { FeedPostListSkeleton, SuggestedUsersSkeleton } from '@/components/feed/feed-skeletons';
-import { FEED_PAGE_SIZE } from '@/lib/social/pagination';
+import { FEED_PAGE_SIZE, SUGGESTIONS_PAGE_SIZE } from '@/lib/social/pagination';
 import { cn } from '@/lib/utils';
 
 // ─── Portal config ───────────────────────────────────────────────────────────
@@ -315,7 +315,7 @@ export function SocialFeed() {
         const [profileSettled, postsSettled, suggestionsSettled] = await Promise.allSettled([
           profilePromise,
           listGlobalPosts(FEED_PAGE_SIZE, 0),
-          listDiscoverUsers(7),
+          listDiscoverUsers(SUGGESTIONS_PAGE_SIZE),
         ]);
 
         if (!mounted) return;
@@ -394,7 +394,7 @@ export function SocialFeed() {
   const canManageAnyPost = role === 'ADMIN';
 
   const visibleSuggestions = useMemo(
-    () => suggestions.filter((u) => u.connection_status !== 'accepted').slice(0, 7),
+    () => suggestions.filter((u) => u.connection_status !== 'accepted').slice(0, SUGGESTIONS_PAGE_SIZE),
     [suggestions]
   );
 
