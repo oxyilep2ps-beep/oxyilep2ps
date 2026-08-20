@@ -5,9 +5,10 @@ import { ArrowLeft, Loader2, MessageCircle, Plus, Search, Send, Users, X } from 
 import { createClient } from '@/lib/supabase/client';
 import { markConversationRead } from '@/app/actions/chat';
 import { listMyConnections } from '@/app/actions/connections';
-import { createChatGroup, listGroupMessages, listMyChatGroups, type GroupMessage } from '@/app/actions/social-network';
+import { createChatGroup, CHAT_PAGE_SIZE, listGroupMessages, listMyChatGroups, type GroupMessage } from '@/app/actions/social-network';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
 import { ChatRoom } from '@/components/chat/chat-room';
+import { ChatInboxListSkeleton, ChatThreadSkeleton } from '@/components/chat/chat-skeletons';
 import { IncomingRequestsPanel, useIncomingRequestCount } from '@/components/social/incoming-requests-panel';
 import { cn } from '@/lib/utils';
 
@@ -134,10 +135,14 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   const [groups, setGroups] = useState<Group[]>([]);
   const [active, setActive] = useState<ActiveChat | null>(null);
   const [messages, setMessages] = useState<(DirectMessage | GroupMessage)[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const { count: incomingCount } = useIncomingRequestCount();
+  const [, startTransition] = useTransition();
 
   // Handshake room only for Borrower ↔ Investor (never same-role).
   const useHandshakeRoom =
@@ -213,23 +218,34 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
     let cancelled = false;
 
     async function loadMessages() {
-      if (current.kind === 'friend') {
-        const { data } = await supabase
-          .from('messages')
-          .select('id, sender_id, content, created_at')
-          .or(
-            `and(sender_id.eq.${myId},receiver_id.eq.${current.id}),and(sender_id.eq.${current.id},receiver_id.eq.${myId})`
-          )
-          .order('created_at', { ascending: true })
-          .limit(200);
-        if (!cancelled) {
-          setMessages(((data ?? []) as DirectMessage[]).map((m) => ({ ...m })));
+      setMessagesLoading(true);
+      setHasMoreMessages(false);
+      try {
+        if (current.kind === 'friend') {
+          const { data } = await supabase
+            .from('messages')
+            .select('id, sender_id, content, created_at')
+            .or(
+              `and(sender_id.eq.${myId},receiver_id.eq.${current.id}),and(sender_id.eq.${current.id},receiver_id.eq.${myId})`
+            )
+            .order('created_at', { ascending: false })
+            .range(0, CHAT_PAGE_SIZE - 1);
+          if (!cancelled) {
+            const chronological = ([...(data ?? [])] as DirectMessage[]).reverse();
+            setMessages(chronological.map((m) => ({ ...m })));
+            setHasMoreMessages((data ?? []).length >= CHAT_PAGE_SIZE);
+          }
+          await markConversationRead(current.id);
+          window.dispatchEvent(new CustomEvent('oxyile:chat-read'));
+        } else {
+          const rows = await listGroupMessages(current.id, CHAT_PAGE_SIZE, 0);
+          if (!cancelled) {
+            setMessages(rows);
+            setHasMoreMessages(rows.length >= CHAT_PAGE_SIZE);
+          }
         }
-        await markConversationRead(current.id);
-        window.dispatchEvent(new CustomEvent('oxyile:chat-read'));
-      } else {
-        const rows = await listGroupMessages(current.id, 200);
-        if (!cancelled) setMessages(rows);
+      } finally {
+        if (!cancelled) setMessagesLoading(false);
       }
     }
 
@@ -273,12 +289,56 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
     };
   }, [active, myId, supabase, useHandshakeRoom]);
 
+  const loadOlderMessages = () => {
+    if (!active || !myId || loadingOlder || !hasMoreMessages || useHandshakeRoom) return;
+    const current = active;
+    setLoadingOlder(true);
+    startTransition(async () => {
+      try {
+        if (current.kind === 'friend') {
+          const { data } = await supabase
+            .from('messages')
+            .select('id, sender_id, content, created_at')
+            .or(
+              `and(sender_id.eq.${myId},receiver_id.eq.${current.id}),and(sender_id.eq.${current.id},receiver_id.eq.${myId})`
+            )
+            .order('created_at', { ascending: false })
+            .range(messages.length, messages.length + CHAT_PAGE_SIZE - 1);
+          const chronological = ([...(data ?? [])] as DirectMessage[]).reverse();
+          setMessages((prev) => {
+            const seen = new Set(prev.map((m) => m.id));
+            return [...chronological.filter((m) => !seen.has(m.id)), ...prev];
+          });
+          setHasMoreMessages((data ?? []).length >= CHAT_PAGE_SIZE);
+        } else {
+          const rows = await listGroupMessages(current.id, CHAT_PAGE_SIZE, messages.length);
+          setMessages((prev) => {
+            const seen = new Set(prev.map((m) => m.id));
+            return [...rows.filter((m) => !seen.has(m.id)), ...prev];
+          });
+          setHasMoreMessages(rows.length >= CHAT_PAGE_SIZE);
+        }
+      } finally {
+        setLoadingOlder(false);
+      }
+    });
+  };
+
   const sendMessage = async (e: FormEvent) => {
     e.preventDefault();
     if (!active || !myId || !text.trim() || useHandshakeRoom) return;
     const content = text.trim();
+    const optimisticId = `optimistic-${Date.now()}`;
     setText('');
+
     if (active.kind === 'friend') {
+      const optimistic: DirectMessage = {
+        id: optimisticId,
+        sender_id: myId,
+        content,
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, optimistic]);
       const { data, error } = await supabase
         .from('messages')
         .insert({ sender_id: myId, receiver_id: active.id, content })
@@ -286,12 +346,25 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
         .single();
       if (!error && data) {
         const msg = data as DirectMessage;
-        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+        setMessages((prev) =>
+          prev.map((m) => (m.id === optimisticId ? msg : m)).filter((m, i, arr) => arr.findIndex((x) => x.id === m.id) === i)
+        );
       } else {
         setText(content);
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       }
       return;
     }
+
+    const optimisticGroup = {
+      id: optimisticId,
+      sender_id: myId,
+      content,
+      created_at: new Date().toISOString(),
+      sender_name: 'You',
+      sender_avatar: null,
+    } as GroupMessage;
+    setMessages((prev) => [...prev, optimisticGroup]);
     const { data, error } = await supabase
       .from('chat_group_messages')
       .insert({ group_id: active.id, sender_id: myId, content })
@@ -306,9 +379,12 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
         sender_name: 'You',
         sender_avatar: null,
       } as GroupMessage;
-      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticId ? msg : m)).filter((m, i, arr) => arr.findIndex((x) => x.id === m.id) === i)
+      );
     } else {
       setText(content);
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
     }
   };
 
@@ -382,10 +458,13 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
         </div>
 
         <p className="px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Friends</p>
-        {filteredFriends.length === 0 ? (
+        {loading ? (
+          <ChatInboxListSkeleton count={6} />
+        ) : filteredFriends.length === 0 ? (
           <p className="px-3 py-3 text-xs text-neutral-500">Accept a request to unlock DMs.</p>
         ) : null}
-        {filteredFriends.map((f) => (
+        {!loading &&
+          filteredFriends.map((f) => (
           <button
             key={f.userId}
             type="button"
@@ -404,7 +483,8 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
         ))}
 
         <p className="px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Groups</p>
-        {filteredGroups.map((g) => (
+        {!loading &&
+          filteredGroups.map((g) => (
           <button
             key={g.id}
             type="button"
@@ -438,7 +518,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
       )}
     >
       {loading ? (
-        <div className="grid flex-1 place-items-center">
+        <div className="grid flex-1 place-items-center md:hidden">
           <Loader2 size={20} className="animate-spin text-[#F97316]" />
         </div>
       ) : !active ? (
@@ -478,28 +558,48 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
           </header>
 
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-4 pb-2">
-            {messages.length === 0 ? (
-              <div className="grid h-full place-items-center text-sm text-neutral-500">No messages yet.</div>
+            {messagesLoading ? (
+              <ChatThreadSkeleton />
             ) : (
-              messages.map((m) => {
-                const mine = m.sender_id === myId;
-                return (
-                  <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                    <div
-                      className={cn(
-                        'max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm',
-                        mine ? 'bg-[#F97316] text-white' : 'bg-[#1a1a1a] text-neutral-100'
-                      )}
+              <>
+                {hasMoreMessages ? (
+                  <div className="flex justify-center pb-2">
+                    <button
+                      type="button"
+                      onClick={loadOlderMessages}
+                      disabled={loadingOlder}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#F97316]/35 bg-[#F97316]/10 px-3 py-1.5 text-[11px] font-bold text-[#F97316] disabled:opacity-60"
                     >
-                      {!mine && active.kind === 'group' && 'sender_name' in m && (
-                        <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-[#F97316]">{m.sender_name}</p>
-                      )}
-                      <p className="whitespace-pre-wrap">{m.content}</p>
-                      <p className="mt-1 text-[10px] opacity-70">{timeShort(m.created_at)}</p>
-                    </div>
+                      {loadingOlder ? <Loader2 size={12} className="animate-spin" /> : null}
+                      {loadingOlder ? 'Loading…' : 'Load older'}
+                    </button>
                   </div>
-                );
-              })
+                ) : null}
+                {messages.length === 0 ? (
+                  <div className="grid h-full place-items-center text-sm text-neutral-500">No messages yet.</div>
+                ) : (
+                  messages.map((m) => {
+                    const mine = m.sender_id === myId;
+                    return (
+                      <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+                        <div
+                          className={cn(
+                            'max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm',
+                            mine ? 'bg-[#F97316] text-white' : 'bg-[#1a1a1a] text-neutral-100',
+                            m.id.startsWith('optimistic-') && 'opacity-80'
+                          )}
+                        >
+                          {!mine && active.kind === 'group' && 'sender_name' in m && (
+                            <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-[#F97316]">{m.sender_name}</p>
+                          )}
+                          <p className="whitespace-pre-wrap">{m.content}</p>
+                          <p className="mt-1 text-[10px] opacity-70">{timeShort(m.created_at)}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </>
             )}
           </div>
 

@@ -16,6 +16,7 @@ import {
 import type { DiscoverUser } from '@/app/actions/connections';
 import type { UserPresence } from '@/lib/chat/types';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
+import { ChatInboxListSkeleton } from '@/components/chat/chat-skeletons';
 import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -269,7 +270,7 @@ export function ChatInbox() {
               `and(sender_id.eq.${myId},receiver_id.in.(${peerIds.join(',')})),and(receiver_id.eq.${myId},sender_id.in.(${peerIds.join(',')}))`
             )
             .order('created_at', { ascending: false })
-            .limit(200);
+            .limit(Math.min(80, Math.max(40, peerIds.length * 2)));
 
           const lastByPeer = new Map<string, { content: string; created_at: string }>();
           const unreadByPeer = new Map<string, number>();
@@ -500,17 +501,7 @@ export function ChatInbox() {
               </div>
 
               {loadingMessages ? (
-                <div className="flex flex-col gap-3 px-4 pt-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="h-12 w-12 shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-800" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="h-3.5 w-1/2 animate-pulse rounded bg-gray-200 dark:bg-gray-800" />
-                        <div className="h-3 w-3/4 animate-pulse rounded bg-gray-100 dark:bg-gray-900" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <ChatInboxListSkeleton count={8} />
               ) : error ? (
                 <div className="mx-4 mt-4 rounded-2xl border border-red-200 bg-red-50 p-5 dark:border-red-900/40 dark:bg-red-950/30">
                   <p className="text-sm font-semibold text-red-700 dark:text-red-300">{error}</p>

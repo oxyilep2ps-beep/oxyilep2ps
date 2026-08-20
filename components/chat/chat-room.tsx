@@ -18,10 +18,12 @@ import {
 } from '@/lib/chat/utils';
 import { parseHandshakeMessagePayload } from '@/lib/messages/handshake-payload';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
+import { ChatThreadSkeleton } from '@/components/chat/chat-skeletons';
 import { HandshakeCard } from '@/components/chat/handshake-card';
 import { HandshakePanel } from '@/components/chat/handshake-panel';
 import { cn } from '@/lib/utils';
 import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
+import { CHAT_PAGE_SIZE } from '@/app/actions/social-network';
 
 type ChatRoomProps = {
   peerUserId: string;
@@ -56,6 +58,8 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
   const [myRole, setMyRole] = useState<MemberRole | null>(null);
   const [peer, setPeer] = useState<ChatPeer | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [handshakeMap, setHandshakeMap] = useState<Record<string, HandshakeRow>>({});
   const [peerPresence, setPeerPresence] = useState<UserPresence | null>(null);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -117,21 +121,27 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
   );
 
   const fetchMessages = useCallback(
-    async (currentUserId: string, otherUserId: string) => {
+    async (currentUserId: string, otherUserId: string, offset = 0, append = false) => {
       const { data, error: fetchError } = await supabase
         .from('messages')
         .select('id, sender_id, receiver_id, content, is_read, read_at, created_at')
         .or(conversationFilter(currentUserId, otherUserId))
-        .order('created_at', { ascending: true })
-        .limit(200);
+        .order('created_at', { ascending: false })
+        .range(offset, offset + CHAT_PAGE_SIZE - 1);
 
       if (fetchError) {
         setError(fetchError.message);
         return;
       }
 
-      setMessages((data ?? []) as ChatMessage[]);
-      await loadHandshakes(currentUserId, otherUserId);
+      const chronological = ([...(data ?? [])] as ChatMessage[]).reverse();
+      setHasMoreMessages((data ?? []).length >= CHAT_PAGE_SIZE);
+      setMessages((prev) => {
+        if (!append) return chronological;
+        const seen = new Set(prev.map((m) => m.id));
+        return [...chronological.filter((m) => !seen.has(m.id)), ...prev];
+      });
+      if (!append) await loadHandshakes(currentUserId, otherUserId);
     },
     [loadHandshakes, supabase]
   );
@@ -362,16 +372,38 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
     broadcastTyping(false);
     setSending(true);
 
-    const { error: insertError } = await supabase.from('messages').insert({
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: optimisticId,
       sender_id: myId,
       receiver_id: peer.id,
       content,
-    });
+      is_read: false,
+      read_at: null,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimistic]);
+
+    const { data, error: insertError } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: myId,
+        receiver_id: peer.id,
+        content,
+      })
+      .select('id, sender_id, receiver_id, content, is_read, read_at, created_at')
+      .single();
 
     if (insertError) {
       setText(content);
       setError(insertError.message);
-    } else {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+    } else if (data) {
+      setMessages((prev) =>
+        prev
+          .map((m) => (m.id === optimisticId ? (data as ChatMessage) : m))
+          .filter((m, i, arr) => arr.findIndex((x) => x.id === m.id) === i)
+      );
       void notifyChatMessagePush({
         receiverId: peer.id,
         preview: content.slice(0, 120),
@@ -382,8 +414,8 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 size={28} className="animate-spin text-brand-500" />
+      <div className="flex flex-1 flex-col">
+        <ChatThreadSkeleton />
       </div>
     );
   }
@@ -451,6 +483,24 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
       )}
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {hasMoreMessages && myId && peer ? (
+          <div className="flex justify-center pb-1">
+            <button
+              type="button"
+              disabled={loadingOlder}
+              onClick={() => {
+                setLoadingOlder(true);
+                void fetchMessages(myId, peer.id, messages.length, true).finally(() =>
+                  setLoadingOlder(false)
+                );
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#F97316]/35 bg-[#F97316]/10 px-3 py-1.5 text-[11px] font-bold text-[#F97316] disabled:opacity-60"
+            >
+              {loadingOlder ? <Loader2 size={12} className="animate-spin" /> : null}
+              {loadingOlder ? 'Loading…' : 'Load older'}
+            </button>
+          </div>
+        ) : null}
         {messages.length === 0 ? (
           <p className="text-center text-sm text-neutral-500">Say hello — or send a handshake proposal.</p>
         ) : (

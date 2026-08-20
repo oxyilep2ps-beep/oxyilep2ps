@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { requireApprovedUser } from '@/lib/auth/require-approved';
 import { PremiumChatShell } from '@/components/chat/premium-chat-shell';
+import { PremiumChatShellSkeleton } from '@/components/chat/chat-skeletons';
 
 export const metadata = { title: 'Chat Inbox | Oxyile' };
 
@@ -38,7 +40,9 @@ export default async function ChatPage() {
         </Link>
       </div>
       <div className="min-h-0 flex-1">
-        <PremiumChatShell />
+        <Suspense fallback={<PremiumChatShellSkeleton />}>
+          <PremiumChatShell />
+        </Suspense>
       </div>
     </section>
   );

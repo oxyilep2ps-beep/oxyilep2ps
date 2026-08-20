@@ -55,25 +55,35 @@ function canCreatePost(role: Role) {
   return ['ADMIN', 'HR', 'BLOGGER', 'SOCIAL_MANAGER'].includes(role);
 }
 
-export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
+export const FEED_PAGE_SIZE = 20;
+export const CHAT_PAGE_SIZE = 20;
+
+export async function listGlobalPosts(
+  limit = FEED_PAGE_SIZE,
+  offset = 0
+): Promise<FeedPost[]> {
   const user = await requireUser();
   const admin = createAdminClient();
+  const pageSize = Math.max(1, Math.min(limit, 40));
+  const from = Math.max(0, offset);
+  const to = from + pageSize - 1;
 
   const { data: posts, error } = await admin
     .from('global_posts')
     .select('id, author_id, content, media_url, created_at')
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(from, to);
 
   if (error) throw new Error(error.message);
 
   // Prefer real global_posts (likeable). Fall back to legacy announcements only when empty.
   if (!posts || posts.length === 0) {
+    if (from > 0) return [];
     const { data: legacyAnnouncements, error: legacyError } = await admin
       .from('announcements')
       .select('id, title, content, created_at, admin_author')
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .range(0, pageSize - 1);
 
     if (legacyError) throw new Error(legacyError.message);
     if (!legacyAnnouncements || legacyAnnouncements.length === 0) return [];
@@ -110,17 +120,13 @@ export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
   }
 
   const authorIds = [...new Set(posts.map((p) => String(p.author_id)))];
-  const { data: authors } = await admin
-    .from('profiles')
-    .select('id, full_legal_name, avatar_url, role')
-    .in('id', authorIds);
+  const postIds = posts.map((p) => String(p.id));
+  const [{ data: authors }, { data: likes }] = await Promise.all([
+    admin.from('profiles').select('id, full_legal_name, avatar_url, role').in('id', authorIds),
+    admin.from('post_likes').select('post_id, user_id').in('post_id', postIds),
+  ]);
 
   const authorMap = Object.fromEntries((authors ?? []).map((a) => [String(a.id), a]));
-  const postIds = posts.map((p) => String(p.id));
-  const { data: likes } = await admin
-    .from('post_likes')
-    .select('post_id, user_id')
-    .in('post_id', postIds);
 
   const likeCountMap: Record<string, number> = {};
   const likedByMe = new Set<string>();
@@ -398,9 +404,16 @@ export async function createChatGroup(input: { name: string; memberIds: string[]
   return { ok: true as const, id: groupId };
 }
 
-export async function listGroupMessages(groupId: string, limit = 200): Promise<GroupMessage[]> {
+export async function listGroupMessages(
+  groupId: string,
+  limit = CHAT_PAGE_SIZE,
+  offset = 0
+): Promise<GroupMessage[]> {
   const user = await requireUser();
   const admin = createAdminClient();
+  const pageSize = Math.max(1, Math.min(limit, 50));
+  const from = Math.max(0, offset);
+  const to = from + pageSize - 1;
 
   const { data: membership } = await admin
     .from('chat_group_members')
@@ -410,22 +423,25 @@ export async function listGroupMessages(groupId: string, limit = 200): Promise<G
     .maybeSingle();
   if (!membership) return [];
 
+  // Newest page first, then reverse for chronological UI.
   const { data: rows, error } = await admin
     .from('chat_group_messages')
     .select('id, sender_id, content, created_at')
     .eq('group_id', groupId)
-    .order('created_at', { ascending: true })
-    .limit(limit);
+    .order('created_at', { ascending: false })
+    .range(from, to);
   if (error) throw new Error(error.message);
 
-  const senderIds = [...new Set((rows ?? []).map((r) => String(r.sender_id)))];
+  const chronological = [...(rows ?? [])].reverse();
+
+  const senderIds = [...new Set(chronological.map((r) => String(r.sender_id)))];
   const { data: senders } = await admin
     .from('profiles')
     .select('id, full_legal_name, avatar_url')
     .in('id', senderIds);
   const senderMap = Object.fromEntries((senders ?? []).map((s) => [String(s.id), s]));
 
-  return (rows ?? []).map((r) => ({
+  return chronological.map((r) => ({
     id: String(r.id),
     sender_id: String(r.sender_id),
     content: String(r.content),

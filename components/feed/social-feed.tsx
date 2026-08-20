@@ -24,12 +24,14 @@ import { createClient } from '@/lib/supabase/client';
 import {
   createGlobalPost,
   deleteGlobalPost,
+  FEED_PAGE_SIZE,
   listGlobalPosts,
   togglePostLike,
   type FeedPost,
   updateGlobalPost,
 } from '@/app/actions/social-network';
 import { listDiscoverUsers, sendConnectionRequest, type DiscoverUser } from '@/app/actions/connections';
+import { FeedPostListSkeleton, SuggestedUsersSkeleton } from '@/components/feed/feed-skeletons';
 import { cn } from '@/lib/utils';
 
 // ─── Portal config ───────────────────────────────────────────────────────────
@@ -289,6 +291,8 @@ export function SocialFeed() {
   const [postText, setPostText] = useState('');
   const [likesPendingIds, setLikesPendingIds] = useState<Record<string, boolean>>({});
   const [isPending, startTransition] = useTransition();
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -319,23 +323,35 @@ export function SocialFeed() {
           );
         }
 
-        try {
-          const postRes = await listGlobalPosts(40);
-          if (mounted) setPosts(postRes);
-        } catch (err) {
-          if (mounted) setPostsError(err instanceof Error ? err.message : 'Failed to load posts.');
-        } finally {
-          if (mounted) setPostsLoading(false);
-        }
+        const [postsSettled, suggestionsSettled] = await Promise.allSettled([
+          listGlobalPosts(FEED_PAGE_SIZE, 0),
+          listDiscoverUsers(7),
+        ]);
 
-        try {
-          const suggestRes = await listDiscoverUsers(7);
-          if (mounted) setSuggestions(suggestRes);
-        } catch (err) {
-          if (mounted) setSuggestionsError(err instanceof Error ? err.message : 'Failed to load suggestions.');
-        } finally {
-          if (mounted) setSuggestionsLoading(false);
+        if (!mounted) return;
+
+        if (postsSettled.status === 'fulfilled') {
+          setPosts(postsSettled.value);
+          setHasMorePosts(postsSettled.value.length >= FEED_PAGE_SIZE);
+        } else {
+          setPostsError(
+            postsSettled.reason instanceof Error
+              ? postsSettled.reason.message
+              : 'Failed to load posts.'
+          );
         }
+        setPostsLoading(false);
+
+        if (suggestionsSettled.status === 'fulfilled') {
+          setSuggestions(suggestionsSettled.value);
+        } else {
+          setSuggestionsError(
+            suggestionsSettled.reason instanceof Error
+              ? suggestionsSettled.reason.message
+              : 'Failed to load suggestions.'
+          );
+        }
+        setSuggestionsLoading(false);
       } catch {
         if (mounted) {
           setPostsLoading(false);
@@ -347,8 +363,29 @@ export function SocialFeed() {
     }
 
     void load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  const loadMorePosts = () => {
+    if (loadingMore || !hasMorePosts) return;
+    setLoadingMore(true);
+    startTransition(async () => {
+      try {
+        const next = await listGlobalPosts(FEED_PAGE_SIZE, posts.length);
+        setPosts((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          return [...prev, ...next.filter((p) => !seen.has(p.id))];
+        });
+        setHasMorePosts(next.length >= FEED_PAGE_SIZE);
+      } catch {
+        // keep existing posts; button remains available
+      } finally {
+        setLoadingMore(false);
+      }
+    });
+  };
 
   const portalConfig = role ? PORTAL_MAP[role] ?? null : null;
   const canCreatePost = role ? ['ADMIN', 'HR', 'BLOGGER', 'SOCIAL_MANAGER'].includes(role) : false;
@@ -418,10 +455,32 @@ export function SocialFeed() {
                   disabled={!postText.trim() || isPending}
                   onClick={() =>
                     startTransition(async () => {
-                      const res = await createGlobalPost({ content: postText });
-                      if (!res.ok) return;
+                      const content = postText.trim();
+                      if (!content) return;
+                      const optimisticId = `optimistic-${Date.now()}`;
+                      const optimistic: FeedPost = {
+                        id: optimisticId,
+                        content,
+                        media_url: null,
+                        created_at: new Date().toISOString(),
+                        author_id: myId,
+                        author_name: displayName || 'You',
+                        author_role: role ?? '',
+                        author_avatar: null,
+                        likes_count: 0,
+                        liked_by_me: false,
+                      };
                       setPostText('');
-                      setPosts(await listGlobalPosts(40));
+                      setPosts((prev) => [optimistic, ...prev]);
+                      const res = await createGlobalPost({ content });
+                      if (!res.ok) {
+                        setPostText(content);
+                        setPosts((prev) => prev.filter((p) => p.id !== optimisticId));
+                        return;
+                      }
+                      const fresh = await listGlobalPosts(FEED_PAGE_SIZE, 0);
+                      setPosts(fresh);
+                      setHasMorePosts(fresh.length >= FEED_PAGE_SIZE);
                     })
                   }
                   className="inline-flex items-center gap-1.5 rounded-full bg-[#F97316] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
@@ -441,9 +500,7 @@ export function SocialFeed() {
             </h2>
 
             {postsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 size={22} className="animate-spin text-[#F97316]" />
-              </div>
+              <FeedPostListSkeleton count={4} />
             ) : postsError ? (
               <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
                 <p className="text-sm font-semibold text-red-300">Could not load posts</p>
@@ -460,9 +517,10 @@ export function SocialFeed() {
                   <FeedPostCard
                     key={item.id}
                     item={item}
-                    canManage={!item.id.startsWith('legacy-') && (canManageAnyPost || item.author_id === myId)}
+                    canManage={!item.id.startsWith('legacy-') && !item.id.startsWith('optimistic-') && (canManageAnyPost || item.author_id === myId)}
                     likesBusy={Boolean(likesPendingIds[item.id])}
                     onToggleLike={(id) => {
+                      if (id.startsWith('optimistic-')) return;
                       const prev = posts;
                       setLikesPendingIds((curr) => ({ ...curr, [id]: true }));
                       setPosts((curr) =>
@@ -490,18 +548,35 @@ export function SocialFeed() {
                     }}
                     onDelete={(id) =>
                       startTransition(async () => {
-                        await deleteGlobalPost(id);
-                        setPosts(await listGlobalPosts(40));
+                        const snapshot = posts;
+                        setPosts((curr) => curr.filter((p) => p.id !== id));
+                        const res = await deleteGlobalPost(id);
+                        if (!res.ok) setPosts(snapshot);
                       })
                     }
                     onEdit={(id, content) =>
                       startTransition(async () => {
-                        await updateGlobalPost({ id, content });
-                        setPosts(await listGlobalPosts(40));
+                        const snapshot = posts;
+                        setPosts((curr) =>
+                          curr.map((p) => (p.id === id ? { ...p, content } : p))
+                        );
+                        const res = await updateGlobalPost({ id, content });
+                        if (!res.ok) setPosts(snapshot);
                       })
                     }
                   />
                 ))}
+                {hasMorePosts ? (
+                  <button
+                    type="button"
+                    onClick={loadMorePosts}
+                    disabled={loadingMore}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#F97316]/35 bg-[#F97316]/10 py-3 text-xs font-bold text-[#F97316] transition hover:bg-[#F97316]/15 disabled:opacity-60"
+                  >
+                    {loadingMore ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {loadingMore ? 'Loading…' : 'Load more'}
+                  </button>
+                ) : null}
               </div>
             )}
           </div>
@@ -521,9 +596,7 @@ export function SocialFeed() {
             </div>
 
             {suggestionsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 size={18} className="animate-spin text-[#F97316]" />
-              </div>
+              <SuggestedUsersSkeleton count={5} />
             ) : suggestionsError ? (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
                 <p className="text-xs font-semibold text-amber-200">Could not load suggestions</p>

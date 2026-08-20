@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { requireApprovedUser } from '@/lib/auth/require-approved';
 import { SocialFeed } from '@/components/feed/social-feed';
+import { GlobalFeedPageSkeleton } from '@/components/feed/feed-skeletons';
 
 export const metadata = { title: 'Global Feed | Oxyile' };
 
@@ -13,5 +15,9 @@ export default async function GlobalFeedPage() {
     redirect('/signin');
   }
 
-  return <SocialFeed />;
+  return (
+    <Suspense fallback={<GlobalFeedPageSkeleton />}>
+      <SocialFeed />
+    </Suspense>
+  );
 }
