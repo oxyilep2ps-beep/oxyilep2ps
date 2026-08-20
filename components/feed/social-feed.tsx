@@ -308,27 +308,29 @@ export function SocialFeed() {
           data: { user },
         } = await supabase.auth.getUser();
 
-        if (user && mounted) {
-          setMyId(user.id);
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role, full_legal_name')
-            .eq('id', user.id)
-            .maybeSingle();
-          setRole(profile?.role ?? null);
-          setDisplayName(
-            (profile as { full_legal_name?: string } | null)?.full_legal_name ??
-              user.email?.split('@')[0] ??
-              'there'
-          );
-        }
+        const profilePromise = user
+          ? supabase.from('profiles').select('role, full_legal_name').eq('id', user.id).maybeSingle()
+          : Promise.resolve({ data: null });
 
-        const [postsSettled, suggestionsSettled] = await Promise.allSettled([
+        const [profileSettled, postsSettled, suggestionsSettled] = await Promise.allSettled([
+          profilePromise,
           listGlobalPosts(FEED_PAGE_SIZE, 0),
           listDiscoverUsers(7),
         ]);
 
         if (!mounted) return;
+
+        if (user) {
+          setMyId(user.id);
+          if (profileSettled.status === 'fulfilled') {
+            const profile = (profileSettled.value as { data?: { role?: string; full_legal_name?: string } | null })
+              .data;
+            setRole(profile?.role ?? null);
+            setDisplayName(
+              profile?.full_legal_name ?? user.email?.split('@')[0] ?? 'there'
+            );
+          }
+        }
 
         if (postsSettled.status === 'fulfilled') {
           setPosts(postsSettled.value);

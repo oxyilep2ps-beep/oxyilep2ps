@@ -1,19 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useState, useSyncExternalStore, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Bell, Check, Loader2, MessageCircle, UserPlus, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
-  getUnreadNotificationCount,
-  listMyNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   respondToFriendRequestNotification,
   type AppNotification,
 } from '@/app/actions/notifications';
-import { IncomingRequestsPanel, useIncomingRequestCount } from '@/components/social/incoming-requests-panel';
+import { IncomingRequestsPanel } from '@/components/social/incoming-requests-panel';
+import {
+  bindNotificationsGlobalListeners,
+  getNotificationsSnapshot,
+  hydrateNotifications,
+  resolveFriendRequestLocally,
+  subscribeNotifications,
+} from '@/lib/social/notifications-store';
 import { cn } from '@/lib/utils';
 
 function initials(name: string) {
@@ -46,41 +51,40 @@ function destinationFor(item: AppNotification): string | null {
 
 function NotificationRow({
   item,
-  onChanged,
   onClose,
-  onOptimisticRead,
 }: {
   item: AppNotification;
-  onChanged: () => void;
   onClose: () => void;
-  onOptimisticRead?: (id: string) => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const name = item.actor_name || 'Someone';
   const href = destinationFor(item);
+  const showFriendActions = item.type === 'friend_request';
 
   const onRespond = (action: 'accept' | 'reject') => {
+    const connectionId = item.link_id;
+    if (connectionId) {
+      resolveFriendRequestLocally(connectionId, action);
+    }
     startTransition(async () => {
-      onOptimisticRead?.(item.id);
       await respondToFriendRequestNotification({
         notificationId: item.id,
         action,
         connectionId: item.link_id,
         actorId: item.actor_id,
       });
-      onChanged();
       window.dispatchEvent(new Event('oxyile:connections-changed'));
+      void hydrateNotifications({ force: true });
     });
   };
 
   const onOpen = () => {
     startTransition(async () => {
       if (!item.is_read) {
-        onOptimisticRead?.(item.id);
         await markNotificationRead(item.id);
+        void hydrateNotifications({ force: true });
       }
-      onChanged();
       if (href) {
         onClose();
         router.push(href);
@@ -113,7 +117,7 @@ function NotificationRow({
             <p className="mt-1 text-[10px] font-medium text-gray-500">{timeAgo(item.created_at)}</p>
           </button>
 
-          {item.type === 'friend_request' ? (
+          {showFriendActions ? (
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -146,25 +150,22 @@ function NotificationRow({
             </div>
           ) : null}
 
-          {item.type === 'friend_accepted' && item.actor_id ? (
+          {item.type === 'friend_accepted' ? (
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              {href ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-400">
+                <Check size={11} />
+                Request Accepted
+              </span>
+              {item.actor_id ? (
                 <Link
-                  href={href}
+                  href={`/chats/${item.actor_id}`}
                   onClick={onClose}
-                  className="inline-flex items-center gap-1 rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-3 py-1.5 text-[11px] font-bold text-[#F97316]"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[11px] font-bold text-white"
                 >
-                  View profile
+                  <MessageCircle size={11} />
+                  Message
                 </Link>
               ) : null}
-              <Link
-                href={`/chats/${item.actor_id}`}
-                onClick={onClose}
-                className="inline-flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[11px] font-bold text-white"
-              >
-                <MessageCircle size={11} />
-                Message
-              </Link>
             </div>
           ) : null}
         </div>
@@ -177,43 +178,17 @@ function NotificationRow({
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'requests' | 'all'>('requests');
-  const [items, setItems] = useState<AppNotification[]>([]);
-  const [unread, setUnread] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [marking, startMarkAll] = useTransition();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const { count: incomingCount, refresh: refreshIncoming } = useIncomingRequestCount();
-
-  const refresh = useCallback(async () => {
-    const [rows, count] = await Promise.all([listMyNotifications(40), getUnreadNotificationCount()]);
-    setItems(rows);
-    setUnread(count);
-    await refreshIncoming();
-  }, [refreshIncoming]);
-
-  const markLocalRead = useCallback((id: string) => {
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
-    setUnread((c) => Math.max(0, c - 1));
-  }, []);
-
-  const markAllLocalRead = useCallback(() => {
-    setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    setUnread(0);
-  }, []);
+  const snap = useSyncExternalStore(subscribeNotifications, getNotificationsSnapshot, getNotificationsSnapshot);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void hydrateNotifications();
+    return bindNotificationsGlobalListeners();
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleRefresh = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => void refresh(), 250);
-    };
 
     void (async () => {
       const {
@@ -231,100 +206,40 @@ export function NotificationBell() {
             table: 'notifications',
             filter: `user_id=eq.${user.id}`,
           },
-          (payload) => {
-            const event = payload.eventType;
-            if (event === 'INSERT') {
-              const row = payload.new as {
-                id: string;
-                user_id: string;
-                actor_id: string | null;
-                type: string;
-                title: string;
-                message: string;
-                is_read: boolean;
-                link_id: string | null;
-                created_at: string;
-              };
-              setItems((prev) => {
-                if (prev.some((n) => n.id === row.id)) return prev;
-                const next: AppNotification = {
-                  id: row.id,
-                  user_id: row.user_id,
-                  actor_id: row.actor_id,
-                  type: row.type,
-                  title: row.title,
-                  message: row.message,
-                  is_read: row.is_read,
-                  link_id: row.link_id,
-                  created_at: row.created_at,
-                  actor_name: null,
-                  actor_username: null,
-                  actor_avatar: null,
-                };
-                return [next, ...prev].slice(0, 40);
-              });
-              if (!row.is_read) setUnread((c) => c + 1);
-              scheduleRefresh();
-              return;
-            }
-
-            if (event === 'UPDATE') {
-              const next = payload.new as { id: string; is_read?: boolean };
-              const prev = payload.old as { id?: string; is_read?: boolean } | undefined;
-              const wasUnread = prev?.is_read === false;
-              const nowRead = next.is_read === true;
-              setItems((curr) =>
-                curr.map((n) => (n.id === next.id ? { ...n, is_read: Boolean(next.is_read) } : n))
-              );
-              if (wasUnread && nowRead) {
-                setUnread((c) => Math.max(0, c - 1));
-              } else if (prev?.is_read === true && next.is_read === false) {
-                setUnread((c) => c + 1);
-              } else if (prev?.is_read === undefined) {
-                // Replica identity may omit old row — reconcile from server shortly.
-                scheduleRefresh();
-              }
-              return;
-            }
-
-            if (event === 'DELETE') {
-              const old = payload.old as { id?: string; is_read?: boolean };
-              if (old.id) {
-                setItems((curr) => curr.filter((n) => n.id !== old.id));
-                if (old.is_read === false) setUnread((c) => Math.max(0, c - 1));
-              }
-              scheduleRefresh();
-            }
+          () => {
+            void hydrateNotifications({ force: true });
           }
         )
         .subscribe();
     })();
 
     return () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [refresh]);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
-    void refresh().finally(() => setLoading(false));
-    if (incomingCount > 0) setTab('requests');
-  }, [open, refresh, incomingCount]);
+    // Cache hit — no full refetch when switching tabs / reopening within TTL.
+    void hydrateNotifications();
+    if (snap.incomingCount > 0) setTab('requests');
+  }, [open, snap.incomingCount]);
 
   useEffect(() => {
     const onAway = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!(event.target instanceof Node)) return;
+      const root = document.getElementById('oxyile-notification-bell');
+      if (root && !root.contains(event.target)) setOpen(false);
     };
     window.addEventListener('mousedown', onAway);
     return () => window.removeEventListener('mousedown', onAway);
   }, []);
 
-  const badgeTotal = unread + incomingCount;
+  const badgeTotal = snap.unread + snap.incomingCount;
+  const loading = snap.loading && snap.items.length === 0;
 
   return (
-    <div ref={rootRef} className="relative">
+    <div id="oxyile-notification-bell" className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -351,12 +266,11 @@ export function NotificationBell() {
             <p className="text-sm font-black text-gray-900 dark:text-white">Notifications</p>
             <button
               type="button"
-              disabled={marking || unread === 0}
+              disabled={marking || snap.unread === 0}
               onClick={() =>
                 startMarkAll(async () => {
-                  markAllLocalRead();
                   await markAllNotificationsRead();
-                  await refresh();
+                  await hydrateNotifications({ force: true });
                 })
               }
               className="text-[11px] font-bold text-[#F97316] disabled:opacity-40"
@@ -377,9 +291,9 @@ export function NotificationBell() {
               )}
             >
               Incoming Requests
-              {incomingCount > 0 ? (
+              {snap.incomingCount > 0 ? (
                 <span className="ml-1 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#F97316] px-1 text-[10px] font-bold text-white">
-                  {incomingCount}
+                  {snap.incomingCount}
                 </span>
               ) : null}
             </button>
@@ -394,9 +308,9 @@ export function NotificationBell() {
               )}
             >
               All
-              {unread > 0 ? (
+              {snap.unread > 0 ? (
                 <span className="ml-1 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                  {unread}
+                  {snap.unread}
                 </span>
               ) : null}
             </button>
@@ -404,16 +318,12 @@ export function NotificationBell() {
 
           <div className="max-h-[min(70vh,24rem)] overflow-y-auto">
             {tab === 'requests' ? (
-              <IncomingRequestsPanel
-                onChanged={() => {
-                  void refresh();
-                }}
-              />
-            ) : loading && items.length === 0 ? (
+              <IncomingRequestsPanel />
+            ) : loading ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 size={18} className="animate-spin text-[#F97316]" />
               </div>
-            ) : items.length === 0 ? (
+            ) : snap.items.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <Bell size={22} className="mx-auto mb-2 text-gray-400 dark:text-gray-600" />
                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No notifications yet</p>
@@ -421,14 +331,8 @@ export function NotificationBell() {
               </div>
             ) : (
               <ul>
-                {items.map((item) => (
-                  <NotificationRow
-                    key={item.id}
-                    item={item}
-                    onChanged={() => void refresh()}
-                    onClose={() => setOpen(false)}
-                    onOptimisticRead={markLocalRead}
-                  />
+                {snap.items.map((item) => (
+                  <NotificationRow key={item.id} item={item} onClose={() => setOpen(false)} />
                 ))}
               </ul>
             )}

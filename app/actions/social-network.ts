@@ -68,7 +68,12 @@ export async function listGlobalPosts(
 
   const { data: posts, error } = await admin
     .from('global_posts')
-    .select('id, author_id, content, media_url, created_at')
+    .select(
+      `
+      id, author_id, content, media_url, created_at,
+      post_likes ( user_id )
+    `
+    )
     .order('created_at', { ascending: false })
     .range(from, to);
 
@@ -118,24 +123,18 @@ export async function listGlobalPosts(
   }
 
   const authorIds = [...new Set(posts.map((p) => String(p.author_id)))];
-  const postIds = posts.map((p) => String(p.id));
-  const [{ data: authors }, { data: likes }] = await Promise.all([
-    admin.from('profiles').select('id, full_legal_name, avatar_url, role').in('id', authorIds),
-    admin.from('post_likes').select('post_id, user_id').in('post_id', postIds),
-  ]);
+  const { data: authors } = await admin
+    .from('profiles')
+    .select('id, full_legal_name, avatar_url, role')
+    .in('id', authorIds);
 
   const authorMap = Object.fromEntries((authors ?? []).map((a) => [String(a.id), a]));
 
-  const likeCountMap: Record<string, number> = {};
-  const likedByMe = new Set<string>();
-  for (const row of likes ?? []) {
-    const key = String(row.post_id);
-    likeCountMap[key] = (likeCountMap[key] ?? 0) + 1;
-    if (String(row.user_id) === user.id) likedByMe.add(key);
-  }
-
   return posts.map((p) => {
     const author = authorMap[String(p.author_id)];
+    const likes = ((p as { post_likes?: { user_id: string }[] }).post_likes ?? []) as {
+      user_id: string;
+    }[];
     return {
       id: String(p.id),
       content: String(p.content ?? ''),
@@ -145,8 +144,8 @@ export async function listGlobalPosts(
       author_name: String(author?.full_legal_name ?? 'Unknown'),
       author_role: String(author?.role ?? ''),
       author_avatar: (author?.avatar_url as string | null) ?? null,
-      likes_count: likeCountMap[String(p.id)] ?? 0,
-      liked_by_me: likedByMe.has(String(p.id)),
+      likes_count: likes.length,
+      liked_by_me: likes.some((l) => String(l.user_id) === user.id),
     };
   });
 }
@@ -339,17 +338,11 @@ export async function listMyChatGroups(): Promise<GroupSummary[]> {
   const groupIds = (memberships ?? []).map((m) => String(m.group_id));
   if (groupIds.length === 0) return [];
 
-  const { data: groups, error: groupsError } = await admin
-    .from('chat_groups')
-    .select('id, name, created_at')
-    .in('id', groupIds)
-    .order('created_at', { ascending: false });
+  const [{ data: groups, error: groupsError }, { data: counts }] = await Promise.all([
+    admin.from('chat_groups').select('id, name, created_at').in('id', groupIds).order('created_at', { ascending: false }),
+    admin.from('chat_group_members').select('group_id').in('group_id', groupIds),
+  ]);
   if (groupsError) throw new Error(groupsError.message);
-
-  const { data: counts } = await admin
-    .from('chat_group_members')
-    .select('group_id')
-    .in('group_id', groupIds);
 
   const countMap: Record<string, number> = {};
   for (const row of counts ?? []) {

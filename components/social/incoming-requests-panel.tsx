@@ -1,18 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, useSyncExternalStore, useTransition } from 'react';
 import Link from 'next/link';
 import { Check, Loader2, UserPlus, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { acceptFriendRequest, removeConnection } from '@/app/actions/connections';
 import {
-  acceptFriendRequest,
-  getIncomingRequestCount,
-  listPendingRequests,
-  removeConnection,
-} from '@/app/actions/connections';
+  bindNotificationsGlobalListeners,
+  getNotificationsSnapshot,
+  hydrateNotifications,
+  resolveFriendRequestLocally,
+  subscribeNotifications,
+} from '@/lib/social/notifications-store';
 import { cn } from '@/lib/utils';
-
-type IncomingRow = Awaited<ReturnType<typeof listPendingRequests>>[number];
 
 function initials(name: string) {
   return name
@@ -24,14 +24,14 @@ function initials(name: string) {
 }
 
 export function useIncomingRequestCount() {
-  const [count, setCount] = useState(0);
+  const snap = useSyncExternalStore(subscribeNotifications, getNotificationsSnapshot, getNotificationsSnapshot);
 
-  const refresh = useCallback(async () => {
-    setCount(await getIncomingRequestCount());
+  useEffect(() => {
+    void hydrateNotifications();
+    return bindNotificationsGlobalListeners();
   }, []);
 
   useEffect(() => {
-    void refresh();
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
@@ -46,7 +46,7 @@ export function useIncomingRequestCount() {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'user_connections' },
           () => {
-            void refresh();
+            void hydrateNotifications({ force: true });
           }
         )
         .subscribe();
@@ -55,9 +55,12 @@ export function useIncomingRequestCount() {
     return () => {
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [refresh]);
+  }, []);
 
-  return { count, refresh };
+  return {
+    count: snap.incomingCount,
+    refresh: () => hydrateNotifications({ force: true }),
+  };
 }
 
 export function IncomingRequestsPanel({
@@ -67,46 +70,17 @@ export function IncomingRequestsPanel({
   onChanged?: () => void;
   compact?: boolean;
 }) {
-  const [rows, setRows] = useState<IncomingRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const snap = useSyncExternalStore(subscribeNotifications, getNotificationsSnapshot, getNotificationsSnapshot);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setRows(await listPendingRequests());
-    setLoading(false);
+  useEffect(() => {
+    void hydrateNotifications();
   }, []);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    const supabase = createClient();
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    void (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      channel = supabase
-        .channel(`incoming-panel-${user.id}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'user_connections' },
-          () => {
-            void refresh();
-          }
-        )
-        .subscribe();
-    })();
-    return () => {
-      if (channel) void supabase.removeChannel(channel);
-    };
-  }, [refresh]);
-
   const respond = (connectionId: string, action: 'accept' | 'decline') => {
+    const mapped = action === 'accept' ? 'accept' : 'reject';
+    resolveFriendRequestLocally(connectionId, mapped);
     setBusyId(connectionId);
     startTransition(async () => {
       const result =
@@ -115,14 +89,17 @@ export function IncomingRequestsPanel({
           : await removeConnection(connectionId);
       setBusyId(null);
       if (result.ok) {
-        await refresh();
         onChanged?.();
         window.dispatchEvent(new Event('oxyile:connections-changed'));
       }
+      void hydrateNotifications({ force: true });
     });
   };
 
-  if (loading && rows.length === 0) {
+  const rows = snap.pendingRequests;
+  const loading = snap.loading && rows.length === 0;
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 size={18} className="animate-spin text-[#F97316]" />

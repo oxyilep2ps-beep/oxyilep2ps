@@ -179,10 +179,18 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
       } = await supabase.auth.getUser();
       if (!user || !mounted) return;
       setMyId(user.id);
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (mounted) setMyRole(normalizeRole(profile?.role as string | undefined));
-      await refreshSidebar();
-      if (mounted) setLoading(false);
+
+      const [{ data: profile }, friendRows, groupRows] = await Promise.all([
+        supabase.from('profiles').select('role').eq('id', user.id).maybeSingle(),
+        listMyConnections(),
+        listMyChatGroups(),
+      ]);
+
+      if (!mounted) return;
+      setMyRole(normalizeRole(profile?.role as string | undefined));
+      setFriends(friendRows);
+      setGroups(groupRows);
+      setLoading(false);
     }
     void init();
     return () => {

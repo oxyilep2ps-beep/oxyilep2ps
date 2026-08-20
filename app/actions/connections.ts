@@ -130,19 +130,31 @@ export async function acceptConnectionRequest(
 
     if (error) return { ok: false, error: error.message };
 
-    try {
-      const { data: accepter } = await admin
-        .from('profiles')
-        .select('full_legal_name, username')
-        .eq('id', user.id)
-        .maybeSingle();
-      const accepterName =
-        String(accepter?.full_legal_name ?? '').trim() ||
-        String(accepter?.username ?? '').trim() ||
-        user.email?.split('@')[0] ||
-        'Someone';
+    // Resolve original friend_request notification(s) so Accept/Reject disappear everywhere.
+    const { data: accepter } = await admin
+      .from('profiles')
+      .select('full_legal_name, username')
+      .eq('id', user.id)
+      .maybeSingle();
+    const accepterName =
+      String(accepter?.full_legal_name ?? '').trim() ||
+      String(accepter?.username ?? '').trim() ||
+      user.email?.split('@')[0] ||
+      'Someone';
 
-      const { error: notifyError } = await admin.from('notifications').insert({
+    await Promise.all([
+      admin
+        .from('notifications')
+        .update({
+          type: 'friend_accepted',
+          title: 'Friend Request Accepted',
+          message: 'You are now connected.',
+          is_read: true,
+        })
+        .eq('user_id', user.id)
+        .eq('type', 'friend_request')
+        .eq('link_id', connectionId),
+      admin.from('notifications').insert({
         user_id: String(connection.requester_id),
         actor_id: user.id,
         type: 'friend_accepted',
@@ -150,13 +162,8 @@ export async function acceptConnectionRequest(
         message: `${accepterName} accepted your friend request!`,
         is_read: false,
         link_id: connectionId,
-      });
-      if (notifyError) {
-        console.error('[acceptConnectionRequest] notification insert failed', notifyError.message);
-      }
-    } catch (notifyError) {
-      console.error('[acceptConnectionRequest] notification failed', notifyError);
-    }
+      }),
+    ]);
 
     return { ok: true };
   } catch (e) {
@@ -184,6 +191,19 @@ export async function removeConnection(
       .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
 
     if (error) return { ok: false, error: error.message };
+
+    // Resolve outstanding friend_request notifications so Accept/Reject never linger.
+    await admin
+      .from('notifications')
+      .update({
+        type: 'system',
+        title: 'Friend Request Declined',
+        message: 'This friend request was declined.',
+        is_read: true,
+      })
+      .eq('type', 'friend_request')
+      .eq('link_id', connectionId);
+
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Remove failed' };

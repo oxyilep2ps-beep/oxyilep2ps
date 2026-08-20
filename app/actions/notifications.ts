@@ -33,7 +33,7 @@ export async function listMyNotifications(limit = 40): Promise<AppNotification[]
   try {
     const user = await requireUser();
     const admin = createAdminClient();
-    const { data, error } = await admin
+    const { data: rows, error } = await admin
       .from('notifications')
       .select('id, user_id, actor_id, type, title, message, is_read, link_id, created_at')
       .eq('user_id', user.id)
@@ -41,8 +41,8 @@ export async function listMyNotifications(limit = 40): Promise<AppNotification[]
       .limit(Math.max(1, Math.min(limit, 80)));
 
     if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    const actorIds = [...new Set(rows.map((r) => r.actor_id).filter(Boolean))] as string[];
+    const list = rows ?? [];
+    const actorIds = [...new Set(list.map((r) => r.actor_id).filter(Boolean))] as string[];
 
     const actorMap: Record<string, { name: string; username: string | null; avatar: string | null }> = {};
     if (actorIds.length > 0) {
@@ -59,7 +59,7 @@ export async function listMyNotifications(limit = 40): Promise<AppNotification[]
       }
     }
 
-    return rows.map((r) => {
+    return list.map((r) => {
       const actor = r.actor_id ? actorMap[String(r.actor_id)] : null;
       return {
         id: String(r.id),
