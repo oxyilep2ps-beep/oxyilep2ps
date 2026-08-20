@@ -23,7 +23,7 @@ import { HandshakeCard } from '@/components/chat/handshake-card';
 import { HandshakePanel } from '@/components/chat/handshake-panel';
 import { cn } from '@/lib/utils';
 import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
-import { CHAT_PAGE_SIZE } from '@/app/actions/social-network';
+import { CHAT_PAGE_SIZE } from '@/lib/social/pagination';
 
 type ChatRoomProps = {
   peerUserId: string;

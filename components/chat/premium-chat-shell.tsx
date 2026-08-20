@@ -5,11 +5,12 @@ import { ArrowLeft, Loader2, MessageCircle, Plus, Search, Send, Users, X } from 
 import { createClient } from '@/lib/supabase/client';
 import { markConversationRead } from '@/app/actions/chat';
 import { listMyConnections } from '@/app/actions/connections';
-import { createChatGroup, CHAT_PAGE_SIZE, listGroupMessages, listMyChatGroups, type GroupMessage } from '@/app/actions/social-network';
+import { createChatGroup, listGroupMessages, listMyChatGroups, type GroupMessage } from '@/app/actions/social-network';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
 import { ChatRoom } from '@/components/chat/chat-room';
 import { ChatInboxListSkeleton, ChatThreadSkeleton } from '@/components/chat/chat-skeletons';
 import { IncomingRequestsPanel, useIncomingRequestCount } from '@/components/social/incoming-requests-panel';
+import { CHAT_PAGE_SIZE } from '@/lib/social/pagination';
 import { cn } from '@/lib/utils';
 
 type Friend = Awaited<ReturnType<typeof listMyConnections>>[number];

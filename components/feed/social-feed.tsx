@@ -24,7 +24,6 @@ import { createClient } from '@/lib/supabase/client';
 import {
   createGlobalPost,
   deleteGlobalPost,
-  FEED_PAGE_SIZE,
   listGlobalPosts,
   togglePostLike,
   type FeedPost,
@@ -32,6 +31,7 @@ import {
 } from '@/app/actions/social-network';
 import { listDiscoverUsers, sendConnectionRequest, type DiscoverUser } from '@/app/actions/connections';
 import { FeedPostListSkeleton, SuggestedUsersSkeleton } from '@/components/feed/feed-skeletons';
+import { FEED_PAGE_SIZE } from '@/lib/social/pagination';
 import { cn } from '@/lib/utils';
 
 // ─── Portal config ───────────────────────────────────────────────────────────

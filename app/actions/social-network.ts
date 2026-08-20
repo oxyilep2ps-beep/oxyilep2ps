@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notifyPostLikePush } from '@/app/actions/sendPushNotification';
+import { FEED_PAGE_SIZE, CHAT_PAGE_SIZE } from '@/lib/social/pagination';
 
 type Role = 'ADMIN' | 'HR' | 'BLOGGER' | 'SOCIAL_MANAGER' | string;
 
@@ -54,9 +55,6 @@ async function getMyRole(admin = createAdminClient()): Promise<Role> {
 function canCreatePost(role: Role) {
   return ['ADMIN', 'HR', 'BLOGGER', 'SOCIAL_MANAGER'].includes(role);
 }
-
-export const FEED_PAGE_SIZE = 20;
-export const CHAT_PAGE_SIZE = 20;
 
 export async function listGlobalPosts(
   limit = FEED_PAGE_SIZE,
