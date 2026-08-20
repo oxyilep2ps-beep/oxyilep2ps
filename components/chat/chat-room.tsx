@@ -23,12 +23,18 @@ import { HandshakePanel } from '@/components/chat/handshake-panel';
 import { cn } from '@/lib/utils';
 import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
 import { CHAT_PAGE_SIZE } from '@/lib/social/pagination';
+import {
+  type FinancialCapabilities,
+} from '@/lib/auth/financial-capabilities';
 
 type ChatRoomProps = {
   peerUserId: string;
   /** When true, fills parent (e.g. PremiumChatShell conversation pane) instead of page chrome. */
   embedded?: boolean;
   onBack?: () => void;
+  /** Prefer parent chat context — avoids re-deriving flags when already loaded. */
+  currentUserCaps?: FinancialCapabilities;
+  peerUserCaps?: FinancialCapabilities;
 };
 
 function formatSeenTime(iso: string): string {
@@ -44,7 +50,13 @@ function formatLastSeen(iso: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
-export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps) {
+export function ChatRoom({
+  peerUserId,
+  embedded = false,
+  onBack,
+  currentUserCaps,
+  peerUserCaps,
+}: ChatRoomProps) {
   const supabase = useMemo(() => createClient(), []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialScrollDoneRef = useRef(false);
@@ -175,13 +187,12 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
           throw new Error('Profile not found.');
         }
 
-        const { resolveFinancialCapabilities, canFormHandshakePair, financialStanceFromPortal, readActivePortalClient } =
+        const { resolveFinancialCapabilities, financialStanceFromPortal, readActivePortalClient } =
           await import('@/lib/auth/financial-capabilities');
 
-        const myCaps = resolveFinancialCapabilities(myProfile);
-        if (!myCaps.is_investor && !myCaps.is_borrower) {
-          throw new Error('Complete investor or borrower onboarding to use handshake chat.');
-        }
+        // Prefer caps from chat shell context when provided (no redundant flag derivation).
+        const myCaps: FinancialCapabilities =
+          currentUserCaps ?? resolveFinancialCapabilities(myProfile);
 
         const { data: peerProfile, error: peerError } = await supabase
           .from('profiles')
@@ -197,21 +208,27 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
           throw new Error('Peer profile not found or not approved.');
         }
 
-        const peerCaps = resolveFinancialCapabilities(peerProfile);
-        if (!canFormHandshakePair(myCaps, peerCaps)) {
-          throw new Error('Handshake chat requires complementary investor and borrower capabilities.');
-        }
+        const peerCaps: FinancialCapabilities =
+          peerUserCaps ?? resolveFinancialCapabilities(peerProfile);
+
+        const isValidHandshakePair =
+          (myCaps.is_investor && peerCaps.is_borrower) ||
+          (myCaps.is_borrower && peerCaps.is_investor);
 
         const activePortal = readActivePortalClient();
         let stance = financialStanceFromPortal(activePortal, myCaps);
-        // Prefer stance that complements the peer when both parties have dual caps.
-        if (stance === 'INVESTOR' && !peerCaps.is_borrower && peerCaps.is_investor && myCaps.is_borrower) {
-          stance = 'BORROWER';
-        } else if (stance === 'BORROWER' && !peerCaps.is_investor && peerCaps.is_borrower && myCaps.is_investor) {
-          stance = 'INVESTOR';
-        }
-        if (!stance) {
-          stance = myCaps.is_investor && peerCaps.is_borrower ? 'INVESTOR' : 'BORROWER';
+        if (isValidHandshakePair) {
+          // Prefer stance that complements the peer when both parties have dual caps.
+          if (stance === 'INVESTOR' && !peerCaps.is_borrower && peerCaps.is_investor && myCaps.is_borrower) {
+            stance = 'BORROWER';
+          } else if (stance === 'BORROWER' && !peerCaps.is_investor && peerCaps.is_borrower && myCaps.is_investor) {
+            stance = 'INVESTOR';
+          }
+          if (!stance) {
+            stance = myCaps.is_investor && peerCaps.is_borrower ? 'INVESTOR' : 'BORROWER';
+          }
+        } else {
+          stance = null;
         }
 
         const uid = myProfile.id as string;
@@ -226,7 +243,7 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
           username: (peerProfile.username as string | null) ?? null,
           avatar_url: (peerProfile.avatar_url as string | null) ?? null,
         });
-        setCanHandshake(true);
+        setCanHandshake(isValidHandshakePair);
 
         // Connection gate — fetch once on load
         const { status: connStatus, connectionId: connId } = await getConnectionStatus(peerUserId);
@@ -261,7 +278,7 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
       cancelled = true;
       initialScrollDoneRef.current = false;
     };
-  }, [fetchMessages, peerUserId, supabase]);
+  }, [currentUserCaps, fetchMessages, peerUserCaps, peerUserId, supabase]);
 
   // Presence + realtime only after myId is known (initial fetch completed).
   useEffect(() => {
@@ -456,8 +473,9 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
     );
   }
 
-  if (!peer || !myId || !myRole) return null;
+  if (!peer || !myId) return null;
 
+  const isValidHandshakePair = canHandshake;
   const presenceLabel =
     peerPresence?.status === 'online'
       ? 'Online'
@@ -525,7 +543,9 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
           </div>
         ) : null}
         {messages.length === 0 ? (
-          <p className="text-center text-sm text-neutral-500">Say hello — or send a handshake proposal.</p>
+          <p className="text-center text-sm text-neutral-500">
+            {isValidHandshakePair ? 'Say hello — or send a handshake proposal.' : 'Say hello to start the conversation.'}
+          </p>
         ) : (
           messages.map((message) => {
             const handshakeId = parseHandshakeMessagePayload(message.content);
@@ -580,18 +600,20 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
         <div ref={messagesEndRef} />
       </div>
 
-      <HandshakePanel
-        open={showPropose}
-        onClose={() => setShowPropose(false)}
-        myId={myId}
-        myRole={myRole}
-        peerId={peer.id}
-        handshakes={Object.values(handshakeMap)}
-        onRefresh={() => {
-          void loadHandshakes(myId, peer.id);
-          void fetchMessages(myId, peer.id);
-        }}
-      />
+      {isValidHandshakePair && myRole ? (
+        <HandshakePanel
+          open={showPropose}
+          onClose={() => setShowPropose(false)}
+          myId={myId}
+          myRole={myRole}
+          peerId={peer.id}
+          handshakes={Object.values(handshakeMap)}
+          onRefresh={() => {
+            void loadHandshakes(myId, peer.id);
+            void fetchMessages(myId, peer.id);
+          }}
+        />
+      ) : null}
 
       {/* ── Connection Barrier ── */}
       {connectionStatus !== 'accepted' && (
@@ -655,25 +677,27 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
         className="relative z-20 shrink-0 border-t border-gray-200 bg-white/95 px-3 py-3 dark:border-neutral-800 dark:bg-[#0a0a0a]/95"
       >
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (emergencyPause || connectionStatus !== 'accepted') return;
-              setShowPropose(true);
-            }}
-            disabled={emergencyPause || connectionStatus !== 'accepted'}
-            aria-label="New handshake proposal"
-            title={
-              emergencyPause
-                ? 'Platform paused by admin'
-                : connectionStatus !== 'accepted'
-                  ? 'Connect first to initiate a handshake'
-                  : 'New Handshake'
-            }
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#F97316]/40 bg-[#F97316]/15 text-[#F97316] transition hover:border-[#F97316] hover:bg-[#F97316]/25 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Handshake size={18} strokeWidth={2.25} />
-          </button>
+          {isValidHandshakePair ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (emergencyPause || connectionStatus !== 'accepted') return;
+                setShowPropose(true);
+              }}
+              disabled={emergencyPause || connectionStatus !== 'accepted'}
+              aria-label="New handshake proposal"
+              title={
+                emergencyPause
+                  ? 'Platform paused by admin'
+                  : connectionStatus !== 'accepted'
+                    ? 'Connect first to initiate a handshake'
+                    : 'New Handshake'
+              }
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#F97316]/40 bg-[#F97316]/15 text-[#F97316] transition hover:border-[#F97316] hover:bg-[#F97316]/25 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Handshake size={18} strokeWidth={2.25} />
+            </button>
+          ) : null}
           <input
             value={text}
             onChange={(e) => {

@@ -12,7 +12,6 @@ import { ChatInboxListSkeleton, ChatThreadSkeleton } from '@/components/chat/cha
 import { IncomingRequestsPanel, useIncomingRequestCount } from '@/components/social/incoming-requests-panel';
 import { CHAT_PAGE_SIZE } from '@/lib/social/pagination';
 import {
-  canFormHandshakePair,
   resolveFinancialCapabilities,
   type FinancialCapabilities,
 } from '@/lib/auth/financial-capabilities';
@@ -138,7 +137,7 @@ function CreateGroupModal({
 
 export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) {
   const supabase = useMemo(() => createClient(), []);
-  const { financialStance, capabilities: myCaps } = usePortalContext();
+  const { capabilities: myCaps } = usePortalContext();
   const [myId, setMyId] = useState<string>('');
   const [myRole, setMyRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -155,11 +154,8 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   const { count: incomingCount } = useIncomingRequestCount();
   const [, startTransition] = useTransition();
 
-  // Handshake room when active portal stance + peer capabilities form a P2P pair.
-  const useHandshakeRoom =
-    active?.kind === 'friend' &&
-    Boolean(financialStance ?? (myCaps.is_investor || myCaps.is_borrower)) &&
-    canFormHandshakePair(myCaps, active.caps);
+  // Friend DMs use ChatRoom (handshake button gated inside by investor↔borrower pair).
+  const useHandshakeRoom = active?.kind === 'friend';
 
   const filteredFriends = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -558,7 +554,13 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
         </div>
       ) : useHandshakeRoom && active.kind === 'friend' ? (
         <div className="min-h-0 flex-1">
-          <ChatRoom peerUserId={active.id} embedded onBack={clearActive} />
+          <ChatRoom
+            peerUserId={active.id}
+            embedded
+            onBack={clearActive}
+            currentUserCaps={myCaps}
+            peerUserCaps={active.caps}
+          />
         </div>
       ) : (
         <>
