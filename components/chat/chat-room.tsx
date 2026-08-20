@@ -575,17 +575,29 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
         </div>
       )}
 
-      <form onSubmit={sendMessage} className="glass-card shrink-0 border-x-0 border-b-0 px-3 py-3">
+      <form
+        onSubmit={sendMessage}
+        className="relative z-20 shrink-0 border-t border-gray-200 bg-white/95 px-3 py-3 dark:border-neutral-800 dark:bg-[#0a0a0a]/95"
+      >
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => !emergencyPause && setShowPropose((v) => !v)}
+            onClick={() => {
+              if (emergencyPause || connectionStatus !== 'accepted') return;
+              setShowPropose(true);
+            }}
             disabled={emergencyPause || connectionStatus !== 'accepted'}
-            aria-label="Initiate handshake"
-            title={emergencyPause ? 'Platform paused by admin' : connectionStatus !== 'accepted' ? 'Connect first to initiate a handshake' : 'Initiate handshake'}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-500/15 text-brand-600 disabled:opacity-40"
+            aria-label="New handshake proposal"
+            title={
+              emergencyPause
+                ? 'Platform paused by admin'
+                : connectionStatus !== 'accepted'
+                  ? 'Connect first to initiate a handshake'
+                  : 'New Handshake'
+            }
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#F97316]/40 bg-[#F97316]/15 text-[#F97316] transition hover:border-[#F97316] hover:bg-[#F97316]/25 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Handshake size={18} />
+            <Handshake size={18} strokeWidth={2.25} />
           </button>
           <input
             value={text}
@@ -598,9 +610,14 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
             }}
             disabled={connectionStatus !== 'accepted'}
             placeholder={connectionStatus !== 'accepted' ? 'Connect first to send messages…' : 'Type a message…'}
-            className="min-w-0 flex-1 rounded-full border border-white/50 bg-white/80 px-4 py-2.5 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-black/40"
+            className="h-10 min-w-0 flex-1 rounded-full border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-[#F97316]/60 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-[#111] dark:text-white dark:placeholder:text-neutral-500"
           />
-          <button type="submit" disabled={!text.trim() || sending || connectionStatus !== 'accepted'} className="grid h-10 w-10 place-items-center rounded-full bg-brand-500 text-white disabled:opacity-40">
+          <button
+            type="submit"
+            disabled={!text.trim() || sending || connectionStatus !== 'accepted'}
+            aria-label="Send message"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F97316] text-white transition hover:bg-[#ea580c] disabled:opacity-40"
+          >
             {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
         </div>

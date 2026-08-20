@@ -152,88 +152,106 @@ export function HandshakePanel({
   };
 
   return (
-    <div className="glass-card mx-4 mb-2 rounded-2xl border border-brand-200/60 p-4 dark:border-brand-500/20">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-bold text-brand-600 dark:text-brand-300">New Handshake</p>
-        <button type="button" onClick={onClose} aria-label="Close handshake panel">
-          <X size={18} />
-        </button>
-      </div>
-
-      <form onSubmit={propose} className="mt-3 space-y-3">
-        <div className="grid gap-2 sm:grid-cols-3">
-          <input
-            required
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Amount (£)"
-            className="rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
-          />
-          <input
-            readOnly
-            type="number"
-            value={FIXED_INTEREST_RATE}
-            aria-label="Interest rate percent per annum"
-            className="rounded-xl border border-white/40 bg-white/60 px-3 py-2 text-sm text-neutral-600 dark:border-white/10 dark:bg-black/30 dark:text-neutral-300"
-            title="Platform illustrative rate (% p.a.)"
-          />
-          <input
-            required
-            type="number"
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            placeholder="Months"
-            className="rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
-          />
-        </div>
-        <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-          Rate {FIXED_INTEREST_RATE}% p.a. (illustrative modelling — not a guaranteed return).
-        </p>
-
-        <input
-          required
-          type="email"
-          value={guarantorEmail}
-          onChange={(e) => setGuarantorEmail(e.target.value)}
-          placeholder="Guarantor email (required)"
-          className="w-full rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
-        />
-
-        {myRole === 'BORROWER' ? (
-          <CollateralFormSection
-            values={{
-              collateralType,
-              collateralValue,
-              collateralDescription,
-              collateralProof,
-            }}
-            onChange={(patch) => {
-              if (patch.collateralType !== undefined) setCollateralType(patch.collateralType);
-              if (patch.collateralValue !== undefined) setCollateralValue(patch.collateralValue);
-              if (patch.collateralDescription !== undefined) setCollateralDescription(patch.collateralDescription);
-              if (patch.collateralProof !== undefined) setCollateralProof(patch.collateralProof);
-            }}
-            inputClassName="rounded-xl border border-white/40 bg-white/80 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/40"
-          />
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={busy || emergencyPause}
-          className="w-full rounded-full bg-brand-500 py-2 text-xs font-semibold text-white disabled:opacity-50"
-        >
-          {emergencyPause ? 'Platform Paused' : 'Initiate Handshake'}
-        </button>
-        {emergencyPause && (
-          <p className="text-center text-[10px] font-semibold text-red-600">
-            Emergency pause active — handshake proposals disabled
+    <div
+      className="fixed inset-0 z-[130] grid place-items-center bg-black/75 px-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-handshake-title"
+        className="w-full max-w-lg rounded-2xl border border-[#F97316]/35 bg-white p-4 shadow-2xl dark:border-[#F97316]/30 dark:bg-[#0a0a0a]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <p id="new-handshake-title" className="text-sm font-black text-[#F97316]">
+            New Handshake
           </p>
-        )}
-      </form>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close handshake modal"
+            className="rounded-full p-1.5 text-neutral-500 transition hover:bg-[#F97316]/10 hover:text-[#F97316]"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-      {message && <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">{message}</p>}
-      {busy && <Loader2 size={16} className="mt-2 animate-spin text-brand-500" />}
+        <form onSubmit={propose} className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <input
+              required
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Amount (£)"
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-black dark:text-white"
+            />
+            <input
+              readOnly
+              type="number"
+              value={FIXED_INTEREST_RATE}
+              aria-label="Interest rate percent per annum"
+              className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-[#111] dark:text-neutral-300"
+              title="Platform illustrative rate (% p.a.)"
+            />
+            <input
+              required
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              placeholder="Months"
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-black dark:text-white"
+            />
+          </div>
+          <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+            Rate {FIXED_INTEREST_RATE}% p.a. (illustrative modelling — not a guaranteed return).
+          </p>
+
+          <input
+            required
+            type="email"
+            value={guarantorEmail}
+            onChange={(e) => setGuarantorEmail(e.target.value)}
+            placeholder="Guarantor email (required)"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-black dark:text-white"
+          />
+
+          {myRole === 'BORROWER' ? (
+            <CollateralFormSection
+              values={{
+                collateralType,
+                collateralValue,
+                collateralDescription,
+                collateralProof,
+              }}
+              onChange={(patch) => {
+                if (patch.collateralType !== undefined) setCollateralType(patch.collateralType);
+                if (patch.collateralValue !== undefined) setCollateralValue(patch.collateralValue);
+                if (patch.collateralDescription !== undefined) setCollateralDescription(patch.collateralDescription);
+                if (patch.collateralProof !== undefined) setCollateralProof(patch.collateralProof);
+              }}
+              inputClassName="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-black"
+            />
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={busy || emergencyPause}
+            className="w-full rounded-full bg-[#F97316] py-2.5 text-sm font-bold text-white transition hover:bg-[#ea580c] disabled:opacity-50"
+          >
+            {emergencyPause ? 'Platform Paused' : 'Initiate Handshake'}
+          </button>
+          {emergencyPause && (
+            <p className="text-center text-[10px] font-semibold text-red-600">
+              Emergency pause active — handshake proposals disabled
+            </p>
+          )}
+        </form>
+
+        {message && <p className="mt-3 text-xs text-neutral-600 dark:text-neutral-400">{message}</p>}
+        {busy && <Loader2 size={16} className="mt-2 animate-spin text-[#F97316]" />}
+      </div>
     </div>
   );
 }
