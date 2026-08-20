@@ -180,18 +180,15 @@ function FeedPostCard({
         </p>
       </div>
 
-      {/* Always-visible engagement bar (legacy announcements stay disabled). */}
+      {/* Engagement bar — likes work on global posts and Platform Announcements. */}
       <div className="mt-0 flex items-center border-t border-gray-100 px-4 py-3 dark:border-gray-800">
         <button
           type="button"
-          onClick={() => {
-            if (item.id.startsWith('legacy-')) return;
-            onToggleLike(item.id);
-          }}
-          disabled={likesBusy || item.id.startsWith('legacy-')}
-          title={item.id.startsWith('legacy-') ? 'Likes are available on new feed posts' : 'Like this post'}
+          onClick={() => onToggleLike(item.id)}
+          disabled={likesBusy}
+          title="Like this post"
           className={cn(
-            'flex items-center gap-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+            'flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-60',
             item.liked_by_me
               ? 'text-orange-500'
               : 'text-gray-500 hover:text-orange-500 dark:text-gray-400 dark:hover:text-orange-500'

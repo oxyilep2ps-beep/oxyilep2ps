@@ -69,29 +69,44 @@ export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
 
   // Prefer real global_posts (likeable). Fall back to legacy announcements only when empty.
   if (!posts || posts.length === 0) {
-    // Backward compatibility: reuse existing legacy announcements so feed is never empty
-    // when teams already posted content before `global_posts` existed.
     const { data: legacyAnnouncements, error: legacyError } = await admin
       .from('announcements')
-      .select('id, title, content, created_at')
+      .select('id, title, content, created_at, admin_author')
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (legacyError) throw new Error(legacyError.message);
     if (!legacyAnnouncements || legacyAnnouncements.length === 0) return [];
 
-    return legacyAnnouncements.map((a) => ({
-      id: `legacy-${String(a.id)}`,
-      content: [a.title, a.content].filter(Boolean).join('\n\n'),
-      media_url: null,
-      created_at: String(a.created_at),
-      author_id: 'legacy-announcement',
-      author_name: 'Platform Announcements',
-      author_role: 'System',
-      author_avatar: null,
-      likes_count: 0,
-      liked_by_me: false,
-    }));
+    const announcementIds = legacyAnnouncements.map((a) => String(a.id));
+    const { data: likes } = await admin
+      .from('announcement_likes')
+      .select('announcement_id, user_id')
+      .in('announcement_id', announcementIds);
+
+    const likeCountMap: Record<string, number> = {};
+    const likedByMe = new Set<string>();
+    for (const row of likes ?? []) {
+      const key = String(row.announcement_id);
+      likeCountMap[key] = (likeCountMap[key] ?? 0) + 1;
+      if (String(row.user_id) === user.id) likedByMe.add(key);
+    }
+
+    return legacyAnnouncements.map((a) => {
+      const id = String(a.id);
+      return {
+        id: `legacy-${id}`,
+        content: [a.title, a.content].filter(Boolean).join('\n\n'),
+        media_url: null,
+        created_at: String(a.created_at),
+        author_id: a.admin_author ? String(a.admin_author) : 'legacy-announcement',
+        author_name: 'Platform Announcements',
+        author_role: 'System',
+        author_avatar: null,
+        likes_count: likeCountMap[id] ?? 0,
+        liked_by_me: likedByMe.has(id),
+      };
+    });
   }
 
   const authorIds = [...new Set(posts.map((p) => String(p.author_id)))];
@@ -135,30 +150,68 @@ export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
 export async function togglePostLike(postId: string) {
   const user = await requireUser();
   const admin = createAdminClient();
-  if (!postId || postId.startsWith('legacy-')) {
+  if (!postId) {
     return { ok: false as const, error: 'Invalid post for likes.' };
   }
 
-  const { data: post } = await admin.from('global_posts').select('id, author_id').eq('id', postId).maybeSingle();
-  if (!post) return { ok: false as const, error: 'Post not found.' };
+  const isLegacy = postId.startsWith('legacy-');
+  const entityId = isLegacy ? postId.slice('legacy-'.length) : postId;
+  if (!entityId) return { ok: false as const, error: 'Invalid post for likes.' };
 
-  const authorId = String(post.author_id);
+  let authorId: string | null = null;
 
-  const { data: existing } = await admin
-    .from('post_likes')
-    .select('id')
-    .eq('post_id', postId)
-    .eq('user_id', user.id)
-    .maybeSingle();
+  if (isLegacy) {
+    const { data: announcement } = await admin
+      .from('announcements')
+      .select('id, admin_author')
+      .eq('id', entityId)
+      .maybeSingle();
+    if (!announcement) return { ok: false as const, error: 'Announcement not found.' };
+    authorId = announcement.admin_author ? String(announcement.admin_author) : null;
 
-  if (existing) {
-    const { error } = await admin.from('post_likes').delete().eq('post_id', postId).eq('user_id', user.id);
+    const { data: existing } = await admin
+      .from('announcement_likes')
+      .select('id')
+      .eq('announcement_id', entityId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await admin
+        .from('announcement_likes')
+        .delete()
+        .eq('announcement_id', entityId)
+        .eq('user_id', user.id);
+      if (error) return { ok: false as const, error: error.message };
+      return { ok: true as const, liked: false };
+    }
+
+    const { error } = await admin.from('announcement_likes').insert({
+      announcement_id: entityId,
+      user_id: user.id,
+    });
     if (error) return { ok: false as const, error: error.message };
-    return { ok: true as const, liked: false };
-  }
+  } else {
+    const { data: post } = await admin.from('global_posts').select('id, author_id').eq('id', entityId).maybeSingle();
+    if (!post) return { ok: false as const, error: 'Post not found.' };
+    authorId = String(post.author_id);
 
-  const { error } = await admin.from('post_likes').insert({ post_id: postId, user_id: user.id });
-  if (error) return { ok: false as const, error: error.message };
+    const { data: existing } = await admin
+      .from('post_likes')
+      .select('id')
+      .eq('post_id', entityId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await admin.from('post_likes').delete().eq('post_id', entityId).eq('user_id', user.id);
+      if (error) return { ok: false as const, error: error.message };
+      return { ok: true as const, liked: false };
+    }
+
+    const { error } = await admin.from('post_likes').insert({ post_id: entityId, user_id: user.id });
+    if (error) return { ok: false as const, error: error.message };
+  }
 
   const { data: likerProfile } = await admin
     .from('profiles')
@@ -171,10 +224,10 @@ export async function togglePostLike(postId: string) {
     user.email?.split('@')[0] ||
     'Someone';
 
-  // In-app notifications: post author + all admins (who liked what).
+  // In-app notifications: post author (when known) + all admins.
   try {
     const notifyIds = new Set<string>();
-    if (authorId !== user.id) notifyIds.add(authorId);
+    if (authorId && authorId !== user.id) notifyIds.add(authorId);
 
     const { data: admins } = await admin.from('profiles').select('id').eq('role', 'ADMIN');
     for (const row of admins ?? []) {
@@ -190,10 +243,10 @@ export async function togglePostLike(postId: string) {
           type: 'like',
           title: 'Post liked',
           message:
-            recipientId === authorId
+            authorId && recipientId === authorId
               ? `${likerName} liked your post.`
               : `${likerName} liked a Global Feed post.`,
-          link_id: postId,
+          link_id: isLegacy ? null : entityId,
           is_read: false,
         }))
       );
@@ -202,7 +255,7 @@ export async function togglePostLike(postId: string) {
     console.error('[togglePostLike] notification insert failed', notifyError);
   }
 
-  if (authorId !== user.id) {
+  if (authorId && authorId !== user.id) {
     try {
       await notifyPostLikePush({ authorId, likerName });
     } catch (pushError) {
