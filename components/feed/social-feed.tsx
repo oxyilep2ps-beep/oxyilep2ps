@@ -9,7 +9,6 @@ import {
   Edit3,
   Heart,
   Loader2,
-  MessageCircle,
   Newspaper,
   PenSquare,
   Rss,
@@ -360,43 +359,43 @@ export function SocialFeed() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 text-gray-900 dark:text-white sm:px-6 sm:py-8">
+    <div className="mx-auto w-full max-w-6xl text-gray-900 dark:text-white">
       {/* ── Page header ── */}
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white">
-            Hey{displayName ? `, ${displayName}` : ''} 👋
+      <div className="mb-5 flex items-start justify-between gap-3 sm:mb-6 sm:items-center sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-xl font-black text-gray-900 dark:text-white sm:text-2xl">
+            Hey{displayName ? `, ${displayName}` : ''}
           </h1>
-          <p className="mt-0.5 text-sm text-gray-600 dark:text-neutral-400">
+          <p className="mt-0.5 text-xs text-gray-600 dark:text-neutral-400 sm:text-sm">
             Here&apos;s what&apos;s happening on the platform today.
           </p>
         </div>
 
-        {/* FAB — Chat Inbox */}
         <Link
-          href="/chat"
-          className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F97316] text-white shadow-lg transition hover:bg-[#F97316]/90 active:scale-95"
-          aria-label="Open chat inbox"
+          href="/search"
+          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-3 text-xs font-bold text-[#F97316] transition hover:bg-[#F97316]/15 active:scale-95 sm:h-11 sm:px-4"
+          aria-label="Search friends"
         >
-          <MessageCircle size={22} strokeWidth={2.2} />
+          <Users size={15} />
+          <span className="hidden xs:inline sm:inline">Find friends</span>
         </Link>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-6">
         {/* ────────────── LEFT: Feed ────────────── */}
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {/* Go to My Portal card */}
           {portalConfig && (
             <Link
               href={portalConfig.href}
-              className="flex items-center gap-4 rounded-2xl border border-[#F97316]/30 bg-[#F97316]/5 p-4 transition hover:border-[#F97316]/60 hover:bg-[#F97316]/10"
+              className="flex items-center gap-3 rounded-2xl border border-[#F97316]/30 bg-[#F97316]/5 p-3.5 transition hover:border-[#F97316]/60 hover:bg-[#F97316]/10 sm:gap-4 sm:p-4"
             >
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#F97316]/10 text-[#F97316]">
-                <portalConfig.icon size={22} />
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#F97316]/10 text-[#F97316] sm:h-11 sm:w-11">
+                <portalConfig.icon size={20} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-gray-900 dark:text-white">Go to My Portal</p>
-                <p className="text-sm text-gray-600 dark:text-neutral-400">{portalConfig.description}</p>
+                <p className="text-sm font-bold text-gray-900 dark:text-white sm:text-base">Go to My Portal</p>
+                <p className="truncate text-xs text-gray-600 dark:text-neutral-400 sm:text-sm">{portalConfig.description}</p>
               </div>
               <ChevronRight size={18} className="shrink-0 text-[#F97316]" />
             </Link>
@@ -508,12 +507,17 @@ export function SocialFeed() {
         </div>
 
         {/* ────────────── RIGHT: Suggested connections ────────────── */}
-        <aside className="space-y-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111]">
-            <h2 className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400">
-              <Users size={13} />
-              Suggested Connections
-            </h2>
+        <aside className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:self-start">
+          <div className="rounded-2xl border border-gray-200 bg-white p-3.5 dark:border-neutral-800 dark:bg-[#111] sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400">
+                <Users size={13} />
+                Suggested
+              </h2>
+              <Link href="/search" className="text-[11px] font-bold text-[#F97316] hover:underline">
+                See all
+              </Link>
+            </div>
 
             {suggestionsLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -535,15 +539,13 @@ export function SocialFeed() {
             )}
 
             <Link
-              href="/chat"
+              href="/search"
               className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#F97316]/30 py-2.5 text-xs font-semibold text-[#F97316] transition hover:bg-[#F97316]/5"
             >
-              <MessageCircle size={13} />
-              Open Chat Inbox
+              <UserPlus size={13} />
+              Search &amp; Add Friends
             </Link>
           </div>
-
-          {/* Suggestions only — Quick Links removed in favor of Profile / Search / Settings nav */}
         </aside>
       </div>
     </div>

@@ -100,7 +100,7 @@ export function AdminHeaderV2({
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-gray-200 bg-white/80 px-3 backdrop-blur-md dark:border-gray-800 dark:bg-black/80 sm:gap-3 sm:px-4 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-gray-200 bg-white/80 px-4 py-3 backdrop-blur-md dark:border-gray-800 dark:bg-black/80 sm:gap-3 sm:px-5 lg:px-6">
 
       {/* Hamburger — hidden on lg */}
       {!searchExpanded && (
@@ -177,18 +177,14 @@ export function AdminHeaderV2({
         </div>
       ) : (
         <>
-          {/* Search icon-only on small screens */}
-          <button
-            type="button"
-            onClick={() => {
-              setSearchExpanded(true);
-              window.setTimeout(() => inputRef.current?.focus(), 50);
-            }}
+          {/* Search — opens friend discovery on mobile */}
+          <Link
+            href="/search"
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400 sm:hidden"
-            aria-label="Search"
+            aria-label="Search friends"
           >
             <Search size={16} />
-          </button>
+          </Link>
 
           {/* Full search bar on sm+ */}
           <div className="relative hidden min-w-0 flex-1 sm:block">
@@ -241,7 +237,7 @@ export function AdminHeaderV2({
       {!searchExpanded && (
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Link
-            href="/admin-dashboard/chat"
+            href="/chat"
             aria-label="Messages"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-[#F97316]/40 hover:text-[#F97316] dark:border-gray-800 dark:text-gray-400"
           >
@@ -282,14 +278,14 @@ export function AdminHeaderV2({
             {menuOpen && (
               <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-44 rounded-xl border border-gray-200 bg-white p-1 shadow-2xl dark:border-gray-800 dark:bg-[#111]">
                 <Link
-                  href="/settings/profile"
+                  href="/profile"
                   onClick={() => setMenuOpen(false)}
                   className="block rounded-lg px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F97316]/10 hover:text-[#F97316] dark:text-gray-200"
                 >
                   Edit Profile
                 </Link>
                 <Link
-                  href="/settings/profile"
+                  href="/settings"
                   onClick={() => setMenuOpen(false)}
                   className="block rounded-lg px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F97316]/10 hover:text-[#F97316] dark:text-gray-200"
                 >

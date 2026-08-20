@@ -4,7 +4,9 @@ import { BottomNav } from '@/components/dashboard/bottom-nav';
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-[calc(100dvh-4rem)]">
-      <main className="pb-[calc(5.5rem+env(safe-area-inset-bottom))]">{children}</main>
+      <main className="px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:py-6 md:pb-6">
+        {children}
+      </main>
       <BottomNav />
     </div>
   );

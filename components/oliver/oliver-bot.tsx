@@ -47,10 +47,17 @@ export function OliverBot() {
   ]);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const hasBottomNav = pathname.startsWith('/dashboard') || pathname.startsWith('/chats');
+  const hasBottomNav =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/chats') ||
+    pathname.startsWith('/chat') ||
+    pathname.startsWith('/feed') ||
+    pathname.startsWith('/search') ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/settings');
 
   const panelBottom = hasBottomNav
-    ? 'bottom-[calc(5.5rem+4.5rem+env(safe-area-inset-bottom))]'
+    ? 'bottom-[calc(5.75rem+4.5rem+env(safe-area-inset-bottom))]'
     : 'bottom-[calc(5rem+env(safe-area-inset-bottom))]';
 
   useEffect(() => {
@@ -272,8 +279,8 @@ export function OliverBot() {
         className={cn(
           'pointer-events-auto fixed right-4 z-[10001] grid h-14 w-14 place-items-center rounded-full bg-brand-500 text-white shadow-glow transition hover:bg-brand-400',
           hasBottomNav
-            ? 'bottom-[calc(5.5rem+1rem+env(safe-area-inset-bottom))]'
-            : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))] max-md:bottom-20'
+            ? 'bottom-[calc(5.75rem+0.75rem+env(safe-area-inset-bottom))] md:bottom-6'
+            : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]'
         )}
       >
         {isWidgetOpen ? <X size={22} /> : <MessageCircle size={22} />}

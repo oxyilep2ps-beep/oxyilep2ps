@@ -2,35 +2,48 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MessageCircle, Search, Settings, User } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Home, MessageCircle, Search, Settings, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getUnreadMessageCount } from '@/app/actions/chat';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
 import { cn } from '@/lib/utils';
 
-const ALL_ITEMS = [
-  { href: '/chat', label: 'Chat', icon: MessageCircle, match: 'chat' as const, badge: true, approvedOnly: true },
+const NAV_ITEMS = [
+  { href: '/feed', label: 'Home', icon: Home, match: 'feed' as const },
   { href: '/search', label: 'Search', icon: Search, match: 'search' as const },
+  { href: '/chat', label: 'Chat', icon: MessageCircle, match: 'chat' as const, badge: true },
   { href: '/profile', label: 'Profile', icon: User, match: 'profile' as const },
   { href: '/settings', label: 'Settings', icon: Settings, match: 'settings' as const },
 ] as const;
 
-function isNavActive(pathname: string, match: (typeof ALL_ITEMS)[number]['match']): boolean {
+function isNavActive(pathname: string, match: (typeof NAV_ITEMS)[number]['match']): boolean {
   switch (match) {
-    case 'chat':
-      return pathname === '/chat' || pathname.startsWith('/chat/') || pathname === '/chats' || pathname.startsWith('/chats/');
+    case 'feed':
+      return pathname === '/feed' || pathname.startsWith('/feed/') || pathname === '/';
     case 'search':
       return pathname === '/search' || pathname.startsWith('/search/');
+    case 'chat':
+      return (
+        pathname === '/chat' ||
+        pathname.startsWith('/chat/') ||
+        pathname === '/chats' ||
+        pathname.startsWith('/chats/')
+      );
     case 'profile':
       return pathname === '/profile' || pathname.startsWith('/profile/') || pathname.startsWith('/settings/profile');
     case 'settings':
-      return pathname === '/settings' || pathname.startsWith('/dashboard/settings');
+      return (
+        pathname === '/settings' ||
+        (pathname.startsWith('/settings/') && !pathname.startsWith('/settings/profile')) ||
+        pathname.startsWith('/dashboard/settings')
+      );
     default:
       return false;
   }
 }
 
+/** Instagram-style mobile bottom nav — visible only below `md`. */
 export function BottomNav() {
   const pathname = usePathname();
   const [authenticated, setAuthenticated] = useState(false);
@@ -42,8 +55,7 @@ export function BottomNav() {
       setUnread(0);
       return;
     }
-    const count = await getUnreadMessageCount();
-    setUnread(count);
+    setUnread(await getUnreadMessageCount());
   }, [approved]);
 
   useEffect(() => {
@@ -63,24 +75,21 @@ export function BottomNav() {
     }
 
     void init();
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
       void init();
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     if (!authenticated || !approved) return;
-
     void refreshUnread();
 
     const supabase = createClient();
     const channel = supabase
-      .channel('nav-unread-messages')
+      .channel('social-bottom-nav-unread')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
         void refreshUnread();
       })
@@ -97,50 +106,41 @@ export function BottomNav() {
     };
   }, [approved, authenticated, refreshUnread]);
 
-  const items = useMemo(
-    () => ALL_ITEMS.filter((item) => !('approvedOnly' in item && item.approvedOnly) || approved),
-    [approved]
-  );
-
   if (!authenticated) return null;
 
-  const isChatRoom = (pathname.startsWith('/chats/') && pathname !== '/chats') || pathname.startsWith('/chat/');
-  const colCount = items.length;
+  const isChatRoom =
+    (pathname.startsWith('/chats/') && pathname !== '/chats') ||
+    (pathname.startsWith('/chat/') && pathname !== '/chat');
 
   return (
     <nav
-      aria-label="Dashboard navigation"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/30 bg-white/70 px-1 pb-[max(0.65rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.08)] backdrop-blur-md dark:border-white/10 dark:bg-black/80"
+      aria-label="Social navigation"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-800 bg-black/90 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-md md:hidden"
     >
-      <ul
-        className="mx-auto grid max-w-lg gap-0.5"
-        style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}
-      >
-        {items.map((item) => {
+      <ul className="mx-auto grid max-w-lg grid-cols-5 gap-0.5 px-1">
+        {NAV_ITEMS.map((item) => {
           const active = isNavActive(pathname, item.match);
           const Icon = item.icon;
           const showBadge = 'badge' in item && item.badge && unread > 0 && !isChatRoom;
 
           return (
-            <li key={item.href} className="relative">
+            <li key={item.href}>
               <Link
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center justify-center rounded-2xl px-1 py-2 text-[9px] font-semibold transition sm:text-[10px]',
-                  active
-                    ? 'bg-[#F97316] text-white shadow-glow'
-                    : 'text-neutral-600 hover:bg-[#F97316]/10 hover:text-[#F97316] dark:text-neutral-400 dark:hover:text-[#F97316]'
+                  'flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-semibold transition active:scale-95',
+                  active ? 'text-[#F97316]' : 'text-gray-400 hover:text-gray-200'
                 )}
               >
                 <span className="relative">
-                  <Icon size={18} strokeWidth={active ? 2.25 : 2} />
-                  {showBadge && (
-                    <span className="absolute -right-2 -top-1 grid min-h-[16px] min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                  <Icon size={22} strokeWidth={active ? 2.4 : 2} className={cn(active && 'fill-[#F97316]/15')} />
+                  {showBadge ? (
+                    <span className="absolute -right-2.5 -top-1 grid min-h-[15px] min-w-[15px] place-items-center rounded-full bg-[#F97316] px-1 text-[9px] font-bold text-white">
                       {unread > 99 ? '99+' : unread}
                     </span>
-                  )}
+                  ) : null}
                 </span>
-                <span className="mt-0.5 truncate">{item.label}</span>
+                <span className="truncate">{item.label}</span>
               </Link>
             </li>
           );
