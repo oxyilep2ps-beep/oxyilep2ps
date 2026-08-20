@@ -47,10 +47,12 @@ function NotificationRow({
   item,
   onChanged,
   onClose,
+  onOptimisticRead,
 }: {
   item: AppNotification;
   onChanged: () => void;
   onClose: () => void;
+  onOptimisticRead?: (id: string) => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -59,6 +61,7 @@ function NotificationRow({
 
   const onRespond = (action: 'accept' | 'reject') => {
     startTransition(async () => {
+      onOptimisticRead?.(item.id);
       await respondToFriendRequestNotification({
         notificationId: item.id,
         action,
@@ -72,7 +75,10 @@ function NotificationRow({
 
   const onOpen = () => {
     startTransition(async () => {
-      if (!item.is_read) await markNotificationRead(item.id);
+      if (!item.is_read) {
+        onOptimisticRead?.(item.id);
+        await markNotificationRead(item.id);
+      }
       onChanged();
       if (href) {
         onClose();
@@ -184,6 +190,16 @@ export function NotificationBell() {
     await refreshIncoming();
   }, [refreshIncoming]);
 
+  const markLocalRead = useCallback((id: string) => {
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+    setUnread((c) => Math.max(0, c - 1));
+  }, []);
+
+  const markAllLocalRead = useCallback(() => {
+    setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    setUnread(0);
+  }, []);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -191,6 +207,12 @@ export function NotificationBell() {
   useEffect(() => {
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => void refresh(), 250);
+    };
 
     void (async () => {
       const {
@@ -199,7 +221,7 @@ export function NotificationBell() {
       if (!user) return;
 
       channel = supabase
-        .channel(`notifications-${user.id}`)
+        .channel(`notifications-live-${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -208,14 +230,77 @@ export function NotificationBell() {
             table: 'notifications',
             filter: `user_id=eq.${user.id}`,
           },
-          () => {
-            void refresh();
+          (payload) => {
+            const event = payload.eventType;
+            if (event === 'INSERT') {
+              const row = payload.new as {
+                id: string;
+                user_id: string;
+                actor_id: string | null;
+                type: string;
+                title: string;
+                message: string;
+                is_read: boolean;
+                link_id: string | null;
+                created_at: string;
+              };
+              setItems((prev) => {
+                if (prev.some((n) => n.id === row.id)) return prev;
+                const next: AppNotification = {
+                  id: row.id,
+                  user_id: row.user_id,
+                  actor_id: row.actor_id,
+                  type: row.type,
+                  title: row.title,
+                  message: row.message,
+                  is_read: row.is_read,
+                  link_id: row.link_id,
+                  created_at: row.created_at,
+                  actor_name: null,
+                  actor_username: null,
+                  actor_avatar: null,
+                };
+                return [next, ...prev].slice(0, 40);
+              });
+              if (!row.is_read) setUnread((c) => c + 1);
+              scheduleRefresh();
+              return;
+            }
+
+            if (event === 'UPDATE') {
+              const next = payload.new as { id: string; is_read?: boolean };
+              const prev = payload.old as { id?: string; is_read?: boolean } | undefined;
+              const wasUnread = prev?.is_read === false;
+              const nowRead = next.is_read === true;
+              setItems((curr) =>
+                curr.map((n) => (n.id === next.id ? { ...n, is_read: Boolean(next.is_read) } : n))
+              );
+              if (wasUnread && nowRead) {
+                setUnread((c) => Math.max(0, c - 1));
+              } else if (prev?.is_read === true && next.is_read === false) {
+                setUnread((c) => c + 1);
+              } else if (prev?.is_read === undefined) {
+                // Replica identity may omit old row — reconcile from server shortly.
+                scheduleRefresh();
+              }
+              return;
+            }
+
+            if (event === 'DELETE') {
+              const old = payload.old as { id?: string; is_read?: boolean };
+              if (old.id) {
+                setItems((curr) => curr.filter((n) => n.id !== old.id));
+                if (old.is_read === false) setUnread((c) => Math.max(0, c - 1));
+              }
+              scheduleRefresh();
+            }
           }
         )
         .subscribe();
     })();
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       if (channel) void supabase.removeChannel(channel);
     };
   }, [refresh]);
@@ -235,7 +320,7 @@ export function NotificationBell() {
     return () => window.removeEventListener('mousedown', onAway);
   }, []);
 
-  const badgeTotal = Math.max(unread, incomingCount);
+  const badgeTotal = unread + incomingCount;
 
   return (
     <div ref={rootRef} className="relative">
@@ -268,6 +353,7 @@ export function NotificationBell() {
               disabled={marking || unread === 0}
               onClick={() =>
                 startMarkAll(async () => {
+                  markAllLocalRead();
                   await markAllNotificationsRead();
                   await refresh();
                 })
@@ -340,6 +426,7 @@ export function NotificationBell() {
                     item={item}
                     onChanged={() => void refresh()}
                     onClose={() => setOpen(false)}
+                    onOptimisticRead={markLocalRead}
                   />
                 ))}
               </ul>

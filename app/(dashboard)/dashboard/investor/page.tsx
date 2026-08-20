@@ -29,12 +29,20 @@ export default async function InvestorDashboardPage() {
             Funded loans and monthly repayment collection status.
           </p>
         </div>
-        <Link
-          href="/dashboard/marketplace"
-          className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-500"
-        >
-          Browse marketplace
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/chats"
+            className="rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-5 py-2.5 text-sm font-bold text-[#F97316] hover:bg-[#F97316]/20"
+          >
+            Handshake chat
+          </Link>
+          <Link
+            href="/dashboard/marketplace"
+            className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-500"
+          >
+            Browse marketplace
+          </Link>
+        </div>
       </div>
 
       <div className="glass-card overflow-hidden rounded-2xl">

@@ -1,11 +1,13 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState, useTransition } from 'react';
-import { Loader2, MessageCircle, Plus, Search, Send, Users, X } from 'lucide-react';
+import { ArrowLeft, Handshake, Loader2, MessageCircle, Plus, Search, Send, Users, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { markConversationRead } from '@/app/actions/chat';
 import { listMyConnections } from '@/app/actions/connections';
 import { createChatGroup, listGroupMessages, listMyChatGroups, type GroupMessage } from '@/app/actions/social-network';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
+import { ChatRoom } from '@/components/chat/chat-room';
 import { IncomingRequestsPanel, useIncomingRequestCount } from '@/components/social/incoming-requests-panel';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +24,13 @@ type DirectMessage = {
   content: string;
   created_at: string;
 };
+
+function isP2PLendingPair(myRole: string, peerRole: string) {
+  return (
+    (myRole === 'INVESTOR' && peerRole === 'BORROWER') ||
+    (myRole === 'BORROWER' && peerRole === 'INVESTOR')
+  );
+}
 
 function timeShort(iso: string) {
   const d = new Date(iso);
@@ -111,8 +120,9 @@ function CreateGroupModal({
 }
 
 export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [myId, setMyId] = useState<string>('');
+  const [myRole, setMyRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -122,6 +132,9 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   const [query, setQuery] = useState('');
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const { count: incomingCount } = useIncomingRequestCount();
+
+  const useHandshakeRoom =
+    active?.kind === 'friend' && Boolean(myRole) && isP2PLendingPair(myRole, active.role);
 
   const filteredFriends = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -153,8 +166,10 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
       } = await supabase.auth.getUser();
       if (!user || !mounted) return;
       setMyId(user.id);
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      if (mounted) setMyRole(String(profile?.role ?? ''));
       await refreshSidebar();
-      setLoading(false);
+      if (mounted) setLoading(false);
     }
     void init();
     return () => {
@@ -185,8 +200,9 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
     }
   }, [initialPeerId, friends]);
 
+  // Social DM realtime (handshake pairs use ChatRoom instead).
   useEffect(() => {
-    if (!active || !myId) return;
+    if (!active || !myId || useHandshakeRoom) return;
     const current = active;
     let cancelled = false;
 
@@ -195,12 +211,16 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
         const { data } = await supabase
           .from('messages')
           .select('id, sender_id, content, created_at')
-          .or(`and(sender_id.eq.${myId},receiver_id.eq.${current.id}),and(sender_id.eq.${current.id},receiver_id.eq.${myId})`)
+          .or(
+            `and(sender_id.eq.${myId},receiver_id.eq.${current.id}),and(sender_id.eq.${current.id},receiver_id.eq.${myId})`
+          )
           .order('created_at', { ascending: true })
           .limit(200);
         if (!cancelled) {
           setMessages(((data ?? []) as DirectMessage[]).map((m) => ({ ...m })));
         }
+        await markConversationRead(current.id);
+        window.dispatchEvent(new CustomEvent('oxyile:chat-read'));
       } else {
         const rows = await listGroupMessages(current.id, 200);
         if (!cancelled) setMessages(rows);
@@ -209,184 +229,292 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
 
     void loadMessages();
 
+    const table = current.kind === 'friend' ? 'messages' : 'chat_group_messages';
     const channel = supabase
-      .channel(`premium-chat-${current.kind}-${current.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: current.kind === 'friend' ? 'messages' : 'chat_group_messages' },
-        () => void loadMessages()
-      )
+      .channel(`premium-chat-live-${current.kind}-${current.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table }, (payload) => {
+        const row = payload.new as Record<string, unknown>;
+        if (current.kind === 'friend') {
+          const msg = row as unknown as DirectMessage;
+          const inThread =
+            (msg.sender_id === myId && (row.receiver_id as string) === current.id) ||
+            (msg.sender_id === current.id && (row.receiver_id as string) === myId);
+          if (!inThread) return;
+          setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+          if (msg.sender_id === current.id) {
+            void markConversationRead(current.id);
+            window.dispatchEvent(new CustomEvent('oxyile:chat-read'));
+          }
+          return;
+        }
+        const groupId = String(row.group_id ?? '');
+        if (groupId !== current.id) return;
+        const msg = {
+          id: String(row.id),
+          sender_id: String(row.sender_id),
+          content: String(row.content ?? ''),
+          created_at: String(row.created_at),
+          sender_name: 'Member',
+          sender_avatar: null,
+        } as GroupMessage;
+        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+      })
       .subscribe();
 
     return () => {
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [active, myId, supabase]);
+  }, [active, myId, supabase, useHandshakeRoom]);
 
   const sendMessage = async (e: FormEvent) => {
     e.preventDefault();
-    if (!active || !myId || !text.trim()) return;
+    if (!active || !myId || !text.trim() || useHandshakeRoom) return;
     const content = text.trim();
     setText('');
     if (active.kind === 'friend') {
-      await supabase.from('messages').insert({ sender_id: myId, receiver_id: active.id, content });
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({ sender_id: myId, receiver_id: active.id, content })
+        .select('id, sender_id, content, created_at')
+        .single();
+      if (!error && data) {
+        const msg = data as DirectMessage;
+        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+      } else {
+        setText(content);
+      }
       return;
     }
-    await supabase.from('chat_group_messages').insert({ group_id: active.id, sender_id: myId, content });
+    const { data, error } = await supabase
+      .from('chat_group_messages')
+      .insert({ group_id: active.id, sender_id: myId, content })
+      .select('id, group_id, sender_id, content, created_at')
+      .single();
+    if (!error && data) {
+      const msg = {
+        id: String(data.id),
+        sender_id: String(data.sender_id),
+        content: String(data.content ?? ''),
+        created_at: String(data.created_at),
+        sender_name: 'You',
+        sender_avatar: null,
+      } as GroupMessage;
+      setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+    } else {
+      setText(content);
+    }
   };
 
-  return (
-    <div className="h-[calc(100dvh-3.5rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-neutral-800 dark:bg-black">
-      <CreateGroupModal open={groupModalOpen} friends={friends} onClose={() => setGroupModalOpen(false)} onDone={refreshSidebar} />
-      <div className="grid h-full grid-cols-1 md:grid-cols-[340px_1fr]">
-        <aside className="border-r border-gray-200 bg-gray-50 dark:border-neutral-800 dark:bg-[#111]">
-          <div className="border-b border-gray-200 p-3 dark:border-neutral-800">
-            <div className="mb-2 flex items-center justify-between">
-              <h1 className="text-sm font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Inbox</h1>
-              <button
-                type="button"
-                onClick={() => setGroupModalOpen(true)}
-                className="inline-flex items-center gap-1 rounded-full bg-[#F97316]/15 px-2.5 py-1 text-xs font-bold text-[#F97316]"
-              >
-                <Plus size={12} />
-                Group
-              </button>
-            </div>
-            <div className="relative">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search friends or groups..."
-                className="h-9 w-full rounded-xl border border-gray-300 bg-white pl-8 pr-3 text-sm text-gray-900 outline-none focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-black dark:text-white"
-              />
-            </div>
-          </div>
+  const clearActive = () => {
+    setActive(null);
+    setText('');
+    setMessages([]);
+  };
 
-          <div className="h-[calc(100%-4.8rem)] overflow-y-auto">
-            <div className="border-b border-gray-200 dark:border-neutral-800">
-              <p className="flex items-center gap-2 px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">
-                Incoming Requests
-                {incomingCount > 0 ? (
-                  <span className="inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#F97316] px-1 text-[10px] font-bold text-white">
-                    {incomingCount}
+  const inboxPanel = (
+    <aside
+      className={cn(
+        'min-h-0 flex-col border-gray-200 bg-gray-50 dark:border-neutral-800 dark:bg-[#111]',
+        // Mobile Instagram: list only when no chat selected
+        active ? 'hidden' : 'flex',
+        // Desktop: always show inbox column
+        'md:flex md:col-span-4 md:border-r'
+      )}
+    >
+      <div className="shrink-0 border-b border-gray-200 p-3 dark:border-neutral-800">
+        <div className="mb-2 flex items-center justify-between">
+          <h1 className="text-sm font-black uppercase tracking-[0.2em] text-gray-900 dark:text-white">Inbox</h1>
+          <button
+            type="button"
+            onClick={() => setGroupModalOpen(true)}
+            className="inline-flex items-center gap-1 rounded-full bg-[#F97316]/15 px-2.5 py-1 text-xs font-bold text-[#F97316]"
+          >
+            <Plus size={12} />
+            Group
+          </button>
+        </div>
+        <div className="relative">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search friends or groups..."
+            className="h-9 w-full rounded-xl border border-gray-300 bg-white pl-8 pr-3 text-sm text-gray-900 outline-none focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-black dark:text-white"
+          />
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="border-b border-gray-200 dark:border-neutral-800">
+          <p className="flex items-center gap-2 px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">
+            Incoming Requests
+            {incomingCount > 0 ? (
+              <span className="inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#F97316] px-1 text-[10px] font-bold text-white">
+                {incomingCount}
+              </span>
+            ) : null}
+          </p>
+          <IncomingRequestsPanel compact onChanged={() => void refreshSidebar()} />
+        </div>
+
+        <p className="px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Friends</p>
+        {filteredFriends.length === 0 ? (
+          <p className="px-3 py-3 text-xs text-neutral-500">Accept a request to unlock DMs.</p>
+        ) : null}
+        {filteredFriends.map((f) => (
+          <button
+            key={f.userId}
+            type="button"
+            onClick={() => setActive({ kind: 'friend', id: f.userId, name: f.full_legal_name, avatar: f.avatar_url, role: f.role })}
+            className={cn(
+              'flex w-full items-center gap-2.5 px-3 py-2 text-left transition',
+              active?.kind === 'friend' && active.id === f.userId ? 'bg-[#F97316]/12' : 'hover:bg-white/5'
+            )}
+          >
+            <ChatAvatar name={f.full_legal_name} avatarUrl={f.avatar_url} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{f.full_legal_name}</p>
+              <p className="flex items-center gap-1 text-[11px] text-neutral-400">
+                @{f.username || 'oxyile'}
+                {myRole && isP2PLendingPair(myRole, f.role) ? (
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F97316]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#F97316]">
+                    <Handshake size={9} />
+                    P2P
                   </span>
                 ) : null}
               </p>
-              <IncomingRequestsPanel compact onChanged={() => void refreshSidebar()} />
             </div>
+          </button>
+        ))}
 
-            <p className="px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Friends</p>
-            {filteredFriends.length === 0 ? (
-              <p className="px-3 py-3 text-xs text-neutral-500">Accept a request to unlock DMs.</p>
-            ) : null}
-            {filteredFriends.map((f) => (
-              <button
-                key={f.userId}
-                type="button"
-                onClick={() => setActive({ kind: 'friend', id: f.userId, name: f.full_legal_name, avatar: f.avatar_url, role: f.role })}
-                className={cn(
-                  'flex w-full items-center gap-2.5 px-3 py-2 text-left transition',
-                  active?.kind === 'friend' && active.id === f.userId ? 'bg-[#F97316]/12' : 'hover:bg-white/5'
-                )}
-              >
-                <ChatAvatar name={f.full_legal_name} avatarUrl={f.avatar_url} size="sm" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{f.full_legal_name}</p>
-                  <p className="text-[11px] text-neutral-400">@{f.username || 'oxyile'}</p>
-                </div>
-              </button>
-            ))}
+        <p className="px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Groups</p>
+        {filteredGroups.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            onClick={() => setActive({ kind: 'group', id: g.id, name: g.name })}
+            className={cn(
+              'flex w-full items-center gap-2.5 px-3 py-2 text-left transition',
+              active?.kind === 'group' && active.id === g.id ? 'bg-[#F97316]/12' : 'hover:bg-white/5'
+            )}
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-[#F97316]/20 text-[#F97316]">
+              <Users size={14} />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{g.name}</p>
+              <p className="text-[11px] text-neutral-400">{g.members_count} members</p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
 
-            <p className="px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Groups</p>
-            {filteredGroups.map((g) => (
-              <button
-                key={g.id}
-                type="button"
-                onClick={() => setActive({ kind: 'group', id: g.id, name: g.name })}
-                className={cn(
-                  'flex w-full items-center gap-2.5 px-3 py-2 text-left transition',
-                  active?.kind === 'group' && active.id === g.id ? 'bg-[#F97316]/12' : 'hover:bg-white/5'
-                )}
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-[#F97316]/20 text-[#F97316]">
-                  <Users size={14} />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-white">{g.name}</p>
-                  <p className="text-[11px] text-neutral-400">{g.members_count} members</p>
-                </div>
-              </button>
-            ))}
+  const conversationPanel = (
+    <section
+      className={cn(
+        'min-h-0 flex-col bg-gray-50 dark:bg-[#0a0a0a]',
+        // Mobile Instagram: conversation only when a chat is selected
+        active ? 'flex' : 'hidden',
+        // Desktop: always show conversation column
+        'md:flex md:col-span-8'
+      )}
+    >
+      {loading ? (
+        <div className="grid flex-1 place-items-center">
+          <Loader2 size={20} className="animate-spin text-[#F97316]" />
+        </div>
+      ) : !active ? (
+        <div className="grid flex-1 place-items-center px-6 text-center">
+          <div>
+            <MessageCircle size={30} className="mx-auto mb-3 text-[#F97316]" />
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">Choose a friend or group to start chatting.</p>
+            <p className="mt-2 text-xs text-neutral-500">Borrower ↔ Investor chats open the full Handshake &amp; GoCardless room.</p>
           </div>
-        </aside>
-
-        <section className="flex h-full flex-col bg-gray-50 dark:bg-[#0a0a0a]">
-          {loading ? (
-            <div className="grid flex-1 place-items-center">
-              <Loader2 size={20} className="animate-spin text-[#F97316]" />
+        </div>
+      ) : useHandshakeRoom && active.kind === 'friend' ? (
+        <div className="min-h-0 flex-1">
+          <ChatRoom peerUserId={active.id} embedded onBack={clearActive} />
+        </div>
+      ) : (
+        <>
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-200 px-3 dark:border-neutral-800 sm:gap-3 sm:px-4">
+            <button
+              type="button"
+              onClick={clearActive}
+              aria-label="Back to inbox"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#F97316] transition hover:bg-[#F97316]/10 md:hidden"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            {active.kind === 'friend' ? (
+              <ChatAvatar name={active.name} avatarUrl={active.avatar} size="sm" />
+            ) : (
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-[#F97316]/20 text-[#F97316]">
+                <Users size={14} />
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{active.name}</p>
+              <p className="text-[11px] text-neutral-400">{active.kind === 'friend' ? active.role : 'Group chat'}</p>
             </div>
-          ) : !active ? (
-            <div className="grid flex-1 place-items-center px-6 text-center">
-              <div>
-                <MessageCircle size={30} className="mx-auto mb-3 text-[#F97316]" />
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">Choose a friend or group to start chatting.</p>
-              </div>
+          </header>
+
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-4 pb-2">
+            {messages.length === 0 ? (
+              <div className="grid h-full place-items-center text-sm text-neutral-500">No messages yet.</div>
+            ) : (
+              messages.map((m) => {
+                const mine = m.sender_id === myId;
+                return (
+                  <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+                    <div
+                      className={cn(
+                        'max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm',
+                        mine ? 'bg-[#F97316] text-white' : 'bg-[#1a1a1a] text-neutral-100'
+                      )}
+                    >
+                      {!mine && active.kind === 'group' && 'sender_name' in m && (
+                        <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-[#F97316]">{m.sender_name}</p>
+                      )}
+                      <p className="whitespace-pre-wrap">{m.content}</p>
+                      <p className="mt-1 text-[10px] opacity-70">{timeShort(m.created_at)}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <form
+            onSubmit={sendMessage}
+            className="relative z-20 shrink-0 border-t border-gray-200 bg-gray-50 p-3 dark:border-neutral-800 dark:bg-[#0a0a0a]"
+          >
+            <div className="flex items-center gap-2">
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Type a message..."
+                className="h-10 min-w-0 flex-1 rounded-full border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-[#111] dark:text-white dark:placeholder:text-neutral-500"
+              />
+              <button type="submit" className="grid h-10 w-10 place-items-center rounded-full bg-[#F97316] text-white">
+                <Send size={16} />
+              </button>
             </div>
-          ) : (
-            <>
-              <header className="flex h-14 items-center gap-3 border-b border-gray-200 px-4 dark:border-neutral-800">
-                {active.kind === 'friend' ? (
-                  <ChatAvatar name={active.name} avatarUrl={active.avatar} size="sm" />
-                ) : (
-                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#F97316]/20 text-[#F97316]">
-                    <Users size={14} />
-                  </span>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{active.name}</p>
-                  <p className="text-[11px] text-neutral-400">{active.kind === 'friend' ? active.role : 'Group chat'}</p>
-                </div>
-              </header>
+          </form>
+        </>
+      )}
+    </section>
+  );
 
-              <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-                {messages.length === 0 ? (
-                  <div className="grid h-full place-items-center text-sm text-neutral-500">No messages yet.</div>
-                ) : (
-                  messages.map((m) => {
-                    const mine = m.sender_id === myId;
-                    return (
-                      <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                        <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm', mine ? 'bg-[#F97316] text-white' : 'bg-[#1a1a1a] text-neutral-100')}>
-                          {!mine && active.kind === 'group' && 'sender_name' in m && (
-                            <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-[#F97316]">{m.sender_name}</p>
-                          )}
-                          <p className="whitespace-pre-wrap">{m.content}</p>
-                          <p className="mt-1 text-[10px] opacity-70">{timeShort(m.created_at)}</p>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              <form onSubmit={sendMessage} className="border-t border-gray-200 p-3 dark:border-neutral-800">
-                <div className="flex items-center gap-2">
-                  <input
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder="Type a message..."
-                    className="h-10 min-w-0 flex-1 rounded-full border border-gray-300 bg-white px-4 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-[#F97316]/60 dark:border-neutral-700 dark:bg-[#111] dark:text-white dark:placeholder:text-neutral-500"
-                  />
-                  <button type="submit" className="grid h-10 w-10 place-items-center rounded-full bg-[#F97316] text-white">
-                    <Send size={16} />
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
-        </section>
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-neutral-800 dark:bg-black">
+      <CreateGroupModal open={groupModalOpen} friends={friends} onClose={() => setGroupModalOpen(false)} onDone={refreshSidebar} />
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-12">
+        {inboxPanel}
+        {conversationPanel}
       </div>
     </div>
   );

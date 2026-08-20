@@ -34,6 +34,7 @@ function OliverMessageText({ text }: { text: string }) {
 
 export function OliverBot() {
   const pathname = usePathname();
+  const showSupportChat = pathname === '/settings';
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [input, setInput] = useState('');
@@ -47,30 +48,30 @@ export function OliverBot() {
   ]);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const hasBottomNav =
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/chats') ||
-    pathname.startsWith('/chat') ||
-    pathname.startsWith('/feed') ||
-    pathname.startsWith('/search') ||
-    pathname.startsWith('/profile') ||
-    pathname.startsWith('/settings');
-
-  const panelBottom = hasBottomNav
-    ? 'bottom-[calc(6.5rem+5rem+env(safe-area-inset-bottom))]'
-    : 'bottom-[calc(5rem+env(safe-area-inset-bottom))]';
+  /** Settings hub uses the social bottom nav — keep the FAB clear of it. */
+  const panelBottom = 'bottom-[calc(6.5rem+5rem+env(safe-area-inset-bottom))]';
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isChatExpanded, isTyping]);
 
   useEffect(() => {
+    if (!showSupportChat) {
+      setIsWidgetOpen(false);
+      setIsChatExpanded(false);
+    }
+  }, [showSupportChat]);
+
+  useEffect(() => {
+    if (!showSupportChat) return;
     const onOpen = () => {
       setIsWidgetOpen(true);
     };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
-  }, []);
+  }, [showSupportChat]);
+
+  if (!showSupportChat) return null;
 
   const closeAll = () => {
     setIsChatExpanded(false);
@@ -276,12 +277,7 @@ export function OliverBot() {
         onClick={handleFabClick}
         aria-label={isWidgetOpen ? 'Close Oliver' : 'Open Oliver support'}
         aria-expanded={isWidgetOpen}
-        className={cn(
-          'pointer-events-auto fixed right-4 z-[10001] grid h-14 w-14 place-items-center rounded-full bg-brand-500 text-white shadow-glow transition hover:bg-brand-400',
-          hasBottomNav
-            ? 'bottom-24 sm:bottom-28'
-            : 'bottom-5'
-        )}
+        className="pointer-events-auto fixed bottom-24 right-4 z-[10001] grid h-14 w-14 place-items-center rounded-full bg-brand-500 text-white shadow-glow transition hover:bg-brand-400 sm:bottom-28"
       >
         {isWidgetOpen ? <X size={22} /> : <MessageCircle size={22} />}
       </button>

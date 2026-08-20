@@ -1,4 +1,4 @@
-import { PremiumChatShell } from '@/components/chat/premium-chat-shell';
+import { ChatInbox } from '@/components/chat/chat-inbox';
 import { requireApprovedUser } from '@/lib/auth/require-approved';
 
 export default async function ChatsInboxPage() {
@@ -19,5 +19,5 @@ export default async function ChatsInboxPage() {
     throw error instanceof Error ? error : new Error('Failed to authorize chats access.');
   }
 
-  return <PremiumChatShell />;
+  return <ChatInbox />;
 }

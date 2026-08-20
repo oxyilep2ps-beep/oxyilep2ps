@@ -2,30 +2,32 @@
 
 import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { ArrowLeft, Handshake, Loader2, Lock, Send, UserPlus, X } from 'lucide-react';
+import { ArrowLeft, Handshake, Loader2, Lock, Send, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { inviteGuarantor } from '@/app/actions/marketplace';
 import { markConversationRead } from '@/app/actions/chat';
 import { notifyChatMessagePush } from '@/app/actions/sendPushNotification';
 import { getConnectionStatus, sendConnectionRequest } from '@/app/actions/connections';
 import type { ConnectionStatus } from '@/app/actions/connections';
 import type { ChatMessage, ChatPeer, HandshakeRow, MemberRole, UserPresence } from '@/lib/chat/types';
 import { normalizeHandshakeRow } from '@/lib/chat/handshake-realtime';
-import { calculateHandshakeFigures } from '@/lib/handshake/calculations';
 import {
   conversationFilter,
   displayHandle,
   isConversationMessage,
   oppositeRole,
 } from '@/lib/chat/utils';
-import { buildHandshakeMessagePayload, parseHandshakeMessagePayload } from '@/lib/messages/handshake-payload';
+import { parseHandshakeMessagePayload } from '@/lib/messages/handshake-payload';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
 import { HandshakeCard } from '@/components/chat/handshake-card';
+import { HandshakePanel } from '@/components/chat/handshake-panel';
 import { cn } from '@/lib/utils';
 import { useEmergencyPause } from '@/lib/hooks/use-emergency-pause';
 
 type ChatRoomProps = {
   peerUserId: string;
+  /** When true, fills parent (e.g. PremiumChatShell conversation pane) instead of page chrome. */
+  embedded?: boolean;
+  onBack?: () => void;
 };
 
 function formatSeenTime(iso: string): string {
@@ -41,7 +43,7 @@ function formatLastSeen(iso: string): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
-export function ChatRoom({ peerUserId }: ChatRoomProps) {
+export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps) {
   const supabase = useMemo(() => createClient(), []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialScrollDoneRef = useRef(false);
@@ -60,7 +62,6 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showPropose, setShowPropose] = useState(false);
-  const [proposal, setProposal] = useState({ amount: '', rate: '', duration: '', guarantorEmail: '' });
   const { paused: emergencyPause } = useEmergencyPause();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('none');
   const [connectionId, setConnectionId] = useState<string | null>(null);
@@ -377,72 +378,6 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
     setSending(false);
   };
 
-  const sendHandshakeProposal = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!myId || !peer || !myRole) return;
-    if (emergencyPause) {
-      setError('Platform is paused by admin. Handshake proposals are temporarily disabled.');
-      return;
-    }
-
-    const amount = Number(proposal.amount);
-    const rate = Number(proposal.rate);
-    const duration = Number(proposal.duration);
-    const guarantorEmail = proposal.guarantorEmail.trim().toLowerCase();
-    if (!amount || !rate || !duration) return;
-    if (!guarantorEmail || !guarantorEmail.includes('@')) {
-      setError('A valid guarantor email is required before initiating a handshake.');
-      return;
-    }
-
-    const lenderId = myRole === 'INVESTOR' ? myId : peer.id;
-    const borrowerId = myRole === 'BORROWER' ? myId : peer.id;
-    const figures = calculateHandshakeFigures(amount, rate, duration);
-
-    setSending(true);
-    const { data: created, error: hsError } = await supabase
-      .from('handshakes')
-      .insert({
-        lender_id: lenderId,
-        borrower_id: borrowerId,
-        amount,
-        rate,
-        duration,
-        emi_amount: figures.emi_amount,
-        total_return: figures.total_return,
-        status: 'PENDING',
-        payment_status: 'PENDING',
-        guarantor_email: guarantorEmail,
-        guarantor_status: 'pending',
-      })
-      .select('*')
-      .single();
-
-    if (hsError || !created) {
-      setError(hsError?.message ?? 'Failed to create handshake');
-      setSending(false);
-      return;
-    }
-
-    const row = created as HandshakeRow;
-    await inviteGuarantor(row.id, guarantorEmail);
-
-    await supabase.from('messages').insert({
-      sender_id: myId,
-      receiver_id: peer.id,
-      content: buildHandshakeMessagePayload(row.id),
-    });
-    void notifyChatMessagePush({
-      receiverId: peer.id,
-      preview: 'New handshake proposal',
-    });
-
-    setHandshakeMap((m) => ({ ...m, [row.id]: normalizeHandshakeRow(created as Record<string, unknown>) }));
-    setProposal({ amount: '', rate: '', duration: '', guarantorEmail: '' });
-    setShowPropose(false);
-    setSending(false);
-  };
-
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -474,11 +409,29 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         : 'Offline';
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-4rem-5.5rem-env(safe-area-inset-bottom))] max-w-lg flex-col -mb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+    <div
+      className={cn(
+        'flex flex-col',
+        embedded
+          ? 'h-full min-h-0 w-full max-w-none'
+          : 'mx-auto h-[calc(100dvh-4rem-5.5rem-env(safe-area-inset-bottom))] max-w-lg -mb-[calc(5.5rem+env(safe-area-inset-bottom))]'
+      )}
+    >
       <header className="glass-card z-10 flex shrink-0 items-center gap-3 rounded-b-2xl border-x-0 border-t-0 border-white/60 px-4 py-3 dark:border-white/10">
-        <Link href="/chats" aria-label="Back" className="grid h-9 w-9 place-items-center rounded-full text-brand-600">
-          <ArrowLeft size={20} />
-        </Link>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to inbox"
+            className="grid h-9 w-9 place-items-center rounded-full text-brand-600"
+          >
+            <ArrowLeft size={20} />
+          </button>
+        ) : (
+          <Link href="/chats" aria-label="Back" className="grid h-9 w-9 place-items-center rounded-full text-brand-600">
+            <ArrowLeft size={20} />
+          </Link>
+        )}
         <div className="relative shrink-0">
           <ChatAvatar name={peer.full_legal_name} avatarUrl={peer.avatar_url} size="md" />
           {peerPresence?.status === 'online' && (
@@ -495,7 +448,7 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         <p className="mx-4 mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">{error}</p>
       )}
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <p className="text-center text-sm text-neutral-500">Say hello — or send a handshake proposal.</p>
         ) : (
@@ -543,33 +496,18 @@ export function ChatRoom({ peerUserId }: ChatRoomProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {showPropose && (
-        <form onSubmit={sendHandshakeProposal} className="glass-card mx-3 mb-2 space-y-2 rounded-2xl p-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-brand-600">New handshake</p>
-            <button type="button" onClick={() => setShowPropose(false)}><X size={16} /></button>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <input required type="number" placeholder="£ Amount" value={proposal.amount} onChange={(e) => setProposal((p) => ({ ...p, amount: e.target.value }))} className="rounded-xl border px-2 py-2 text-sm dark:bg-black/40" />
-            <input required type="number" step="0.1" placeholder="% Rate" value={proposal.rate} onChange={(e) => setProposal((p) => ({ ...p, rate: e.target.value }))} className="rounded-xl border px-2 py-2 text-sm dark:bg-black/40" />
-            <input required type="number" placeholder="Months" value={proposal.duration} onChange={(e) => setProposal((p) => ({ ...p, duration: e.target.value }))} className="rounded-xl border px-2 py-2 text-sm dark:bg-black/40" />
-          </div>
-          <input
-            required
-            type="email"
-            placeholder="Guarantor email (required)"
-            value={proposal.guarantorEmail}
-            onChange={(e) => setProposal((p) => ({ ...p, guarantorEmail: e.target.value }))}
-            className="w-full rounded-xl border px-2 py-2 text-sm dark:bg-black/40"
-          />
-          <p className="text-[10px] text-neutral-500">
-            Escrow funding stays locked until the guarantor accepts and links their bank.
-          </p>
-          <button type="submit" disabled={sending || emergencyPause} className="w-full rounded-full bg-brand-500 py-2 text-xs font-bold text-white disabled:opacity-50">
-            {emergencyPause ? 'Platform Paused' : 'Initiate Handshake'}
-          </button>
-        </form>
-      )}
+      <HandshakePanel
+        open={showPropose}
+        onClose={() => setShowPropose(false)}
+        myId={myId}
+        myRole={myRole}
+        peerId={peer.id}
+        handshakes={Object.values(handshakeMap)}
+        onRefresh={() => {
+          void loadHandshakes(myId, peer.id);
+          void fetchMessages(myId, peer.id);
+        }}
+      />
 
       {/* ── Connection Barrier ── */}
       {connectionStatus !== 'accepted' && (

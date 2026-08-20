@@ -115,8 +115,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Social navigation"
+      data-oxyile-bottom-nav
       className={cn(
-        'fixed bottom-0 z-50 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2',
+        'fixed bottom-0 z-50 min-h-[var(--oxyile-bottom-nav-offset)] pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2',
         'left-0 right-0 lg:left-64',
         'border-t border-gray-200 bg-white/90 text-gray-700 backdrop-blur-md',
         'dark:border-gray-800 dark:bg-black/90 dark:text-gray-300 dark:backdrop-blur-md',

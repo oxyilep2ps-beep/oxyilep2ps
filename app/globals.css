@@ -4,6 +4,34 @@
 
 :root {
   color-scheme: light;
+  /* Fixed social bottom nav (~80px chrome) + iOS home indicator */
+  --oxyile-header-height: 3.5rem;
+  --oxyile-bottom-nav-height: 5rem;
+  --oxyile-bottom-nav-offset: calc(
+    var(--oxyile-bottom-nav-height) + env(safe-area-inset-bottom, 0px)
+  );
+  /* Scroll buffer matching the fixed nav so last fields never sit under it */
+  --oxyile-safe-bottom-padding: var(--oxyile-bottom-nav-offset);
+}
+
+/* Global safe-area when BottomNav is present (layouts apply this to main content) */
+.oxyile-safe-bottom {
+  padding-bottom: var(--oxyile-safe-bottom-padding);
+}
+
+/* Full-height panels (chat, inbox) — fit between header, layout pt-4, and bottom nav */
+.oxyile-fill-chrome {
+  height: calc(
+    100dvh - var(--oxyile-header-height) - var(--oxyile-safe-bottom-padding) - 1rem
+  );
+  max-height: calc(
+    100dvh - var(--oxyile-header-height) - var(--oxyile-safe-bottom-padding) - 1rem
+  );
+}
+
+/* Sticky / fixed footers that must clear the bottom nav */
+.oxyile-above-bottom-nav {
+  bottom: var(--oxyile-bottom-nav-offset);
 }
 
 html {

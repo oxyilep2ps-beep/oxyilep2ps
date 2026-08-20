@@ -266,7 +266,52 @@ export function ChatInbox() {
           listPendingRequests(),
         ]);
         if (cancelled) return;
-        setPeers(connections);
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const myId = user?.id;
+
+        let peersWithPreview: ConnectedPeer[] = connections.map((c) => ({ ...c }));
+        if (myId && connections.length > 0) {
+          const peerIds = connections.map((c) => c.userId);
+          const { data: recent } = await supabase
+            .from('messages')
+            .select('id, sender_id, receiver_id, content, created_at, is_read')
+            .or(
+              `and(sender_id.eq.${myId},receiver_id.in.(${peerIds.join(',')})),and(receiver_id.eq.${myId},sender_id.in.(${peerIds.join(',')}))`
+            )
+            .order('created_at', { ascending: false })
+            .limit(200);
+
+          const lastByPeer = new Map<string, { content: string; created_at: string }>();
+          const unreadByPeer = new Map<string, number>();
+          for (const row of recent ?? []) {
+            const peerId =
+              row.sender_id === myId ? String(row.receiver_id) : String(row.sender_id);
+            if (!lastByPeer.has(peerId)) {
+              lastByPeer.set(peerId, {
+                content: String(row.content ?? ''),
+                created_at: String(row.created_at),
+              });
+            }
+            if (row.receiver_id === myId && row.is_read === false) {
+              unreadByPeer.set(peerId, (unreadByPeer.get(peerId) ?? 0) + 1);
+            }
+          }
+
+          peersWithPreview = connections.map((c) => {
+            const last = lastByPeer.get(c.userId);
+            return {
+              ...c,
+              lastMessage: last?.content,
+              lastMessageAt: last?.created_at,
+              unread: unreadByPeer.get(c.userId) ?? 0,
+            };
+          });
+        }
+
+        setPeers(peersWithPreview);
         setPendingRequests(requests);
 
         // Presence
@@ -312,18 +357,68 @@ export function ChatInbox() {
     return () => { cancelled = true; };
   }, [tab, refreshKey]);
 
-  // ── Realtime presence ──
+  // ── Realtime presence + message previews ──
   useEffect(() => {
-    const channel = supabase
-      .channel('inbox-presence')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, (payload) => {
-        const row = (payload.new ?? payload.old) as UserPresence | undefined;
-        if (!row?.user_id) return;
-        setPresenceMap((m) => ({ ...m, [row.user_id]: row }));
-      })
-      .subscribe();
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    return () => { void supabase.removeChannel(channel); };
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const myId = user?.id ?? '';
+      if (cancelled || !myId) return;
+
+      channel = supabase
+        .channel(`inbox-live-${myId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, (payload) => {
+          const row = payload.new as UserPresence;
+          if (row?.user_id) {
+            setPresenceMap((m) => ({ ...m, [row.user_id]: row }));
+          }
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+          const msg = payload.new as {
+            sender_id: string;
+            receiver_id: string;
+            content: string;
+            created_at: string;
+            is_read?: boolean;
+          };
+          const peerId =
+            msg.sender_id === myId ? msg.receiver_id : msg.receiver_id === myId ? msg.sender_id : null;
+          if (!peerId) return;
+          setPeers((prev) =>
+            prev.map((p) => {
+              if (p.userId !== peerId) return p;
+              const incoming = msg.receiver_id === myId;
+              return {
+                ...p,
+                lastMessage: msg.content,
+                lastMessageAt: msg.created_at,
+                unread: incoming ? (p.unread ?? 0) + 1 : p.unread,
+              };
+            })
+          );
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+          const msg = payload.new as {
+            sender_id: string;
+            receiver_id: string;
+            is_read?: boolean;
+          };
+          if (msg.receiver_id !== myId || msg.is_read !== true) return;
+          setPeers((prev) =>
+            prev.map((p) => (p.userId === msg.sender_id ? { ...p, unread: 0 } : p))
+          );
+        })
+        .subscribe();
+    })();
+
+    return () => {
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
+    };
   }, [supabase]);
 
   // ── Filtered lists ──
@@ -349,7 +444,7 @@ export function ChatInbox() {
   }, [discoverUsers, search]);
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-transparent">
+    <div className="oxyile-fill-chrome flex flex-col overflow-hidden bg-transparent">
       {/* ── Header ── */}
       <div className="shrink-0 border-b border-gray-200 bg-white/80 px-4 py-3 backdrop-blur-md dark:border-gray-800 dark:bg-black/80">
         <div className="flex items-center justify-between gap-3">

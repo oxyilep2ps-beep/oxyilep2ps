@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Download,
   ExternalLink,
+  Handshake,
   LayoutDashboard,
   LogOut,
   MessageCircle,
@@ -123,6 +124,7 @@ const BORROWER_NAV: NavGroup[] = [
     heading: 'Social Layer',
     items: [
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+      { href: '/chats', label: 'Handshake Chat', icon: Handshake },
       { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/search', label: 'Search Friends', icon: Search },
       { href: '/profile', label: 'Profile', icon: User },
@@ -143,6 +145,7 @@ const INVESTOR_NAV: NavGroup[] = [
     heading: 'Social Layer',
     items: [
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+      { href: '/chats', label: 'Handshake Chat', icon: Handshake },
       { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/search', label: 'Search Friends', icon: Search },
       { href: '/profile', label: 'Profile', icon: User },
