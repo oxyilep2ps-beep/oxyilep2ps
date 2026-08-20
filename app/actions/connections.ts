@@ -80,7 +80,7 @@ export async function sendConnectionRequest(
         user.email?.split('@')[0] ||
         'Someone';
 
-      await admin.from('notifications').insert({
+      const { error: notifyError } = await admin.from('notifications').insert({
         user_id: receiverId,
         actor_id: user.id,
         type: 'friend_request',
@@ -89,6 +89,9 @@ export async function sendConnectionRequest(
         is_read: false,
         link_id: data.id,
       });
+      if (notifyError) {
+        console.error('[sendConnectionRequest] notification insert failed', notifyError.message);
+      }
     } catch (notifyError) {
       console.error('[sendConnectionRequest] notification insert failed', notifyError);
     }
@@ -107,18 +110,63 @@ export async function acceptConnectionRequest(
     const user = await getAuthUser();
     const admin = createAdminClient();
 
+    const { data: connection, error: fetchError } = await admin
+      .from('user_connections')
+      .select('id, requester_id, receiver_id, status')
+      .eq('id', connectionId)
+      .eq('receiver_id', user.id)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (fetchError) return { ok: false, error: fetchError.message };
+    if (!connection) return { ok: false, error: 'Friend request not found.' };
+
     const { error } = await admin
       .from('user_connections')
       .update({ status: 'accepted', updated_at: new Date().toISOString() })
       .eq('id', connectionId)
-      .eq('receiver_id', user.id) // only the receiver may accept
+      .eq('receiver_id', user.id)
       .eq('status', 'pending');
 
     if (error) return { ok: false, error: error.message };
+
+    try {
+      const { data: accepter } = await admin
+        .from('profiles')
+        .select('full_legal_name, username')
+        .eq('id', user.id)
+        .maybeSingle();
+      const accepterName =
+        String(accepter?.full_legal_name ?? '').trim() ||
+        String(accepter?.username ?? '').trim() ||
+        user.email?.split('@')[0] ||
+        'Someone';
+
+      const { error: notifyError } = await admin.from('notifications').insert({
+        user_id: String(connection.requester_id),
+        actor_id: user.id,
+        type: 'friend_accepted',
+        title: 'Friend Request Accepted',
+        message: `${accepterName} accepted your friend request.`,
+        is_read: false,
+        link_id: connectionId,
+      });
+      if (notifyError) {
+        console.error('[acceptConnectionRequest] notification insert failed', notifyError.message);
+      }
+    } catch (notifyError) {
+      console.error('[acceptConnectionRequest] notification failed', notifyError);
+    }
+
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Accept failed' };
   }
+}
+
+/** Alias for acceptConnectionRequest — friend-request acceptance flow. */
+export async function acceptFriendRequest(connectionId: string) {
+  return acceptConnectionRequest(connectionId);
 }
 
 /** Reject or remove a connection. */
@@ -411,4 +459,67 @@ export async function listPendingRequests(): Promise<
       role: String(profileMap[row.requester_id]?.role ?? ''),
     },
   }));
+}
+
+export type PublicSocialProfile = {
+  id: string;
+  full_legal_name: string;
+  username: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  cover_url: string | null;
+  role: string;
+  connection_status: ConnectionStatus;
+  connection_id: string | null;
+  is_self: boolean;
+};
+
+/** Resolve a public profile by username and relative connection status. */
+export async function getPublicProfileByUsername(username: string): Promise<PublicSocialProfile | null> {
+  try {
+    const user = await getAuthUser();
+    const admin = createAdminClient();
+    const handle = username.trim().replace(/^@/, '').toLowerCase();
+    if (!handle) return null;
+
+    const { data: byUsername } = await admin
+      .from('profiles')
+      .select('id, full_legal_name, username, bio, avatar_url, cover_url, role')
+      .ilike('username', handle)
+      .maybeSingle();
+
+    let profile = byUsername;
+    if (!profile) {
+      const { data: fallback } = await admin
+        .from('profiles')
+        .select('id, full_legal_name, username, bio, avatar_url, cover_url, role')
+        .ilike('full_legal_name', handle.replace(/_/g, ' '))
+        .limit(1)
+        .maybeSingle();
+      profile = fallback;
+    }
+    if (!profile) return null;
+
+    const peerId = String(profile.id);
+    const isSelf = peerId === user.id;
+    const connection = isSelf
+      ? { status: 'accepted' as ConnectionStatus, connectionId: null }
+      : await getConnectionStatus(peerId);
+
+    return {
+      id: peerId,
+      full_legal_name: String(profile.full_legal_name ?? ''),
+      username: (profile.username as string | null) ?? null,
+      bio: (profile.bio as string | null) ?? null,
+      avatar_url: (profile.avatar_url as string | null) ?? null,
+      cover_url: (profile.cover_url as string | null) ?? null,
+      role: String(profile.role ?? ''),
+      connection_status: connection.status,
+      connection_id: connection.connectionId,
+      is_self: isSelf,
+    };
+  } catch (error) {
+    console.error('[getPublicProfileByUsername]', error);
+    return null;
+  }
 }

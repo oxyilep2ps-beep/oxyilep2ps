@@ -225,24 +225,25 @@ function SuggestedUserRow({ user }: { user: DiscoverUser }) {
   const initials = displayName.slice(0, 2).toUpperCase();
   const cleanBio = (user.bio ?? '').trim();
   const subtitle = `${user.username ? `@${user.username}` : '@oxyile'} • ${cleanBio || 'Oxyile User'}`;
+  const profileHref = user.username ? `/profile/${user.username}` : '/search';
 
   return (
     <div className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-neutral-100 dark:hover:bg-white/5">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#F97316]/60 to-[#F97316]/20 text-sm font-bold text-white">
+      <Link href={profileHref} className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-[#F97316]/60 to-[#F97316]/20 text-sm font-bold text-white">
         {user.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={user.avatar_url} alt={displayName} className="h-10 w-10 rounded-full object-cover" />
         ) : (
           initials
         )}
-      </div>
+      </Link>
 
-      <div className="min-w-0 flex-1">
+      <Link href={profileHref} className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
           {displayName}
         </p>
         <p className="truncate text-xs text-gray-500 dark:text-neutral-400">{subtitle}</p>
-      </div>
+      </Link>
 
       <button
         type="button"

@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { acceptConnectionRequest, removeConnection } from '@/app/actions/connections';
+import { acceptFriendRequest, removeConnection } from '@/app/actions/connections';
 
 export type AppNotification = {
   id: string;
@@ -159,7 +159,7 @@ export async function respondToFriendRequestNotification(input: {
 
     const result =
       input.action === 'accept'
-        ? await acceptConnectionRequest(connectionId)
+        ? await acceptFriendRequest(connectionId)
         : await removeConnection(connectionId);
 
     await markNotificationRead(input.notificationId);

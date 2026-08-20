@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Bell, Check, Loader2, UserPlus, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Bell, Check, Loader2, MessageCircle, UserPlus, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
   getUnreadNotificationCount,
@@ -35,15 +36,25 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
+function destinationFor(item: AppNotification): string | null {
+  if (item.actor_username) return `/profile/${item.actor_username}`;
+  if (item.actor_id) return `/chats/${item.actor_id}`;
+  return null;
+}
+
 function NotificationRow({
   item,
   onChanged,
+  onClose,
 }: {
   item: AppNotification;
   onChanged: () => void;
+  onClose: () => void;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const name = item.actor_name || 'Someone';
+  const href = destinationFor(item);
 
   const onRespond = (action: 'accept' | 'reject') => {
     startTransition(async () => {
@@ -58,39 +69,43 @@ function NotificationRow({
   };
 
   const onOpen = () => {
-    if (!item.is_read) {
-      startTransition(async () => {
-        await markNotificationRead(item.id);
-        onChanged();
-      });
-    }
+    startTransition(async () => {
+      if (!item.is_read) await markNotificationRead(item.id);
+      onChanged();
+      if (href) {
+        onClose();
+        router.push(href);
+      }
+    });
   };
 
   return (
     <li
       className={cn(
-        'border-b border-gray-800 px-3 py-3 last:border-b-0',
+        'border-b border-gray-200 px-3 py-3 last:border-b-0 dark:border-gray-800',
         !item.is_read && 'bg-[#F97316]/5'
       )}
     >
       <div className="flex gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F97316]/15 text-xs font-bold text-[#F97316]">
-          {item.actor_avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.actor_avatar} alt="" className="h-full w-full object-cover" />
-          ) : (
-            initials(name)
-          )}
-        </div>
+        <button type="button" onClick={onOpen} className="shrink-0">
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#F97316]/15 text-xs font-bold text-[#F97316]">
+            {item.actor_avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={item.actor_avatar} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials(name)
+            )}
+          </div>
+        </button>
         <div className="min-w-0 flex-1">
           <button type="button" onClick={onOpen} className="w-full text-left">
-            <p className="text-sm font-semibold text-white">{item.title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-gray-400">{item.message}</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.title}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400">{item.message}</p>
             <p className="mt-1 text-[10px] font-medium text-gray-500">{timeAgo(item.created_at)}</p>
           </button>
 
-          {item.type === 'friend_request' && !item.is_read ? (
-            <div className="mt-2.5 flex items-center gap-2">
+          {item.type === 'friend_request' ? (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 disabled={pending}
@@ -104,22 +119,44 @@ function NotificationRow({
                 type="button"
                 disabled={pending}
                 onClick={() => onRespond('reject')}
-                className="inline-flex items-center gap-1 rounded-full border border-gray-700 px-3 py-1.5 text-[11px] font-bold text-gray-300 transition hover:border-red-500/40 hover:text-red-400 disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-full border border-gray-300 px-3 py-1.5 text-[11px] font-bold text-gray-600 transition hover:border-red-500/40 hover:text-red-500 disabled:opacity-60 dark:border-gray-700 dark:text-gray-300"
               >
                 <X size={12} />
                 Reject
               </button>
+              {href ? (
+                <Link
+                  href={href}
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#F97316] hover:underline"
+                >
+                  <UserPlus size={11} />
+                  View profile
+                </Link>
+              ) : null}
             </div>
           ) : null}
 
-          {item.type === 'friend_request' && item.actor_username ? (
-            <Link
-              href={`/user/${item.actor_username}`}
-              className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#F97316] hover:underline"
-            >
-              <UserPlus size={11} />
-              View profile
-            </Link>
+          {item.type === 'friend_accepted' && item.actor_id ? (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              {href ? (
+                <Link
+                  href={href}
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1 rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-3 py-1.5 text-[11px] font-bold text-[#F97316]"
+                >
+                  View profile
+                </Link>
+              ) : null}
+              <Link
+                href={`/chats/${item.actor_id}`}
+                onClick={onClose}
+                className="inline-flex items-center gap-1 rounded-full bg-[#F97316] px-3 py-1.5 text-[11px] font-bold text-white"
+              >
+                <MessageCircle size={11} />
+                Message
+              </Link>
+            </div>
           ) : null}
         </div>
         {!item.is_read ? <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#F97316]" /> : null}
@@ -215,9 +252,9 @@ export function NotificationBell() {
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(92vw,22rem)] overflow-hidden rounded-2xl border border-gray-800 bg-[#111]/95 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-2 border-b border-gray-800 px-3 py-3">
-            <p className="text-sm font-black text-white">Notifications</p>
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(92vw,22rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-gray-800 dark:bg-[#111]/95">
+          <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-3 py-3 dark:border-gray-800">
+            <p className="text-sm font-black text-gray-900 dark:text-white">Notifications</p>
             <button
               type="button"
               disabled={marking || unread === 0}
@@ -240,14 +277,19 @@ export function NotificationBell() {
               </div>
             ) : items.length === 0 ? (
               <div className="px-4 py-10 text-center">
-                <Bell size={22} className="mx-auto mb-2 text-gray-600" />
-                <p className="text-sm font-semibold text-gray-300">No notifications yet</p>
+                <Bell size={22} className="mx-auto mb-2 text-gray-400 dark:text-gray-600" />
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No notifications yet</p>
                 <p className="mt-1 text-xs text-gray-500">Friend requests and likes will show up here.</p>
               </div>
             ) : (
               <ul>
                 {items.map((item) => (
-                  <NotificationRow key={item.id} item={item} onChanged={() => void refresh()} />
+                  <NotificationRow
+                    key={item.id}
+                    item={item}
+                    onChanged={() => void refresh()}
+                    onClose={() => setOpen(false)}
+                  />
                 ))}
               </ul>
             )}

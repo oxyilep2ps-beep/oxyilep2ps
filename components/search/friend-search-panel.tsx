@@ -69,7 +69,7 @@ function SearchResultRow({
 
   return (
     <li className="flex items-center gap-2.5 rounded-2xl border border-gray-200 bg-white px-2.5 py-2.5 dark:border-neutral-800 dark:bg-[#111] sm:gap-3 sm:px-3 sm:py-3">
-      <Link href={user.username ? `/user/${user.username}` : '#'} className="shrink-0">
+      <Link href={user.username ? `/profile/${user.username}` : '#'} className="shrink-0">
         <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#F97316]/30 to-[#F97316]/10 text-sm font-bold text-[#F97316] sm:h-12 sm:w-12">
           {user.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element

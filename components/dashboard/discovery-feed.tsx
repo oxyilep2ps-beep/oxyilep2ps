@@ -90,7 +90,7 @@ export function DiscoveryFeed() {
                   </p>
                   <div className="p-4 pt-0">
                     <Link
-                      href={`/user/${username}`}
+                      href={`/profile/${username}`}
                       className="inline-flex w-full items-center justify-center rounded-full bg-brand-500 py-2.5 text-xs font-semibold text-white shadow-glow transition hover:bg-brand-400"
                     >
                       View Profile

@@ -57,7 +57,7 @@ export function UniversalDashboardLayout({
           portalLabel={portal !== 'admin' ? PORTAL_LABELS[portal] : undefined}
           viewingAs={isAdmin && portal !== 'admin' ? PORTAL_LABELS[portal] : undefined}
         />
-        <div className="min-h-[calc(100dvh-3.5rem)] bg-transparent px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:py-6 md:pb-6 lg:px-8">
+        <div className="min-h-[calc(100dvh-3.5rem)] bg-transparent px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:py-6 lg:px-8">
           <PortalContextProvider portal={portal} isAdmin={isAdmin}>
             {children}
           </PortalContextProvider>
