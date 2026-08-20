@@ -13,6 +13,7 @@ import {
   respondToFriendRequestNotification,
   type AppNotification,
 } from '@/app/actions/notifications';
+import { IncomingRequestsPanel, useIncomingRequestCount } from '@/components/social/incoming-requests-panel';
 import { cn } from '@/lib/utils';
 
 function initials(name: string) {
@@ -65,6 +66,7 @@ function NotificationRow({
         actorId: item.actor_id,
       });
       onChanged();
+      window.dispatchEvent(new Event('oxyile:connections-changed'));
     });
   };
 
@@ -167,17 +169,20 @@ function NotificationRow({
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'requests' | 'all'>('requests');
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
   const [marking, startMarkAll] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
+  const { count: incomingCount, refresh: refreshIncoming } = useIncomingRequestCount();
 
   const refresh = useCallback(async () => {
     const [rows, count] = await Promise.all([listMyNotifications(40), getUnreadNotificationCount()]);
     setItems(rows);
     setUnread(count);
-  }, []);
+    await refreshIncoming();
+  }, [refreshIncoming]);
 
   useEffect(() => {
     void refresh();
@@ -219,7 +224,8 @@ export function NotificationBell() {
     if (!open) return;
     setLoading(true);
     void refresh().finally(() => setLoading(false));
-  }, [open, refresh]);
+    if (incomingCount > 0) setTab('requests');
+  }, [open, refresh, incomingCount]);
 
   useEffect(() => {
     const onAway = (event: MouseEvent) => {
@@ -229,6 +235,8 @@ export function NotificationBell() {
     return () => window.removeEventListener('mousedown', onAway);
   }, []);
 
+  const badgeTotal = Math.max(unread, incomingCount);
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -236,23 +244,23 @@ export function NotificationBell() {
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'relative inline-flex h-9 w-9 items-center justify-center rounded-full border transition sm:h-10 sm:w-10',
-          unread > 0
+          badgeTotal > 0
             ? 'border-[#F97316]/40 bg-[#F97316]/10 text-[#F97316]'
             : 'border-gray-200 text-gray-500 dark:border-gray-800 dark:text-gray-400'
         )}
-        aria-label={unread > 0 ? `${unread} unread notifications` : 'Notifications'}
+        aria-label={badgeTotal > 0 ? `${badgeTotal} notifications` : 'Notifications'}
         aria-expanded={open}
       >
         <Bell size={16} />
-        {unread > 0 ? (
+        {badgeTotal > 0 ? (
           <span className="absolute -right-1 -top-1 grid min-h-[16px] min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-            {unread > 99 ? '99+' : unread}
+            {badgeTotal > 99 ? '99+' : badgeTotal}
           </span>
         ) : null}
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(92vw,22rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-gray-800 dark:bg-[#111]/95">
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[min(92vw,24rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-gray-800 dark:bg-[#111]/95">
           <div className="flex items-center justify-between gap-2 border-b border-gray-200 px-3 py-3 dark:border-gray-800">
             <p className="text-sm font-black text-gray-900 dark:text-white">Notifications</p>
             <button
@@ -270,8 +278,51 @@ export function NotificationBell() {
             </button>
           </div>
 
+          <div className="grid grid-cols-2 gap-1 border-b border-gray-200 p-1.5 dark:border-gray-800">
+            <button
+              type="button"
+              onClick={() => setTab('requests')}
+              className={cn(
+                'relative rounded-xl px-2 py-2 text-xs font-bold transition',
+                tab === 'requests'
+                  ? 'bg-[#F97316]/15 text-[#F97316]'
+                  : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              )}
+            >
+              Incoming Requests
+              {incomingCount > 0 ? (
+                <span className="ml-1 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#F97316] px-1 text-[10px] font-bold text-white">
+                  {incomingCount}
+                </span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('all')}
+              className={cn(
+                'rounded-xl px-2 py-2 text-xs font-bold transition',
+                tab === 'all'
+                  ? 'bg-[#F97316]/15 text-[#F97316]'
+                  : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              )}
+            >
+              All
+              {unread > 0 ? (
+                <span className="ml-1 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {unread}
+                </span>
+              ) : null}
+            </button>
+          </div>
+
           <div className="max-h-[min(70vh,24rem)] overflow-y-auto">
-            {loading && items.length === 0 ? (
+            {tab === 'requests' ? (
+              <IncomingRequestsPanel
+                onChanged={() => {
+                  void refresh();
+                }}
+              />
+            ) : loading && items.length === 0 ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 size={18} className="animate-spin text-[#F97316]" />
               </div>
@@ -279,7 +330,7 @@ export function NotificationBell() {
               <div className="px-4 py-10 text-center">
                 <Bell size={22} className="mx-auto mb-2 text-gray-400 dark:text-gray-600" />
                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No notifications yet</p>
-                <p className="mt-1 text-xs text-gray-500">Friend requests and likes will show up here.</p>
+                <p className="mt-1 text-xs text-gray-500">Friend requests and updates will show up here.</p>
               </div>
             ) : (
               <ul>

@@ -147,7 +147,7 @@ export async function acceptConnectionRequest(
         actor_id: user.id,
         type: 'friend_accepted',
         title: 'Friend Request Accepted',
-        message: `${accepterName} accepted your friend request.`,
+        message: `${accepterName} accepted your friend request!`,
         is_read: false,
         link_id: connectionId,
       });
@@ -425,40 +425,69 @@ export async function getConnectionStatus(peerId: string): Promise<{
 
 /** List pending incoming connection requests for the current user. */
 export async function listPendingRequests(): Promise<
-  { connectionId: string; requester: { id: string; full_legal_name: string; avatar_url: string | null; role: string } }[]
-> {
-  const user = await getAuthUser();
-  const admin = createAdminClient();
-
-  const { data, error } = await admin
-    .from('user_connections')
-    .select('id, requester_id')
-    .eq('receiver_id', user.id)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false });
-
-  if (error) throw new Error(error.message);
-  if (!data || data.length === 0) return [];
-
-  const requesterIds = data.map((r) => String(r.requester_id));
-  const { data: profiles } = await admin
-    .from('profiles')
-    .select('id, full_legal_name, avatar_url, role')
-    .in('id', requesterIds);
-
-  const profileMap = Object.fromEntries(
-    (profiles ?? []).map((p) => [String(p.id), p])
-  );
-
-  return data.map((row) => ({
-    connectionId: String(row.id),
+  {
+    connectionId: string;
     requester: {
-      id: String(row.requester_id),
-      full_legal_name: String(profileMap[row.requester_id]?.full_legal_name ?? 'Unknown'),
-      avatar_url: (profileMap[row.requester_id]?.avatar_url as string | null) ?? null,
-      role: String(profileMap[row.requester_id]?.role ?? ''),
-    },
-  }));
+      id: string;
+      full_legal_name: string;
+      username: string | null;
+      avatar_url: string | null;
+      role: string;
+    };
+  }[]
+> {
+  try {
+    const user = await getAuthUser();
+    const admin = createAdminClient();
+
+    const { data, error } = await admin
+      .from('user_connections')
+      .select('id, requester_id')
+      .eq('receiver_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return [];
+
+    const requesterIds = data.map((r) => String(r.requester_id));
+    const { data: profiles } = await admin
+      .from('profiles')
+      .select('id, full_legal_name, username, avatar_url, role')
+      .in('id', requesterIds);
+
+    const profileMap = Object.fromEntries((profiles ?? []).map((p) => [String(p.id), p]));
+
+    return data.map((row) => ({
+      connectionId: String(row.id),
+      requester: {
+        id: String(row.requester_id),
+        full_legal_name: String(profileMap[row.requester_id]?.full_legal_name ?? 'Unknown'),
+        username: (profileMap[row.requester_id]?.username as string | null) ?? null,
+        avatar_url: (profileMap[row.requester_id]?.avatar_url as string | null) ?? null,
+        role: String(profileMap[row.requester_id]?.role ?? ''),
+      },
+    }));
+  } catch (error) {
+    console.error('[listPendingRequests]', error);
+    return [];
+  }
+}
+
+export async function getIncomingRequestCount(): Promise<number> {
+  try {
+    const user = await getAuthUser();
+    const admin = createAdminClient();
+    const { count, error } = await admin
+      .from('user_connections')
+      .select('id', { count: 'exact', head: true })
+      .eq('receiver_id', user.id)
+      .eq('status', 'pending');
+    if (error) throw new Error(error.message);
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
 }
 
 export type PublicSocialProfile = {

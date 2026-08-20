@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { listMyConnections } from '@/app/actions/connections';
 import { createChatGroup, listGroupMessages, listMyChatGroups, type GroupMessage } from '@/app/actions/social-network';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
+import { IncomingRequestsPanel, useIncomingRequestCount } from '@/components/social/incoming-requests-panel';
 import { cn } from '@/lib/utils';
 
 type Friend = Awaited<ReturnType<typeof listMyConnections>>[number];
@@ -120,11 +121,16 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
   const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const { count: incomingCount } = useIncomingRequestCount();
 
   const filteredFriends = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return friends;
-    return friends.filter((f) => f.full_legal_name.toLowerCase().includes(q));
+    return friends.filter(
+      (f) =>
+        f.full_legal_name.toLowerCase().includes(q) ||
+        (f.username ?? '').toLowerCase().includes(q)
+    );
   }, [friends, query]);
 
   const filteredGroups = useMemo(() => {
@@ -153,6 +159,21 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
     void init();
     return () => {
       mounted = false;
+    };
+  }, [supabase]);
+
+  useEffect(() => {
+    const onChanged = () => {
+      void refreshSidebar();
+    };
+    window.addEventListener('oxyile:connections-changed', onChanged);
+    const channel = supabase
+      .channel('chat-connections-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_connections' }, onChanged)
+      .subscribe();
+    return () => {
+      window.removeEventListener('oxyile:connections-changed', onChanged);
+      void supabase.removeChannel(channel);
     };
   }, [supabase]);
 
@@ -244,7 +265,22 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
           </div>
 
           <div className="h-[calc(100%-4.8rem)] overflow-y-auto">
+            <div className="border-b border-gray-200 dark:border-neutral-800">
+              <p className="flex items-center gap-2 px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">
+                Incoming Requests
+                {incomingCount > 0 ? (
+                  <span className="inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#F97316] px-1 text-[10px] font-bold text-white">
+                    {incomingCount}
+                  </span>
+                ) : null}
+              </p>
+              <IncomingRequestsPanel compact onChanged={() => void refreshSidebar()} />
+            </div>
+
             <p className="px-3 pt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">Friends</p>
+            {filteredFriends.length === 0 ? (
+              <p className="px-3 py-3 text-xs text-neutral-500">Accept a request to unlock DMs.</p>
+            ) : null}
             {filteredFriends.map((f) => (
               <button
                 key={f.userId}
@@ -258,7 +294,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
                 <ChatAvatar name={f.full_legal_name} avatarUrl={f.avatar_url} size="sm" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{f.full_legal_name}</p>
-                  <p className="text-[11px] text-neutral-400">{f.role}</p>
+                  <p className="text-[11px] text-neutral-400">@{f.username || 'oxyile'}</p>
                 </div>
               </button>
             ))}

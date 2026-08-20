@@ -16,22 +16,29 @@ const INTERNAL_PREFIXES = [
   '/chats',
   '/chat',
   '/feed',
+  '/search',
+  '/profile',
+  '/settings',
   '/dashboard',
-  '/employee/dashboard',
+  '/employee',
   '/portal',
   '/pending-verification',
-  '/user/',
+  '/user',
   '/payments',
+  '/handshake',
+  '/guarantor',
+  '/suspended',
 ];
 
 function isInternalRoute(pathname: string) {
+  if (!pathname) return false;
   return INTERNAL_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 }
 
 export function SiteShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '';
   const hidePublicNavbar = isInternalRoute(pathname);
 
   return (

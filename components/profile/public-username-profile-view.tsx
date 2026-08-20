@@ -133,15 +133,6 @@ export function PublicUsernameProfileView() {
               Message
             </Link>
           ) : null}
-
-          {profile.username ? (
-            <Link
-              href={`/chat`}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#F97316]/40 hover:text-[#F97316] dark:border-neutral-700 dark:text-neutral-300"
-            >
-              Open Inbox
-            </Link>
-          ) : null}
         </div>
       ) : (
         <Link
