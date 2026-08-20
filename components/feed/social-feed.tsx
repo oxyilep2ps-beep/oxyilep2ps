@@ -543,27 +543,7 @@ export function SocialFeed() {
             </Link>
           </div>
 
-          {/* Quick links */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-neutral-800 dark:bg-[#111]">
-            <h2 className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-gray-500 dark:text-neutral-400">Quick Links</h2>
-            <ul className="space-y-1">
-              <li>
-                <Link href="/settings/profile" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-white/5">
-                  Your Profile
-                </Link>
-              </li>
-              <li>
-                <Link href="/settings/profile" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-white/5">
-                  Settings
-                </Link>
-              </li>
-              <li>
-                <Link href="/" className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100 dark:text-neutral-300 dark:hover:bg-white/5">
-                  View Public Site
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {/* Suggestions only — Quick Links removed in favor of Profile / Search / Settings nav */}
         </aside>
       </div>
     </div>

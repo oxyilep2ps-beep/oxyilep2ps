@@ -23,6 +23,7 @@ import {
   Users,
   Building2,
   Rss,
+  Search,
 } from 'lucide-react';
 
 export type AdminNavBadgeKey = 'blogs' | 'social' | 'resumes';
@@ -44,8 +45,11 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     heading: 'Social Layer',
     items: [
-      { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/search', label: 'Search Friends', icon: Search },
+      { href: '/profile', label: 'Profile', icon: User },
+      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
@@ -87,7 +91,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 
 export const ADMIN_NAV_FOOTER: AdminNavItem[] = [
   { href: '/admin-dashboard/theme', label: 'Theme', icon: Palette },
-  { href: '/settings/profile', label: 'Profile', icon: User, exact: true },
+  { href: '/profile', label: 'Profile', icon: User, exact: true },
   { href: '/admin-dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

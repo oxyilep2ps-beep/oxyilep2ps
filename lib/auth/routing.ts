@@ -41,8 +41,8 @@ export function getAuthRedirectPath(
   }
 
   if (isApprovedStatus(status)) {
-    if (profile.role === 'BORROWER') return '/dashboard/borrower';
-    if (profile.role === 'INVESTOR') return '/dashboard/investor';
+    // Chat-first landing for approved borrowers & investors.
+    if (profile.role === 'BORROWER' || profile.role === 'INVESTOR') return '/chat';
     return '/feed';
   }
 
@@ -62,6 +62,8 @@ export const PROTECTED_PREFIXES = [
   '/chats',
   '/chat',
   '/feed',
+  '/search',
+  '/profile',
   '/user',
   '/payments',
   '/settings',
@@ -82,12 +84,19 @@ export function canAccessPath(
   profile: Pick<Profile, 'role' | 'status'> | null,
   email: string
 ): boolean {
+  const socialSurface =
+    pathname.startsWith('/feed') ||
+    pathname.startsWith('/chats') ||
+    pathname.startsWith('/chat') ||
+    pathname.startsWith('/search') ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/settings') ||
+    pathname.startsWith('/user/');
+
   // Admins can access the full staff surface + View As into borrower/investor dashboards.
   if (isAdminEmail(email) || profile?.role === 'ADMIN') {
     return (
-      pathname.startsWith('/feed') ||
-      pathname.startsWith('/chats') ||
-      pathname.startsWith('/chat') ||
+      socialSurface ||
       pathname.startsWith('/admin-dashboard') ||
       pathname.startsWith('/admin') ||
       pathname.startsWith('/hr') ||
@@ -96,38 +105,29 @@ export function canAccessPath(
       pathname.startsWith('/social') ||
       pathname.startsWith('/employee/dashboard') ||
       pathname.startsWith('/dashboard') ||
-      pathname.startsWith('/user/') ||
       pathname.startsWith('/payments/mandate-complete') ||
-      pathname.startsWith('/payments/sandbox') ||
-      pathname.startsWith('/settings/profile')
+      pathname.startsWith('/payments/sandbox')
     );
   }
 
   // HR is scoped to the HR portal only.
   if (isHrStaffEmail(email) || profile?.role === 'HR') {
-    return (
-      pathname.startsWith('/feed') ||
-      pathname.startsWith('/chats') ||
-      pathname.startsWith('/chat') ||
-      pathname.startsWith('/hr') ||
-      pathname.startsWith('/portal')
-      || pathname.startsWith('/settings/profile')
-    );
+    return socialSurface || pathname.startsWith('/hr') || pathname.startsWith('/portal');
   }
 
   // Bloggers are scoped to the blogger CMS only (/blogger — existing route).
   if (isBloggerStaffEmail(email) || profile?.role === 'BLOGGER') {
-    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/blogger') || pathname.startsWith('/settings/profile');
+    return socialSurface || pathname.startsWith('/blogger');
   }
 
   // Social Media Managers are scoped to the Social Manager Portal.
   if (profile?.role === 'SOCIAL_MANAGER') {
-    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/social') || pathname.startsWith('/settings/profile');
+    return socialSurface || pathname.startsWith('/social');
   }
 
   // Standard employees are scoped to the Employee Portal.
   if (profile?.role === 'EMPLOYEE') {
-    return pathname.startsWith('/feed') || pathname.startsWith('/chats') || pathname.startsWith('/chat') || pathname.startsWith('/employee/dashboard') || pathname.startsWith('/settings/profile');
+    return socialSurface || pathname.startsWith('/employee/dashboard');
   }
 
   const status = normalizeProfileStatus(profile?.status as string | undefined);
@@ -139,14 +139,10 @@ export function canAccessPath(
   if (isApprovedStatus(status)) {
     if (profile?.role === 'INVESTOR' || profile?.role === 'BORROWER') {
       return (
+        socialSurface ||
         pathname.startsWith('/dashboard') ||
-        pathname.startsWith('/chats') ||
-        pathname.startsWith('/chat') ||
-        pathname.startsWith('/feed') ||
-        pathname.startsWith('/user/') ||
         pathname.startsWith('/payments/mandate-complete') ||
-        pathname.startsWith('/payments/sandbox') ||
-        pathname.startsWith('/settings/profile')
+        pathname.startsWith('/payments/sandbox')
       );
     }
   }

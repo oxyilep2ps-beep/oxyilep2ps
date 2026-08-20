@@ -22,6 +22,28 @@ export async function checkUsernameAvailable(username: string, currentUserId?: s
   return { available: !data?.length, normalized };
 }
 
+export async function updateUsername(newUsername: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false as const, error: 'Not authenticated' };
+
+  const check = await checkUsernameAvailable(newUsername, user.id);
+  if (!check.available) {
+    return { success: false as const, error: check.error ?? 'Username already taken' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ username: check.normalized })
+    .eq('id', user.id);
+
+  if (error) return { success: false as const, error: error.message };
+  return { success: true as const, username: check.normalized as string };
+}
+
 export async function updateProfileFields(input: {
   username?: string;
   bio?: string;

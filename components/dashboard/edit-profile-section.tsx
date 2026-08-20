@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Camera, ImageIcon, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { checkUsernameAvailable, updateProfileFields } from '@/app/actions/profile';
+import { checkUsernameAvailable, updateProfileFields, updateUsername } from '@/app/actions/profile';
 import { uploadProfileImage } from '@/lib/profile/storage';
 import { ImageCropModal } from '@/components/dashboard/image-crop-modal';
 import { UserProfile, type PublicProfileCard } from '@/components/dashboard/user-profile';
@@ -103,10 +103,13 @@ export function EditProfileSection() {
   const saveMeta = async () => {
     setSaving(true);
     setMessage(null);
-    const result = await updateProfileFields({
-      username,
-      bio,
-    });
+    const usernameResult = await updateUsername(username);
+    if (!usernameResult.success) {
+      setSaving(false);
+      setMessage(usernameResult.error ?? 'Username update failed');
+      return;
+    }
+    const result = await updateProfileFields({ bio });
     setSaving(false);
     if (!result.success) {
       setMessage(result.error ?? 'Save failed');

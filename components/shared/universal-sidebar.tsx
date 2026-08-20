@@ -51,8 +51,11 @@ const HR_NAV: NavGroup[] = [
   {
     heading: 'Social Layer',
     items: [
-      { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/search', label: 'Search Friends', icon: Search },
+      { href: '/profile', label: 'Profile', icon: User },
+      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
@@ -119,8 +122,11 @@ const BORROWER_NAV: NavGroup[] = [
   {
     heading: 'Social Layer',
     items: [
-      { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/search', label: 'Search Friends', icon: Search },
+      { href: '/profile', label: 'Profile', icon: User },
+      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
@@ -128,8 +134,6 @@ const BORROWER_NAV: NavGroup[] = [
     items: [
       { href: '/dashboard/borrower', label: 'Overview', icon: LayoutDashboard, exact: true },
       { href: '/dashboard/apply', label: 'Apply Loan', icon: PenSquare },
-      { href: '/dashboard/profile', label: 'Profile', icon: User },
-      { href: '/dashboard/settings', label: 'Settings', icon: Settings },
     ],
   },
 ];
@@ -138,8 +142,11 @@ const INVESTOR_NAV: NavGroup[] = [
   {
     heading: 'Social Layer',
     items: [
-      { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/search', label: 'Search Friends', icon: Search },
+      { href: '/profile', label: 'Profile', icon: User },
+      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
@@ -148,7 +155,6 @@ const INVESTOR_NAV: NavGroup[] = [
       { href: '/dashboard/investor', label: 'Overview', icon: LayoutDashboard, exact: true },
       { href: '/dashboard/marketplace', label: 'Marketplace', icon: Briefcase },
       { href: '/dashboard/portfolio', label: 'Portfolio', icon: Star },
-      { href: '/dashboard/settings', label: 'Settings', icon: Settings },
     ],
   },
 ];
@@ -157,8 +163,11 @@ const EMPLOYEE_NAV: NavGroup[] = [
   {
     heading: 'Social Layer',
     items: [
-      { href: '/feed', label: 'Global Feed', icon: Rss },
       { href: '/chat', label: 'Chat Inbox', icon: MessageCircle },
+      { href: '/feed', label: 'Global Feed', icon: Rss },
+      { href: '/search', label: 'Search Friends', icon: Search },
+      { href: '/profile', label: 'Profile', icon: User },
+      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
   {
@@ -184,13 +193,13 @@ const PORTAL_NAV: Record<PortalId, NavGroup[]> = {
 };
 
 const PORTAL_FOOTER_LINKS: Record<PortalId, { href: string; label: string }> = {
-  admin: { href: '/settings/profile', label: 'Profile & Bio' },
-  hr: { href: '/settings/profile', label: 'Profile & Bio' },
-  blogger: { href: '/settings/profile', label: 'Profile & Bio' },
-  social: { href: '/settings/profile', label: 'Profile & Bio' },
-  borrower: { href: '/settings/profile', label: 'Profile & Bio' },
-  investor: { href: '/settings/profile', label: 'Profile & Bio' },
-  employee: { href: '/settings/profile', label: 'Profile & Bio' },
+  admin: { href: '/profile', label: 'Profile & Bio' },
+  hr: { href: '/profile', label: 'Profile & Bio' },
+  blogger: { href: '/profile', label: 'Profile & Bio' },
+  social: { href: '/profile', label: 'Profile & Bio' },
+  borrower: { href: '/profile', label: 'Profile & Bio' },
+  investor: { href: '/profile', label: 'Profile & Bio' },
+  employee: { href: '/profile', label: 'Profile & Bio' },
 };
 
 const PORTAL_TITLES: Record<PortalId, { title: string; tag: string }> = {

@@ -46,8 +46,7 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
     // Preserve role-specific dashboards for core platform roles.
     const isRootDashboard = pathname === '/dashboard';
     if (isRootDashboard) {
-      if (profile.role === 'BORROWER') redirect('/dashboard/borrower');
-      if (profile.role === 'INVESTOR') redirect('/dashboard/investor');
+      if (profile.role === 'BORROWER' || profile.role === 'INVESTOR') redirect('/chat');
       redirect('/feed');
     }
 

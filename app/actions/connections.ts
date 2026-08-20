@@ -161,6 +161,85 @@ export async function listMyConnections(): Promise<
   }));
 }
 
+/** Instagram-style people search by username or full name. */
+export async function searchProfiles(query: string, limit = 24): Promise<DiscoverUser[]> {
+  try {
+    const user = await getAuthUser();
+    const admin = createAdminClient();
+    const q = query.trim().replace(/[%_,()"]/g, ' ').replace(/\s+/g, ' ').slice(0, 64);
+    if (q.length < 1) return [];
+
+    const pattern = `%${q}%`;
+    const normalizedLimit = Math.max(1, Math.min(limit, 40));
+
+    const { data: byUsername, error: usernameError } = await admin
+      .from('profiles')
+      .select('id, full_legal_name, username, avatar_url, bio, role')
+      .neq('id', user.id)
+      .ilike('username', pattern)
+      .limit(normalizedLimit);
+
+    if (usernameError) throw new Error(usernameError.message);
+
+    const { data: byName, error: nameError } = await admin
+      .from('profiles')
+      .select('id, full_legal_name, username, avatar_url, bio, role')
+      .neq('id', user.id)
+      .ilike('full_legal_name', pattern)
+      .limit(normalizedLimit);
+
+    if (nameError) throw new Error(nameError.message);
+
+    const merged = new Map<string, NonNullable<typeof byUsername>[number]>();
+    for (const row of [...(byUsername ?? []), ...(byName ?? [])]) {
+      merged.set(String(row.id), row);
+    }
+    const profiles = [...merged.values()].slice(0, normalizedLimit);
+    if (profiles.length === 0) return [];
+
+    const { data: connections } = await admin
+      .from('user_connections')
+      .select('id, requester_id, receiver_id, status')
+      .or(`requester_id.eq.${user.id},receiver_id.eq.${user.id}`);
+
+    const connMap: Record<string, { id: string; status: string; iRequested: boolean }> = {};
+    for (const c of connections ?? []) {
+      const peerId = c.requester_id === user.id ? c.receiver_id : c.requester_id;
+      connMap[String(peerId)] = {
+        id: String(c.id),
+        status: String(c.status),
+        iRequested: c.requester_id === user.id,
+      };
+    }
+
+    return profiles.map((p) => {
+      const conn = connMap[String(p.id)];
+      let connection_status: ConnectionStatus = 'none';
+      let connection_id: string | null = null;
+      if (conn) {
+        connection_id = conn.id;
+        if (conn.status === 'accepted') connection_status = 'accepted';
+        else if (conn.status === 'pending') {
+          connection_status = conn.iRequested ? 'pending_sent' : 'pending_received';
+        }
+      }
+      return {
+        id: String(p.id),
+        full_legal_name: String(p.full_legal_name ?? ''),
+        username: (p.username as string | null) ?? null,
+        avatar_url: (p.avatar_url as string | null) ?? null,
+        bio: (p.bio as string | null) ?? null,
+        role: String(p.role ?? ''),
+        connection_status,
+        connection_id,
+      };
+    });
+  } catch (error) {
+    console.error('[searchProfiles] failed', error);
+    return [];
+  }
+}
+
 /** List users to discover + their connection status relative to the current user. */
 export async function listDiscoverUsers(limit = 40): Promise<DiscoverUser[]> {
   try {
