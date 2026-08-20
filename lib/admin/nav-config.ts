@@ -20,6 +20,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   User,
+  UserCheck,
   Users,
   Building2,
   Rss,
@@ -57,6 +58,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { href: '/admin-dashboard/command', label: 'Dashboard', icon: LayoutDashboard, exact: true },
       { href: '/admin-dashboard/applications', label: 'Applications', icon: ClipboardList },
+      { href: '/admin-dashboard/verifications', label: 'Verifications', icon: UserCheck },
       { href: '/admin-dashboard/waitlist', label: 'Waitlist', icon: Users },
       { href: '/admin-dashboard/handshakes', label: 'Handshakes', icon: Handshake },
       { href: '/admin-dashboard/collateral', label: 'Collateral', icon: ShieldCheck },

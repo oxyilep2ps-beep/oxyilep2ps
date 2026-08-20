@@ -87,6 +87,9 @@ export interface Profile {
   avatar_url?: string | null;
   cover_url?: string | null;
   role: ProfileRole;
+  /** Financial capabilities — independent of system role (admin/hr/blogger can also hold these). */
+  is_investor?: boolean | null;
+  is_borrower?: boolean | null;
   status: ProfileStatus;
   /** Platform access gate — independent of KYC approval status. */
   account_status?: 'active' | 'suspended' | null;

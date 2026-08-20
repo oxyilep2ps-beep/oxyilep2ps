@@ -68,9 +68,10 @@ export async function applyForMarketplaceLoan(formData: FormData): Promise<{ ok:
 
   if (!user) return { ok: false, error: 'Sign in to apply for a loan.' };
 
-  const { data: profile } = await supabase.from('profiles').select('role, status').eq('id', user.id).maybeSingle();
-  if (!profile || profile.role !== 'BORROWER') {
-    return { ok: false, error: 'Only approved borrowers can submit loan applications.' };
+  const { data: profile } = await supabase.from('profiles').select('role, status, is_borrower').eq('id', user.id).maybeSingle();
+  const { canActAsBorrower } = await import('@/lib/auth/financial-capabilities');
+  if (!profile || !canActAsBorrower(profile)) {
+    return { ok: false, error: 'Borrower capability required to submit loan applications.' };
   }
 
   const loanAmount = Number(formData.get('loan_amount'));
@@ -216,9 +217,10 @@ export async function listMarketplaceOpportunities(): Promise<{ rows: Marketplac
 
   if (!user) return { rows: [], error: 'Sign in required.' };
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (!profile || profile.role !== 'INVESTOR') {
-    return { rows: [], error: 'Only investors can browse the marketplace.' };
+  const { data: profile } = await supabase.from('profiles').select('role, is_investor').eq('id', user.id).maybeSingle();
+  const { canActAsInvestor } = await import('@/lib/auth/financial-capabilities');
+  if (!profile || !canActAsInvestor(profile)) {
+    return { rows: [], error: 'Investor capability required to browse the marketplace.' };
   }
 
   const { data, error } = await supabase
@@ -245,9 +247,10 @@ export async function fundMarketplaceLoan(handshakeId: string): Promise<{ ok: bo
 
   if (!user) return { ok: false, error: 'Sign in required.' };
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (!profile || profile.role !== 'INVESTOR') {
-    return { ok: false, error: 'Only investors can fund loans.' };
+  const { data: profile } = await supabase.from('profiles').select('role, is_investor').eq('id', user.id).maybeSingle();
+  const { canActAsInvestor } = await import('@/lib/auth/financial-capabilities');
+  if (!profile || !canActAsInvestor(profile)) {
+    return { ok: false, error: 'Investor capability required to fund loans.' };
   }
 
   const nextEmi = new Date();

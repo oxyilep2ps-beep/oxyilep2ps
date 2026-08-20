@@ -25,11 +25,15 @@ export function UniversalDashboardLayout({
   children,
   portal,
   isAdmin = false,
+  isInvestor = false,
+  isBorrower = false,
 }: {
   children: React.ReactNode;
   portal: PortalId;
   /** Pass true if the current user is an admin so the portal switcher renders */
   isAdmin?: boolean;
+  isInvestor?: boolean;
+  isBorrower?: boolean;
 }) {
   const { signOut } = useNavbarAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -49,6 +53,9 @@ export function UniversalDashboardLayout({
           onSignOut={() => void signOut()}
           portal={portal}
           isAdmin={isAdmin}
+          showFinancialPortals={isInvestor || isBorrower || isAdmin}
+          isInvestor={isInvestor}
+          isBorrower={isBorrower}
         />
       )}
       <div className="lg:pl-64">
@@ -58,7 +65,12 @@ export function UniversalDashboardLayout({
           viewingAs={isAdmin && portal !== 'admin' ? PORTAL_LABELS[portal] : undefined}
         />
         <div className="oxyile-safe-bottom min-h-[calc(100dvh-var(--oxyile-header-height))] bg-transparent px-3 pt-4 sm:px-6 sm:pt-6 lg:px-8">
-          <PortalContextProvider portal={portal} isAdmin={isAdmin}>
+          <PortalContextProvider
+            portal={portal}
+            isAdmin={isAdmin}
+            isInvestor={isInvestor}
+            isBorrower={isBorrower}
+          >
             {children}
           </PortalContextProvider>
         </div>

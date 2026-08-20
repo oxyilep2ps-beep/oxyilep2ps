@@ -14,7 +14,6 @@ import {
   conversationFilter,
   displayHandle,
   isConversationMessage,
-  oppositeRole,
 } from '@/lib/chat/utils';
 import { parseHandshakeMessagePayload } from '@/lib/messages/handshake-payload';
 import { ChatAvatar } from '@/components/chat/chat-avatar';
@@ -165,7 +164,7 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
 
         const { data: myProfile, error: myProfileError } = await supabase
           .from('profiles')
-          .select('id, role')
+          .select('id, role, is_investor, is_borrower')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -176,33 +175,57 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
           throw new Error('Profile not found.');
         }
 
-        const role = myProfile.role as MemberRole;
-        if (role !== 'INVESTOR' && role !== 'BORROWER') {
-          throw new Error('Chat unavailable for this account type.');
+        const { resolveFinancialCapabilities, canFormHandshakePair, financialStanceFromPortal, readActivePortalClient } =
+          await import('@/lib/auth/financial-capabilities');
+
+        const myCaps = resolveFinancialCapabilities(myProfile);
+        if (!myCaps.is_investor && !myCaps.is_borrower) {
+          throw new Error('Complete investor or borrower onboarding to use handshake chat.');
         }
 
         const { data: peerProfile, error: peerError } = await supabase
           .from('profiles')
-          .select('id, role, full_legal_name, username, avatar_url')
+          .select('id, role, full_legal_name, username, avatar_url, is_investor, is_borrower')
           .eq('id', peerUserId)
           .eq('status', 'APPROVED')
-          .eq('role', oppositeRole(role))
-          .neq('role', 'ADMIN')
           .maybeSingle();
 
         if (peerError) {
           throw new Error(`Peer profile load failed: ${peerError.message}`);
         }
         if (!peerProfile) {
-          throw new Error('Handshake chat is only available between a borrower and an investor.');
+          throw new Error('Peer profile not found or not approved.');
+        }
+
+        const peerCaps = resolveFinancialCapabilities(peerProfile);
+        if (!canFormHandshakePair(myCaps, peerCaps)) {
+          throw new Error('Handshake chat requires complementary investor and borrower capabilities.');
+        }
+
+        const activePortal = readActivePortalClient();
+        let stance = financialStanceFromPortal(activePortal, myCaps);
+        // Prefer stance that complements the peer when both parties have dual caps.
+        if (stance === 'INVESTOR' && !peerCaps.is_borrower && peerCaps.is_investor && myCaps.is_borrower) {
+          stance = 'BORROWER';
+        } else if (stance === 'BORROWER' && !peerCaps.is_investor && peerCaps.is_borrower && myCaps.is_investor) {
+          stance = 'INVESTOR';
+        }
+        if (!stance) {
+          stance = myCaps.is_investor && peerCaps.is_borrower ? 'INVESTOR' : 'BORROWER';
         }
 
         const uid = myProfile.id as string;
         if (cancelled) return;
 
         setMyId(uid);
-        setMyRole(role);
-        setPeer(peerProfile as ChatPeer);
+        setMyRole(stance);
+        setPeer({
+          id: String(peerProfile.id),
+          role: stance === 'INVESTOR' ? 'BORROWER' : 'INVESTOR',
+          full_legal_name: String(peerProfile.full_legal_name ?? 'Member'),
+          username: (peerProfile.username as string | null) ?? null,
+          avatar_url: (peerProfile.avatar_url as string | null) ?? null,
+        });
         setCanHandshake(true);
 
         // Connection gate — fetch once on load

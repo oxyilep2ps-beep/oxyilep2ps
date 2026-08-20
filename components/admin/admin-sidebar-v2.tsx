@@ -13,6 +13,7 @@ import {
   isAdminNavActive,
 } from '@/lib/admin/nav-config';
 import { ADMIN_VIEW_AS_PORTALS, resolveViewAsPortal } from '@/lib/admin/view-as-portals';
+import { setActivePortalClient } from '@/lib/auth/financial-capabilities';
 import { cn } from '@/lib/utils';
 
 function ViewAsMenu({ onClose }: { onClose: () => void }) {
@@ -46,7 +47,10 @@ function ViewAsMenu({ onClose }: { onClose: () => void }) {
             <li key={item.id}>
               <Link
                 href={item.href}
-                onClick={onClose}
+                onClick={() => {
+                  setActivePortalClient(item.id);
+                  onClose();
+                }}
                 className={cn(
                   'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition',
                   item.id === current

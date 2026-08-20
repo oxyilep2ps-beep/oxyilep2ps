@@ -1,6 +1,13 @@
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { UniversalDashboardLayout } from '@/components/shared/universal-dashboard-layout';
+import { UniversalDashboardLayout, type PortalId } from '@/components/shared/universal-dashboard-layout';
+import {
+  ACTIVE_PORTAL_COOKIE,
+  defaultPortalForRole,
+  isValidPortalId,
+  resolveFinancialCapabilities,
+} from '@/lib/auth/financial-capabilities';
 
 export default async function FeedLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -12,18 +19,30 @@ export default async function FeedLayout({ children }: { children: React.ReactNo
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_investor, is_borrower')
     .eq('id', user.id)
     .maybeSingle();
 
-  const role = profile?.role ?? '';
-  if (role === 'ADMIN') return <UniversalDashboardLayout portal="admin" isAdmin>{children}</UniversalDashboardLayout>;
-  if (role === 'HR') return <UniversalDashboardLayout portal="hr">{children}</UniversalDashboardLayout>;
-  if (role === 'BLOGGER') return <UniversalDashboardLayout portal="blogger">{children}</UniversalDashboardLayout>;
-  if (role === 'SOCIAL_MANAGER') return <UniversalDashboardLayout portal="social">{children}</UniversalDashboardLayout>;
-  if (role === 'BORROWER') return <UniversalDashboardLayout portal="borrower">{children}</UniversalDashboardLayout>;
-  if (role === 'INVESTOR') return <UniversalDashboardLayout portal="investor">{children}</UniversalDashboardLayout>;
-  if (role === 'EMPLOYEE') return <UniversalDashboardLayout portal="employee">{children}</UniversalDashboardLayout>;
+  const role = String(profile?.role ?? '');
+  const isAdmin = role === 'ADMIN';
+  const caps = resolveFinancialCapabilities(profile);
+  const cookieStore = await cookies();
+  const cookiePortalRaw = cookieStore.get(ACTIVE_PORTAL_COOKIE)?.value ?? null;
+  const cookiePortal = isValidPortalId(cookiePortalRaw) ? cookiePortalRaw : null;
 
-  return <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-black dark:text-white">{children}</div>;
+  let portal: PortalId = defaultPortalForRole(role);
+  if (cookiePortal === 'investor' && (isAdmin || caps.is_investor)) portal = 'investor';
+  else if (cookiePortal === 'borrower' && (isAdmin || caps.is_borrower)) portal = 'borrower';
+  else if (cookiePortal && isAdmin) portal = cookiePortal;
+
+  return (
+    <UniversalDashboardLayout
+      portal={portal}
+      isAdmin={isAdmin}
+      isInvestor={caps.is_investor || isAdmin}
+      isBorrower={caps.is_borrower || isAdmin}
+    >
+      {children}
+    </UniversalDashboardLayout>
+  );
 }

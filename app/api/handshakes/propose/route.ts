@@ -24,13 +24,14 @@ export async function POST(request: Request) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, status, full_legal_name')
+      .select('role, status, full_legal_name, is_investor, is_borrower')
       .eq('id', user.id)
       .maybeSingle();
 
-    if (!profile || profile.role !== 'BORROWER') {
+    const { canActAsBorrower } = await import('@/lib/auth/financial-capabilities');
+    if (!profile || !canActAsBorrower(profile)) {
       return NextResponse.json(
-        { ok: false, error: 'Only borrowers can submit collateral-backed handshakes' },
+        { ok: false, error: 'Borrower capability required to submit collateral-backed handshakes' },
         { status: 403 }
       );
     }

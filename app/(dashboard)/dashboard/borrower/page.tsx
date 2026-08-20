@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { listBorrowerLoanHistory } from '@/app/actions/dashboard-loans';
 import { createClient } from '@/lib/supabase/server';
+import { InvestorUpgradeButton } from '@/components/dashboard/investor-upgrade-button';
 
 export default async function BorrowerDashboardPage() {
   const supabase = await createClient();
@@ -10,12 +11,18 @@ export default async function BorrowerDashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/signin?redirect=/dashboard/borrower');
 
-  const { data: profile } = await supabase.from('profiles').select('role, full_legal_name').eq('id', user.id).maybeSingle();
-  if (profile?.role !== 'BORROWER' && profile?.role !== 'ADMIN') {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, full_legal_name, is_borrower, is_investor')
+    .eq('id', user.id)
+    .maybeSingle();
+  const { canActAsBorrower } = await import('@/lib/auth/financial-capabilities');
+  if (!canActAsBorrower(profile) && profile?.role !== 'ADMIN') {
     redirect('/dashboard');
   }
 
   const { rows, error } = await listBorrowerLoanHistory();
+  const alreadyInvestor = Boolean(profile?.is_investor) || profile?.role === 'ADMIN';
 
   return (
     <section className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
@@ -27,13 +34,18 @@ export default async function BorrowerDashboardPage() {
           </h1>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">Loan history and guarantor attachment.</p>
         </div>
-        <Link
-          href="/dashboard/apply"
-          className="rounded-full bg-brand-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-500"
-        >
-          Apply for a loan
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <InvestorUpgradeButton alreadyInvestor={alreadyInvestor} />
+          <Link
+            href="/dashboard/apply"
+            className="rounded-full border border-[#F97316]/40 bg-[#F97316]/10 px-5 py-2.5 text-sm font-bold text-[#F97316] hover:bg-[#F97316]/15"
+          >
+            Apply for a loan
+          </Link>
+        </div>
       </div>
+
+      {!alreadyInvestor ? <InvestorUpgradeButton alreadyInvestor={false} variant="card" /> : null}
 
       <div className="glass-card overflow-hidden rounded-2xl">
         <div className="border-b border-white/40 px-5 py-4 dark:border-white/10">

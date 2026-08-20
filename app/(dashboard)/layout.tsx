@@ -1,9 +1,15 @@
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getServerProfile } from '@/lib/auth/get-server-profile';
 import { isApprovedStatus } from '@/lib/auth/profile-status';
 import { getAuthRedirectPath } from '@/lib/auth/routing';
+import {
+  ACTIVE_PORTAL_COOKIE,
+  defaultPortalForRole,
+  isValidPortalId,
+  resolveFinancialCapabilities,
+} from '@/lib/auth/financial-capabilities';
 import { resolveViewAsPortal } from '@/lib/admin/view-as-portals';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
 import { UniversalDashboardLayout, type PortalId } from '@/components/shared/universal-dashboard-layout';
@@ -34,9 +40,15 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
     pathname.startsWith('/chats') ||
     pathname.startsWith('/chat') ||
     pathname.startsWith('/feed') ||
-    pathname.startsWith('/user/');
+    pathname.startsWith('/user/') ||
+    pathname.startsWith('/upgrade/');
 
   const email = user.email ?? profile.email ?? '';
+  const caps = resolveFinancialCapabilities(profile);
+  const cookieStore = await cookies();
+  const cookiePortalRaw = cookieStore.get(ACTIVE_PORTAL_COOKIE)?.value ?? null;
+  const cookiePortal = isValidPortalId(cookiePortalRaw) ? cookiePortalRaw : null;
+  const isAdmin = String(profile.role) === 'ADMIN';
 
   if (isApprovedStatus(profile.status)) {
     if (isPendingRoute) {
@@ -50,25 +62,37 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
       redirect('/feed');
     }
 
-    const portalByRole: Record<string, PortalId> = {
-      ADMIN: 'admin',
-      HR: 'hr',
-      BLOGGER: 'blogger',
-      SOCIAL_MANAGER: 'social',
-      BORROWER: 'borrower',
-      INVESTOR: 'investor',
-      EMPLOYEE: 'employee',
-    };
-    let portal = portalByRole[String(profile.role)] ?? null;
-    // Admin "View As": render borrower/investor chrome when visiting those dashboards.
-    if (String(profile.role) === 'ADMIN') {
-      const viewed = resolveViewAsPortal(pathname);
-      if (viewed === 'borrower' || viewed === 'investor') {
-        portal = viewed;
-      }
+    let portal: PortalId | null = defaultPortalForRole(profile.role);
+    const pathPortal = resolveViewAsPortal(pathname) as PortalId;
+
+    if (pathname.startsWith('/upgrade/')) {
+      portal = caps.is_borrower || isAdmin ? 'borrower' : portal;
+    } else if (pathPortal === 'investor' && (isAdmin || caps.is_investor)) {
+      portal = 'investor';
+    } else if (pathPortal === 'borrower' && (isAdmin || caps.is_borrower)) {
+      portal = 'borrower';
+    } else if (isAdmin && pathPortal !== 'admin') {
+      portal = pathPortal;
+    } else if (
+      cookiePortal &&
+      (pathname.startsWith('/chat') || pathname.startsWith('/feed') || pathname.startsWith('/chats'))
+    ) {
+      if (cookiePortal === 'investor' && (isAdmin || caps.is_investor)) portal = 'investor';
+      else if (cookiePortal === 'borrower' && (isAdmin || caps.is_borrower)) portal = 'borrower';
+      else if (isAdmin) portal = cookiePortal;
     }
+
     if (portal) {
-      return <UniversalDashboardLayout portal={portal} isAdmin={String(profile.role) === 'ADMIN'}>{children}</UniversalDashboardLayout>;
+      return (
+        <UniversalDashboardLayout
+          portal={portal}
+          isAdmin={isAdmin}
+          isInvestor={caps.is_investor || isAdmin}
+          isBorrower={caps.is_borrower || isAdmin}
+        >
+          {children}
+        </UniversalDashboardLayout>
+      );
     }
 
     return <DashboardShell>{children}</DashboardShell>;

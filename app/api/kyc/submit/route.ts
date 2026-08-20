@@ -87,14 +87,46 @@ export async function POST(request: Request) {
       ? buildFcaTestAnswers(kyc.lender.appropriatenessAnswers)
       : {};
 
+  const { data: existing } = await admin.from('profiles').select('role, is_investor, is_borrower').eq('id', userId).maybeSingle();
+  const existingRole = String(existing?.role ?? '').toUpperCase();
+  const staffRoles = new Set(['ADMIN', 'HR', 'BLOGGER', 'SOCIAL_MANAGER', 'EMPLOYEE']);
+  // Preserve staff system roles; attach financial capabilities instead of overwriting role.
+  const nextRole = staffRoles.has(existingRole) ? existingRole : profileRole;
+
+  // Anti-arbitrage: cannot add investor capability while holding active borrower loans.
+  if (kyc.role === 'lender') {
+    const { data: blocking } = await admin
+      .from('handshakes')
+      .select('id')
+      .eq('borrower_id', userId)
+      .in('status', ['ACTIVE', 'PENDING', 'FUNDED', 'MATCHED'])
+      .limit(1);
+    if ((blocking ?? []).length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            'You currently have an active loan. You must clear all outstanding dues before registering as an Investor.',
+        },
+        { status: 403 }
+      );
+    }
+  }
+
+  const nextIsInvestor =
+    kyc.role === 'lender' || Boolean(existing?.is_investor) || nextRole === 'INVESTOR' || existingRole === 'ADMIN';
+  const nextIsBorrower =
+    kyc.role === 'borrower' || Boolean(existing?.is_borrower) || nextRole === 'BORROWER' || existingRole === 'ADMIN';
+
   const { error: profileError } = await admin.from('profiles').upsert(
     {
       id: userId,
       full_legal_name: fullLegalName,
       email,
-      role: profileRole,
+      role: nextRole,
       status: 'PENDING',
       account_status: 'active',
+      is_investor: nextIsInvestor,
+      is_borrower: nextIsBorrower,
       postal_code: kyc.basic.postalCode?.trim().toUpperCase() ?? null,
       fca_test_answers: fcaTestAnswers,
       proof_of_identity_url: documents.proofOfIdentity,

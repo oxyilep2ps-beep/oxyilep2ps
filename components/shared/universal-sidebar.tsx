@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { useState, useTransition } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   ArrowLeftRight,
   BookOpen,
@@ -28,8 +28,11 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { InstallAppButton } from '@/components/pwa/InstallAppButton';
+import { InvestorRiskBlockModal } from '@/components/dashboard/investor-upgrade-button';
+import { checkEligibilityForInvestorUpgrade } from '@/app/actions/financial-eligibility';
 import { ADMIN_NAV_GROUPS, isAdminNavActive } from '@/lib/admin/nav-config';
 import { ADMIN_VIEW_AS_PORTALS } from '@/lib/admin/view-as-portals';
+import { setActivePortalClient } from '@/lib/auth/financial-capabilities';
 import { cn } from '@/lib/utils';
 import type { PortalId } from '@/components/shared/universal-dashboard-layout';
 
@@ -214,12 +217,72 @@ const PORTAL_TITLES: Record<PortalId, { title: string; tag: string }> = {
 
 // ─── Portal Switcher (collapsible accordion — lives inside scrollable nav) ───
 
-function PortalSwitcher({ current, onClose }: { current: PortalId; onClose: () => void }) {
+function PortalSwitcher({
+  current,
+  onClose,
+  isAdmin,
+  isInvestor,
+  isBorrower,
+}: {
+  current: PortalId;
+  onClose: () => void;
+  isAdmin: boolean;
+  isInvestor: boolean;
+  isBorrower: boolean;
+}) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [blockMessage, setBlockMessage] = useState<string | null>(null);
+
+  // Dual-capability users (and admins) see both financial portals; borrowers without
+  // investor KYC still see Investor as an upgrade entry (gated by eligibility).
+  const portals = ADMIN_VIEW_AS_PORTALS.filter((item) => {
+    if (isAdmin) return true;
+    if (item.id === 'investor') return isInvestor || isBorrower;
+    if (item.id === 'borrower') return isBorrower || isInvestor;
+    return false;
+  });
+
+  if (portals.length === 0) return null;
+
+  const goPortal = (item: (typeof ADMIN_VIEW_AS_PORTALS)[number]) => {
+    if (item.id !== 'investor') {
+      setActivePortalClient(item.id);
+      onClose();
+      router.push(item.href);
+      return;
+    }
+
+    // Admins may View As investor chrome for operations without the borrower anti-arbitrage gate.
+    if (isAdmin) {
+      setActivePortalClient('investor');
+      onClose();
+      router.push(item.href);
+      router.refresh();
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await checkEligibilityForInvestorUpgrade();
+      if (!result.allowed) {
+        setBlockMessage(result.message);
+        return;
+      }
+      if (!isInvestor) {
+        onClose();
+        router.push('/upgrade/investor');
+        return;
+      }
+      setActivePortalClient('investor');
+      onClose();
+      router.push(item.href);
+      router.refresh();
+    });
+  };
 
   return (
     <div className="overflow-hidden rounded-xl border border-[#F97316]/20">
-      {/* Accordion header */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -238,16 +301,16 @@ function PortalSwitcher({ current, onClose }: { current: PortalId; onClose: () =
         </svg>
       </button>
 
-      {/* Accordion body — animates open/close */}
       {open && (
         <ul className="border-t border-[#F97316]/10 px-1 py-1">
-          {ADMIN_VIEW_AS_PORTALS.map((item) => (
+          {portals.map((item) => (
             <li key={item.id}>
-              <Link
-                href={item.href}
-                onClick={onClose}
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => goPortal(item)}
                 className={cn(
-                  'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition',
+                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition disabled:opacity-60',
                   item.id === current
                     ? 'bg-[#F97316]/15 text-[#F97316]'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white'
@@ -255,16 +318,27 @@ function PortalSwitcher({ current, onClose }: { current: PortalId; onClose: () =
               >
                 <item.icon size={13} />
                 {item.label}
-                {item.id === current && (
+                {item.id === 'investor' && !isInvestor && !isAdmin ? (
+                  <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-[#F97316]/70">
+                    Upgrade
+                  </span>
+                ) : null}
+                {item.id === current && (isInvestor || item.id !== 'investor' || isAdmin) ? (
                   <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-[#F97316]/60">
                     Active
                   </span>
-                )}
-              </Link>
+                ) : null}
+              </button>
             </li>
           ))}
         </ul>
       )}
+
+      <InvestorRiskBlockModal
+        open={Boolean(blockMessage)}
+        message={blockMessage ?? ''}
+        onClose={() => setBlockMessage(null)}
+      />
     </div>
   );
 }
@@ -285,12 +359,18 @@ export function UniversalSidebar({
   onSignOut,
   portal,
   isAdmin,
+  showFinancialPortals = false,
+  isInvestor = false,
+  isBorrower = false,
 }: {
   open: boolean;
   onClose: () => void;
   onSignOut: () => void;
   portal: PortalId;
   isAdmin: boolean;
+  showFinancialPortals?: boolean;
+  isInvestor?: boolean;
+  isBorrower?: boolean;
 }) {
   const pathname = usePathname();
   const groups = PORTAL_NAV[portal];
@@ -382,10 +462,16 @@ export function UniversalSidebar({
             </div>
           ))}
 
-          {/* Admin-only portal switcher — inside scrollable area so it never overflows the footer */}
-          {isAdmin && (
+          {/* Portal switcher — admins (full View As) or dual-capability financial users */}
+          {(isAdmin || showFinancialPortals) && (
             <div>
-              <PortalSwitcher current={portal} onClose={onClose} />
+              <PortalSwitcher
+                current={portal}
+                onClose={onClose}
+                isAdmin={isAdmin}
+                isInvestor={isInvestor || isAdmin}
+                isBorrower={isBorrower || isAdmin}
+              />
             </div>
           )}
         </nav>

@@ -11,13 +11,29 @@ import { ChatRoom } from '@/components/chat/chat-room';
 import { ChatInboxListSkeleton, ChatThreadSkeleton } from '@/components/chat/chat-skeletons';
 import { IncomingRequestsPanel, useIncomingRequestCount } from '@/components/social/incoming-requests-panel';
 import { CHAT_PAGE_SIZE } from '@/lib/social/pagination';
+import {
+  canFormHandshakePair,
+  resolveFinancialCapabilities,
+  type FinancialCapabilities,
+} from '@/lib/auth/financial-capabilities';
+import { usePortalContext } from '@/components/shared/portal-context';
 import { cn } from '@/lib/utils';
 
-type Friend = Awaited<ReturnType<typeof listMyConnections>>[number];
+type Friend = Awaited<ReturnType<typeof listMyConnections>>[number] & {
+  is_investor?: boolean;
+  is_borrower?: boolean;
+};
 type Group = Awaited<ReturnType<typeof listMyChatGroups>>[number];
 
 type ActiveChat =
-  | { kind: 'friend'; id: string; name: string; avatar: string | null; role: string }
+  | {
+      kind: 'friend';
+      id: string;
+      name: string;
+      avatar: string | null;
+      role: string;
+      caps: FinancialCapabilities;
+    }
   | { kind: 'group'; id: string; name: string };
 
 type DirectMessage = {
@@ -31,13 +47,6 @@ function normalizeRole(role: string | null | undefined) {
   return String(role ?? '')
     .trim()
     .toUpperCase();
-}
-
-/** Handshake UI only between opposite lending roles — never same-role DMs. */
-function isP2PLendingPair(myRole: string, peerRole: string) {
-  const me = normalizeRole(myRole);
-  const peer = normalizeRole(peerRole);
-  return (me === 'INVESTOR' && peer === 'BORROWER') || (me === 'BORROWER' && peer === 'INVESTOR');
 }
 
 function timeShort(iso: string) {
@@ -129,6 +138,7 @@ function CreateGroupModal({
 
 export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) {
   const supabase = useMemo(() => createClient(), []);
+  const { financialStance, capabilities: myCaps } = usePortalContext();
   const [myId, setMyId] = useState<string>('');
   const [myRole, setMyRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -145,9 +155,11 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   const { count: incomingCount } = useIncomingRequestCount();
   const [, startTransition] = useTransition();
 
-  // Handshake room only for Borrower ↔ Investor (never same-role).
+  // Handshake room when active portal stance + peer capabilities form a P2P pair.
   const useHandshakeRoom =
-    active?.kind === 'friend' && isP2PLendingPair(myRole, active.role);
+    active?.kind === 'friend' &&
+    Boolean(financialStance ?? (myCaps.is_investor || myCaps.is_borrower)) &&
+    canFormHandshakePair(myCaps, active.caps);
 
   const filteredFriends = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -398,19 +410,25 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   };
 
   const openFriendChat = async (f: Friend) => {
-    // Fresh role from profiles so handshake gating stays accurate.
+    // Fresh capabilities from profiles so handshake gating stays accurate.
     const { data: peerProfile } = await supabase
       .from('profiles')
-      .select('role, full_legal_name, username, avatar_url')
+      .select('role, full_legal_name, username, avatar_url, is_investor, is_borrower')
       .eq('id', f.userId)
       .maybeSingle();
     const peerRole = normalizeRole(peerProfile?.role ?? f.role);
+    const peerCaps = resolveFinancialCapabilities({
+      role: peerRole,
+      is_investor: peerProfile?.is_investor as boolean | undefined,
+      is_borrower: peerProfile?.is_borrower as boolean | undefined,
+    });
     setActive({
       kind: 'friend',
       id: f.userId,
       name: String(peerProfile?.full_legal_name ?? f.full_legal_name),
       avatar: (peerProfile?.avatar_url as string | null) ?? f.avatar_url,
       role: peerRole,
+      caps: peerCaps,
     });
   };
 

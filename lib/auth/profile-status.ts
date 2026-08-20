@@ -6,6 +6,8 @@ export type ProfileAuthRow = {
   status: ProfileStatus;
   email?: string;
   account_status?: 'active' | 'suspended' | null;
+  is_investor?: boolean;
+  is_borrower?: boolean;
 };
 
 export function isSuspendedAccount(raw: string | null | undefined): boolean {

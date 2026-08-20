@@ -10,9 +10,19 @@ export default async function InvestorDashboardPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect('/signin?redirect=/dashboard/investor');
 
-  const { data: profile } = await supabase.from('profiles').select('role, full_legal_name').eq('id', user.id).maybeSingle();
-  if (profile?.role !== 'INVESTOR' && profile?.role !== 'ADMIN') {
+  const { data: profile } = await supabase.from('profiles').select('role, full_legal_name, is_investor').eq('id', user.id).maybeSingle();
+  const { canActAsInvestor } = await import('@/lib/auth/financial-capabilities');
+  if (!canActAsInvestor(profile) && profile?.role !== 'ADMIN') {
     redirect('/dashboard');
+  }
+
+  // Dual-role anti-arbitrage: block investor portal while borrower loans remain open.
+  if (profile?.role !== 'ADMIN') {
+    const { checkEligibilityForInvestorUpgrade } = await import('@/app/actions/financial-eligibility');
+    const eligibility = await checkEligibilityForInvestorUpgrade();
+    if (!eligibility.allowed) {
+      redirect('/dashboard/borrower');
+    }
   }
 
   const { rows, error } = await listInvestorPortfolio();

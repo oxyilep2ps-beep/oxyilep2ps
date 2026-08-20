@@ -164,9 +164,14 @@ export function HandshakePanel({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <p id="new-handshake-title" className="text-sm font-black text-[#F97316]">
-            New Handshake
-          </p>
+          <div>
+            <p id="new-handshake-title" className="text-sm font-black text-[#F97316]">
+              New Handshake
+            </p>
+            <p className="mt-0.5 text-[11px] font-semibold text-neutral-500">
+              Acting as {myRole === 'INVESTOR' ? 'Investor (Lender)' : 'Borrower'} · switch portal to change stance
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}

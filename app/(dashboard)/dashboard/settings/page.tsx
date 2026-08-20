@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -10,9 +11,11 @@ import {
   LogOut,
   ScrollText,
   Shield,
+  Star,
   User,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { InvestorUpgradeButton } from '@/components/dashboard/investor-upgrade-button';
 import { SOCIAL_LINKS } from '@/lib/social-links';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +30,27 @@ type MenuItem = {
 
 export default function SettingsPage() {
   const router = useRouter();
+  const [alreadyInvestor, setAlreadyInvestor] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, is_investor, is_borrower')
+        .eq('id', user.id)
+        .maybeSingle();
+      const isInv = Boolean(profile?.is_investor) || profile?.role === 'ADMIN' || profile?.role === 'INVESTOR';
+      const isBor = Boolean(profile?.is_borrower) || profile?.role === 'BORROWER';
+      setAlreadyInvestor(isInv);
+      setShowUpgrade(isBor || profile?.role === 'ADMIN' || !isInv);
+    })();
+  }, []);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -75,6 +99,20 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-black text-neutral-950 dark:text-white">Settings</h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">Manage your Oxyile account</p>
       </motion.div>
+
+      {showUpgrade ? (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-5"
+        >
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#F97316]">
+            <Star size={12} />
+            Financial roles
+          </div>
+          <InvestorUpgradeButton alreadyInvestor={alreadyInvestor} variant="card" />
+        </motion.div>
+      ) : null}
 
       <motion.nav
         initial={{ opacity: 0, y: 16 }}
