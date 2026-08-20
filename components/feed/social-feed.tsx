@@ -144,7 +144,7 @@ function FeedPostCard({
         )}
       </div>
 
-      <div className="space-y-2 p-4">
+      <div className="space-y-2 p-4 pb-0">
         {editing ? (
           <>
             <textarea
@@ -152,7 +152,7 @@ function FeedPostCard({
               onChange={(e) => setNextText(e.target.value)}
               className="min-h-24 w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 outline-none placeholder:text-gray-500 focus:border-[#F97316]/60 dark:border-gray-700 dark:text-white"
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pb-4">
               <button
                 type="button"
                 onClick={() => setEditing(false)}
@@ -175,37 +175,40 @@ function FeedPostCard({
         ) : (
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-900 dark:text-gray-100">{item.content}</p>
         )}
-        <p className="text-[10px] text-gray-500 dark:text-neutral-500">
+        <p className="pb-3 text-[10px] text-gray-500 dark:text-neutral-500">
           {new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
         </p>
       </div>
 
-      {!item.id.startsWith('legacy-') && (
-        <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
-          <button
-            type="button"
-            onClick={() => onToggleLike(item.id)}
-            disabled={likesBusy}
+      {/* Always-visible engagement bar (legacy announcements stay disabled). */}
+      <div className="mt-0 flex items-center border-t border-gray-100 px-4 py-3 dark:border-gray-800">
+        <button
+          type="button"
+          onClick={() => {
+            if (item.id.startsWith('legacy-')) return;
+            onToggleLike(item.id);
+          }}
+          disabled={likesBusy || item.id.startsWith('legacy-')}
+          title={item.id.startsWith('legacy-') ? 'Likes are available on new feed posts' : 'Like this post'}
+          className={cn(
+            'flex items-center gap-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+            item.liked_by_me
+              ? 'text-orange-500'
+              : 'text-gray-500 hover:text-orange-500 dark:text-gray-400 dark:hover:text-orange-500'
+          )}
+        >
+          <Heart
+            size={18}
             className={cn(
-              'inline-flex items-center gap-2 rounded-full px-2 py-1.5 text-sm font-semibold transition-transform active:scale-95',
-              item.liked_by_me
-                ? 'text-orange-500'
-                : 'text-gray-500 hover:text-orange-500 dark:text-gray-400 dark:hover:text-orange-500'
+              'transition-colors',
+              item.liked_by_me ? 'fill-orange-500 text-orange-500' : 'fill-transparent'
             )}
-          >
-            <Heart
-              size={18}
-              className={cn(
-                'transition-colors',
-                item.liked_by_me ? 'fill-orange-500 text-orange-500' : 'fill-transparent'
-              )}
-            />
-            <span>
-              {item.likes_count} {item.likes_count === 1 ? 'Like' : 'Likes'}
-            </span>
-          </button>
-        </div>
-      )}
+          />
+          <span>
+            {item.likes_count} {item.likes_count === 1 ? 'Like' : 'Likes'}
+          </span>
+        </button>
+      </div>
     </motion.article>
   );
 }

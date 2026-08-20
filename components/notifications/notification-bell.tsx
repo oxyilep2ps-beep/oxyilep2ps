@@ -38,6 +38,7 @@ function timeAgo(iso: string) {
 }
 
 function destinationFor(item: AppNotification): string | null {
+  if (item.type === 'like') return '/feed';
   if (item.actor_username) return `/profile/${item.actor_username}`;
   if (item.actor_id) return `/chats/${item.actor_id}`;
   return null;

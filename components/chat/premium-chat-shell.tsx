@@ -25,11 +25,17 @@ type DirectMessage = {
   created_at: string;
 };
 
+function normalizeRole(role: string | null | undefined) {
+  return String(role ?? '')
+    .trim()
+    .toUpperCase();
+}
+
+/** Handshake UI only between opposite lending roles — never same-role DMs. */
 function isP2PLendingPair(myRole: string, peerRole: string) {
-  return (
-    (myRole === 'INVESTOR' && peerRole === 'BORROWER') ||
-    (myRole === 'BORROWER' && peerRole === 'INVESTOR')
-  );
+  const me = normalizeRole(myRole);
+  const peer = normalizeRole(peerRole);
+  return (me === 'INVESTOR' && peer === 'BORROWER') || (me === 'BORROWER' && peer === 'INVESTOR');
 }
 
 function timeShort(iso: string) {
@@ -133,8 +139,9 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const { count: incomingCount } = useIncomingRequestCount();
 
+  // Handshake room only for Borrower ↔ Investor (never same-role).
   const useHandshakeRoom =
-    active?.kind === 'friend' && Boolean(myRole) && isP2PLendingPair(myRole, active.role);
+    active?.kind === 'friend' && isP2PLendingPair(myRole, active.role);
 
   const filteredFriends = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -167,7 +174,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
       if (!user || !mounted) return;
       setMyId(user.id);
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (mounted) setMyRole(String(profile?.role ?? ''));
+      if (mounted) setMyRole(normalizeRole(profile?.role as string | undefined));
       await refreshSidebar();
       if (mounted) setLoading(false);
     }
@@ -195,9 +202,8 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
   useEffect(() => {
     if (!initialPeerId || friends.length === 0) return;
     const peer = friends.find((f) => f.userId === initialPeerId);
-    if (peer) {
-      setActive({ kind: 'friend', id: peer.userId, name: peer.full_legal_name, avatar: peer.avatar_url, role: peer.role });
-    }
+    if (peer) void openFriendChat(peer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once when friends load
   }, [initialPeerId, friends]);
 
   // Social DM realtime (handshake pairs use ChatRoom instead).
@@ -306,6 +312,23 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
     }
   };
 
+  const openFriendChat = async (f: Friend) => {
+    // Fresh role from profiles so handshake gating stays accurate.
+    const { data: peerProfile } = await supabase
+      .from('profiles')
+      .select('role, full_legal_name, username, avatar_url')
+      .eq('id', f.userId)
+      .maybeSingle();
+    const peerRole = normalizeRole(peerProfile?.role ?? f.role);
+    setActive({
+      kind: 'friend',
+      id: f.userId,
+      name: String(peerProfile?.full_legal_name ?? f.full_legal_name),
+      avatar: (peerProfile?.avatar_url as string | null) ?? f.avatar_url,
+      role: peerRole,
+    });
+  };
+
   const clearActive = () => {
     setActive(null);
     setText('');
@@ -366,7 +389,7 @@ export function PremiumChatShell({ initialPeerId }: { initialPeerId?: string }) 
           <button
             key={f.userId}
             type="button"
-            onClick={() => setActive({ kind: 'friend', id: f.userId, name: f.full_legal_name, avatar: f.avatar_url, role: f.role })}
+            onClick={() => void openFriendChat(f)}
             className={cn(
               'flex w-full items-center gap-2.5 px-3 py-2 text-left transition',
               active?.kind === 'friend' && active.id === f.userId ? 'bg-[#F97316]/12' : 'hover:bg-white/5'

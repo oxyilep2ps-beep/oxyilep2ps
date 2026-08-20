@@ -62,6 +62,7 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showPropose, setShowPropose] = useState(false);
+  const [canHandshake, setCanHandshake] = useState(false);
   const { paused: emergencyPause } = useEmergencyPause();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('none');
   const [connectionId, setConnectionId] = useState<string | null>(null);
@@ -183,7 +184,7 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
           throw new Error(`Peer profile load failed: ${peerError.message}`);
         }
         if (!peerProfile) {
-          throw new Error('This user is not available to chat.');
+          throw new Error('Handshake chat is only available between a borrower and an investor.');
         }
 
         const uid = myProfile.id as string;
@@ -192,6 +193,7 @@ export function ChatRoom({ peerUserId, embedded = false, onBack }: ChatRoomProps
         setMyId(uid);
         setMyRole(role);
         setPeer(peerProfile as ChatPeer);
+        setCanHandshake(true);
 
         // Connection gate — fetch once on load
         const { status: connStatus, connectionId: connId } = await getConnectionStatus(peerUserId);

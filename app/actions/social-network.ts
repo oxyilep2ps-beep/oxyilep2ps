@@ -66,6 +66,8 @@ export async function listGlobalPosts(limit = 40): Promise<FeedPost[]> {
     .limit(limit);
 
   if (error) throw new Error(error.message);
+
+  // Prefer real global_posts (likeable). Fall back to legacy announcements only when empty.
   if (!posts || posts.length === 0) {
     // Backward compatibility: reuse existing legacy announcements so feed is never empty
     // when teams already posted content before `global_posts` existed.
@@ -158,18 +160,50 @@ export async function togglePostLike(postId: string) {
   const { error } = await admin.from('post_likes').insert({ post_id: postId, user_id: user.id });
   if (error) return { ok: false as const, error: error.message };
 
+  const { data: likerProfile } = await admin
+    .from('profiles')
+    .select('full_legal_name, username')
+    .eq('id', user.id)
+    .maybeSingle();
+  const likerName =
+    String(likerProfile?.full_legal_name ?? '').trim() ||
+    String(likerProfile?.username ?? '').trim() ||
+    user.email?.split('@')[0] ||
+    'Someone';
+
+  // In-app notifications: post author + all admins (who liked what).
+  try {
+    const notifyIds = new Set<string>();
+    if (authorId !== user.id) notifyIds.add(authorId);
+
+    const { data: admins } = await admin.from('profiles').select('id').eq('role', 'ADMIN');
+    for (const row of admins ?? []) {
+      const id = String(row.id);
+      if (id !== user.id) notifyIds.add(id);
+    }
+
+    if (notifyIds.size > 0) {
+      await admin.from('notifications').insert(
+        [...notifyIds].map((recipientId) => ({
+          user_id: recipientId,
+          actor_id: user.id,
+          type: 'like',
+          title: 'Post liked',
+          message:
+            recipientId === authorId
+              ? `${likerName} liked your post.`
+              : `${likerName} liked a Global Feed post.`,
+          link_id: postId,
+          is_read: false,
+        }))
+      );
+    }
+  } catch (notifyError) {
+    console.error('[togglePostLike] notification insert failed', notifyError);
+  }
+
   if (authorId !== user.id) {
     try {
-      const { data: likerProfile } = await admin
-        .from('profiles')
-        .select('full_legal_name, username')
-        .eq('id', user.id)
-        .maybeSingle();
-      const likerName =
-        String(likerProfile?.full_legal_name ?? '').trim() ||
-        String(likerProfile?.username ?? '').trim() ||
-        user.email?.split('@')[0] ||
-        '';
       await notifyPostLikePush({ authorId, likerName });
     } catch (pushError) {
       console.error('[togglePostLike] push notification failed', pushError);
